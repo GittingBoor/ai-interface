@@ -1,0 +1,37 @@
+appId: de.gittingboor.aiinterface
+productName: AI Interface
+copyright: Copyright © 2026 GittingBoor
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - build/icon.png
+  - build/icon.ico
+# Windows liest das Taskleisten-Symbol nur aus echten Dateien, nicht aus dem asar-Archiv.
+extraResources:
+  - from: build/icon.ico
+    to: icon.ico
+asarUnpack:
+  - '**/*.node'
+  - '**/node-pty/**'
+# Native Module nicht neu bauen: node-pty und better-sqlite3 liefern N-API-Builds für Windows mit.
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: AI Interface
+  runAfterFinish: true
+linux:
+  target: [AppImage]
+  icon: build/icon.png
+  category: Development

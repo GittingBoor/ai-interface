@@ -1,0 +1,44 @@
+{
+  "projectsRoot": "C:\\Users\\Alex\\Projects",
+  "vault": {
+    "path": "C:\\Users\\Alex\\Documents\\Notizen",
+    "todoFile": "TODO.md",
+    "protocolDir": "Protokolle",
+    "notesDir": "Projekte"
+  },
+  "devices": [
+    {
+      "id": "server",
+      "name": "Server",
+      "host": "192.168.1.20",
+      "user": "alex",
+      "port": 22,
+      "privateKeyPath": "C:\\Users\\Alex\\.ssh\\id_ed25519",
+      "projectsDir": "~/projects",
+      "color": "#5fb37a",
+      "icon": "lucide:server"
+    }
+  ],
+  "categories": [
+    { "name": "Programmieren", "color": "#e08a4f", "icon": "lucide:code" },
+    { "name": "Uni", "color": "#6f9bd8", "icon": "lucide:graduation-cap" }
+  ],
+  "projects": [
+    {
+      "path": "C:\\Users\\Alex\\Projects\\webshop",
+      "name": "Webshop",
+      "device": "local",
+      "category": "Programmieren",
+      "color": "#e08a4f",
+      "icon": "emoji:🛒",
+      "starred": true
+    },
+    {
+      "path": "/home/alex/projects/homeserver",
+      "name": "Homeserver",
+      "device": "server",
+      "category": "Programmieren",
+      "starred": false
+    }
+  ]
+}

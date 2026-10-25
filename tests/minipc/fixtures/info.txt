@@ -1,0 +1,46 @@
+@@KV@@
+vendor=GMKtec
+model=NucBox_G3 Pro
+bios=1.01
+biosdate=01/14/2026
+os=Debian GNU/Linux 13 (trixie)
+kernel=6.12.107+deb13-amd64
+hostname=homeserver
+cpu= Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz
+cpumax=4100000
+updates=1
+reboot=0
+users=4
+@@DRIVES@@
+sda 512110190592 TWSC TSC10N512-H6Q10S
+@@ADDR@@
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp1s0           DOWN           
+wlp2s0           UP             192.168.1.20/24 2001:db8::1/128 2001:db8::1/64 fe80::1/64 
+docker0          DOWN           172.17.0.1/16 fe80::1/64 
+br-3e20a87114af  UP             172.18.0.1/16 fe80::1/64 
+br-0e933239f454  UP             172.19.0.1/16 fe80::1/64 
+vethf9cd4b1@if2  UP             fe80::1/64 
+vethcb2b21e@if2  UP             fe80::1/64 
+veth420542f@if2  UP             fe80::1/64 
+veth790d4c8@if2  UP             fe80::1/64 
+veth384f848@if2  UP             fe80::1/64 
+veth8b35450@if2  UP             fe80::1/64 
+@@FAILED@@
+@@DOCKER@@
+musicrec-backend-1|running|Up 12 hours|musicrec-backend
+musicrec-frontend-1|running|Up 13 hours|musicrec-frontend
+musicrec-cloudflared-1|running|Up 7 days|cloudflare/cloudflared:latest
+musicrec-db-1|running|Up 7 days (healthy)|postgres:16
+zigbee2mqtt|running|Up 12 hours|ghcr.io/koenkk/zigbee2mqtt:latest
+mosquitto|running|Up 5 days|eclipse-mosquitto:2
+homeassistant|running|Up 5 days|ghcr.io/home-assistant/home-assistant:stable
+@@DOCKEROK@@
+@@DSTATS@@
+musicrec-backend-1|39.74%|4.641GiB / 6GiB
+musicrec-frontend-1|0.09%|5.977MiB / 256MiB
+musicrec-cloudflared-1|0.70%|38.29MiB / 256MiB
+musicrec-db-1|0.27%|62.32MiB / 2GiB
+zigbee2mqtt|0.03%|76.38MiB / 15.51GiB
+mosquitto|0.06%|3.676MiB / 15.51GiB
+homeassistant|0.06%|416.3MiB / 15.51GiB

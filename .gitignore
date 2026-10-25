@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+release/
+.env
+.env.*
+*.log
+.superpowers/
+.playwright-mcp/
+CLAUDE.md

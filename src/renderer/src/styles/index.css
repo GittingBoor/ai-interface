@@ -1,0 +1,308 @@
+@import '@fontsource-variable/mona-sans/standard.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@xterm/xterm/css/xterm.css';
+@import 'tailwindcss';
+
+/*
+ * Farbsystem "Glut": warmes Graphit, EIN Akzent (Glut-Orange) für Aktion,
+ * Auswahl und Zustand. Zwei Host-Farben (Stahlblau = Dieser PC, Salbei = Mini-PC)
+ * sind überall gleich und nie Dekoration.
+ */
+@theme {
+  --font-sans: 'Mona Sans Variable', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'Cascadia Mono', Consolas, monospace;
+
+  --color-canvas: oklch(0.165 0.004 70);
+  --color-base: oklch(0.19 0.005 70);
+  --color-raised: oklch(0.225 0.006 70);
+  --color-raised-2: oklch(0.26 0.007 70);
+  --color-line: oklch(0.285 0.007 70);
+  --color-line-strong: oklch(0.36 0.008 70);
+
+  --color-ink: oklch(0.955 0.005 85);
+  --color-ink-2: oklch(0.78 0.008 80);
+  --color-ink-3: oklch(0.64 0.009 80);
+
+  --color-accent: oklch(0.76 0.155 55);
+  --color-accent-hover: oklch(0.81 0.14 58);
+  --color-accent-ink: oklch(0.2 0.03 50);
+  --color-accent-soft: oklch(0.76 0.155 55 / 0.14);
+  --color-accent-text: oklch(0.83 0.12 60);
+
+  --color-local: oklch(0.6 0.13 255);
+  --color-local-ink: oklch(0.8 0.08 255);
+  --color-local-soft: oklch(0.6 0.13 255 / 0.16);
+  --color-mini: oklch(0.67 0.13 150);
+  --color-mini-ink: oklch(0.82 0.09 150);
+  --color-mini-soft: oklch(0.67 0.13 150 / 0.16);
+
+  --color-danger: oklch(0.68 0.17 25);
+  --color-danger-ink: oklch(0.8 0.1 25);
+  --color-danger-soft: oklch(0.68 0.17 25 / 0.14);
+  --color-warn: oklch(0.8 0.13 85);
+  --color-warn-soft: oklch(0.8 0.13 85 / 0.14);
+
+  /*
+   * Terminal-Status: Arbeit trägt die Glut, Warten auf den Nutzer nimmt Gelb (warn),
+   * der Rest eigene Töne. Blau und Grün liegen bewusst neben den Host-Farben
+   * (heller, satter, andere Hue), damit sie nicht als Gerät gelesen werden.
+   */
+  --color-status-review: oklch(0.74 0.13 228);
+  --color-status-idle: oklch(0.76 0.16 142);
+  --color-status-question: oklch(0.72 0.15 305);
+  --color-status-exited: oklch(0.52 0.008 80);
+  --color-status-glyph: oklch(0.18 0.01 70);
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  --animate-pulse-dot: pulse-dot 2.4s var(--ease-out-quart) infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-status-spin: status-spin 0.9s linear infinite;
+  --animate-brand-draw: brand-draw 0.9s var(--ease-out-quart) infinite alternate;
+  --animate-brand-caret: brand-caret 1.8s steps(1, end) infinite;
+
+  @keyframes pulse-dot {
+    0% { box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 55%, transparent); }
+    70% { box-shadow: 0 0 0 6px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  @keyframes status-spin {
+    to { transform: rotate(1turn); }
+  }
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  /* Marken-Spinner: das Λ schreibt sich, der Glut-Cursor blinkt */
+  @keyframes brand-draw {
+    from { stroke-dashoffset: 0.9; }
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes brand-caret {
+    0% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  @keyframes focus-snap {
+    from { outline-offset: 5px; outline-color: transparent; }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  #root {
+    height: 100vh;
+  }
+
+  ::selection {
+    background: oklch(0.76 0.155 55 / 0.32);
+    color: var(--color-ink);
+  }
+
+  /* Fokus rastet wie ein Cursor ein: von außen auf 2 px heran */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+    animation: focus-snap 180ms var(--ease-out-expo);
+  }
+
+  input, textarea, select {
+    caret-color: var(--color-accent);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--color-ink-3);
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.75) sepia(0.2);
+    cursor: pointer;
+  }
+
+  /*
+   * Scrollbar: schmaler Graphit-Schieber, der beim Überfahren breiter und heller wird
+   * und beim Ziehen Glut zeigt. Bewusst ohne scrollbar-width/-color: sobald die gesetzt
+   * sind, ignoriert Chromium die ::-webkit-scrollbar-Regeln.
+   */
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+    background-color: color-mix(in oklch, var(--color-line-strong) 80%, transparent);
+    border: 4px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { border-width: 3px; background-color: var(--color-ink-3); }
+  ::-webkit-scrollbar-thumb:active { border-width: 3px; background-color: var(--color-accent); }
+  ::-webkit-scrollbar-button { display: none; }
+
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+}
+
+@layer components {
+  .num { font-variant-numeric: tabular-nums; }
+
+  .brand-spinner-lambda {
+    stroke-dasharray: 1;
+    animation: var(--animate-brand-draw);
+  }
+  .brand-spinner-caret { animation: var(--animate-brand-caret); }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-raised) 0%, var(--color-raised-2) 50%, var(--color-raised) 100%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+    border-radius: 4px;
+  }
+
+  .field {
+    height: 2rem;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--color-line);
+    background: var(--color-canvas);
+    padding: 0 0.625rem;
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+    transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
+  }
+  .field:hover { border-color: var(--color-line-strong); }
+  .field:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
+  .field[aria-invalid='true'] { border-color: var(--color-danger); }
+  .field:disabled { opacity: 0.55; }
+
+  /* Gerenderte Protokolle */
+  .prose-log {
+    max-width: 72ch;
+    color: var(--color-ink-2);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+  .prose-log > * + * { margin-top: 0.9em; }
+  .prose-log h1, .prose-log h2, .prose-log h3, .prose-log h4 {
+    color: var(--color-ink);
+    font-weight: 620;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .prose-log h1 { font-size: 1.625rem; font-stretch: 112%; letter-spacing: -0.015em; margin-top: 0; }
+  .prose-log h2 { font-size: 1.1875rem; margin-top: 2em; padding-top: 1.1em; border-top: 1px solid var(--color-line); }
+  .prose-log h3 { font-size: 1rem; margin-top: 1.6em; }
+  .prose-log h4 { font-size: 0.9375rem; margin-top: 1.4em; color: var(--color-ink-2); }
+  .prose-log strong { color: var(--color-ink); font-weight: 620; }
+  .prose-log a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  .prose-log ul, .prose-log ol { padding-left: 1.25rem; }
+  .prose-log ul { list-style: none; }
+  .prose-log ul > li { position: relative; }
+  .prose-log ul > li::before {
+    content: '';
+    position: absolute;
+    left: -0.95rem;
+    top: 0.72em;
+    width: 5px;
+    height: 5px;
+    border-radius: 1px;
+    background: var(--color-line-strong);
+  }
+  .prose-log ol { list-style: decimal; }
+  .prose-log ol > li::marker { color: var(--color-ink-3); font-variant-numeric: tabular-nums; }
+  .prose-log li + li { margin-top: 0.3em; }
+  .prose-log li > input[type='checkbox'] { margin-right: 0.5em; accent-color: var(--color-accent); }
+  .prose-log ul > li:has(> input[type='checkbox'])::before { display: none; }
+  .prose-log code {
+    font-family: var(--font-mono);
+    font-size: 0.84em;
+    background: var(--color-raised);
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 0.08em 0.35em;
+    color: var(--color-ink);
+  }
+  .prose-log pre {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    background: var(--color-canvas);
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+  }
+  .prose-log pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+  .prose-log blockquote {
+    border-left: 1px solid var(--color-accent);
+    padding: 0.1em 0 0.1em 1rem;
+    color: var(--color-ink-2);
+  }
+  .prose-log hr { border: 0; border-top: 1px solid var(--color-line); margin: 2em 0; }
+  .prose-log table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+  .prose-log th { text-align: left; color: var(--color-ink-3); font-weight: 560; border-bottom: 1px solid var(--color-line-strong); padding: 0.45rem 0.75rem 0.45rem 0; }
+  .prose-log td { border-bottom: 1px solid var(--color-line); padding: 0.45rem 0.75rem 0.45rem 0; vertical-align: top; }
+  .prose-log img { max-width: 100%; border-radius: 8px; border: 1px solid var(--color-line); margin: 0.4em 0; }
+  .prose-log .wikilink {
+    color: var(--color-accent-text);
+    background: var(--color-accent-soft);
+    border-radius: 4px;
+    padding: 0.05em 0.3em;
+    font-weight: 540;
+  }
+
+  /* Kompakte Variante für schmale Spalten (Assistent) */
+  .prose-log.prose-compact { max-width: none; font-size: 0.8125rem; line-height: 1.6; overflow-wrap: anywhere; }
+  .prose-compact > * + * { margin-top: 0.65em; }
+  .prose-compact h1 { font-size: 1rem; letter-spacing: -0.01em; }
+  .prose-compact h2 { font-size: 0.9375rem; margin-top: 1.2em; padding-top: 0; border-top: 0; }
+  .prose-compact h3, .prose-compact h4 { font-size: 0.8125rem; margin-top: 1em; }
+  .prose-compact pre { font-size: 0.75rem; padding: 0.6rem 0.75rem; border-radius: 6px; }
+  .prose-compact table { font-size: 0.75rem; display: block; overflow-x: auto; }
+
+  /* xterm: Scrollbar und Rand an das Farbsystem anpassen */
+  .xterm .xterm-viewport { background-color: transparent !important; }
+  /* xterm 6 zeichnet einen eigenen Schieber; Farben kommen aus dem Terminal-Thema, die Form von hier */
+  .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
+    left: 3px !important;
+    width: 6px !important;
+    border-radius: 999px;
+  }
+  .xterm .xterm-scrollable-element > .scrollbar.vertical:hover > .slider,
+  .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider.active {
+    left: 2px !important;
+    width: 8px !important;
+  }
+  .xterm .xterm-scrollable-element > .shadow { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
