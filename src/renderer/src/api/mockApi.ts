@@ -582,6 +582,20 @@ export function createMockApi(): AiApi {
         ),
       scanVault: () => reply({ todoFiles: ['Programmieren/Server/TODO.md', 'Privat/TODO.md'], protocolDirs: ['Programmieren/Server/homeserver/Protokoll'], topDirs: ['Programmieren', 'Privat', 'Uni'] }),
       testDevice: (device) => reply(device.host.startsWith('192.') ? { ok: true, message: `Verbunden mit ${device.user}@${device.host}.` } : { ok: false, message: `${device.name} ist nicht erreichbar: Timed out while waiting for handshake` }),
+      prerequisites: () =>
+        reply([
+          { id: 'claude', label: 'Claude Code', ok: true, detail: 'C:\\Users\\Alex\\.local\\bin\\claude.exe', required: true, fixCommand: null, helpUrl: null },
+          { id: 'login', label: 'Bei Claude angemeldet', ok: true, detail: 'C:\\Users\\Alex\\.claude\\.credentials.json', required: true, fixCommand: null, helpUrl: null },
+          {
+            id: 'gitBash',
+            label: 'Git Bash',
+            ok: false,
+            detail: 'Ohne Git Bash keine Desktop-Meldungen und kein Status (arbeitet, fertig, Frage) in den Terminals.',
+            required: false,
+            fixCommand: 'winget install Git.Git',
+            helpUrl: 'https://git-scm.com/downloads/win'
+          }
+        ]),
       finish: (input) => {
         settings = {
           ...settings,

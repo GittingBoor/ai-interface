@@ -887,3 +887,19 @@ export interface DeviceTestResult {
   readonly message: string
 }
 
+export type PrerequisiteId = 'claude' | 'login' | 'gitBash'
+
+/** Voraussetzung auf diesem PC, geprüft im Einrichtungsassistenten. */
+export interface PrerequisiteStatus {
+  readonly id: PrerequisiteId
+  readonly label: string
+  readonly ok: boolean
+  /** Fundort, wenn erfüllt; sonst, was ohne sie nicht geht. */
+  readonly detail: string
+  /** `false` = ohne sie fehlen nur einzelne Funktionen. */
+  readonly required: boolean
+  /** Befehl, der das Fehlende behebt (zum Kopieren). */
+  readonly fixCommand: string | null
+  readonly helpUrl: string | null
+}
+

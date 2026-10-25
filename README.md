@@ -39,8 +39,15 @@ Einträge legst du selbst fest.
 
 ## Schnellstart
 
-Voraussetzungen: [Claude Code](https://code.claude.com/docs/en/setup) (angemeldet, Pro-/Max-Abo oder
-API-Konto), Node.js 22+, Git. Gebaut wird für Windows (Installer) und Linux (AppImage).
+**Windows:** `AI Interface Setup <version>.exe` unter [Releases](https://github.com/GittingBoor/ai-interface/releases)
+herunterladen und starten. Der Installer ist nicht signiert; meldet Windows „Der Computer wurde durch Windows
+geschützt“, auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken.
+
+Die App braucht [Claude Code](https://code.claude.com/docs/en/setup) (angemeldet, Pro-/Max-Abo oder API-Konto) und
+unter Windows Git Bash für Meldungen aus den Terminals. Fehlt etwas, zeigt der Einrichtungsassistent beim ersten
+Start, was noch zu tun ist, mit dem passenden Befehl.
+
+**Aus dem Quellcode** (Linux oder eigene Änderungen; zusätzlich Node.js 22+ und Git):
 
 ```bash
 git clone https://github.com/GittingBoor/ai-interface.git
@@ -50,8 +57,8 @@ npm run dist:win      # Windows: Installer unter release\
 npm run dist:linux    # Linux: AppImage unter release/
 ```
 
-Beim ersten Start führt ein **Einrichtungsassistent** durch Projektordner, Obsidian (optional) und Geräte
-(optional). Nichts ist auf einen bestimmten Rechner zugeschnitten; alle Pfade wählst du dort oder später in den
+Beim ersten Start führt ein **Einrichtungsassistent** durch Voraussetzungen, Projektordner, Obsidian (optional)
+und Geräte (optional). Nichts ist auf einen bestimmten Rechner zugeschnitten; alle Pfade wählst du dort oder später in den
 Einstellungen.
 
 - **Ausführliche Anleitung:** [`docs/EINRICHTUNG.md`](docs/EINRICHTUNG.md) (Installation, Assistent, SSH-Geräte,

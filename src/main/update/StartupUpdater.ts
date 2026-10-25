@@ -24,6 +24,7 @@ export type UpdateCheck =
 const BRANCH = 'main'
 const REMOTE_REF = `origin/${BRANCH}`
 const PRODUCT_NAME = 'AI Interface'
+const RELEASES_URL = 'https://github.com/GittingBoor/ai-interface/releases'
 
 /** Prüft, ob GitHub neuer ist als der installierte Build, und baut auf Wunsch den Installer aus dem lokalen Repo. */
 export class StartupUpdater {
@@ -35,6 +36,8 @@ export class StartupUpdater {
   ) {}
 
   async check(): Promise<UpdateCheck> {
+    // Release-Builds (GitHub Actions) kennen keinen lokalen Repo-Ordner, aus dem sie neu bauen könnten.
+    if (!this.repoDir) return skipped(`Installiert aus einem Release: neue Versionen unter ${RELEASES_URL}`)
     if (!this.buildCommit) return skipped('Build enthält keine Commit-Kennung')
     if (!this.files.exists(this.repoDir)) return skipped(`Repo ${this.repoDir} fehlt`)
     await this.git('fetch', 'origin', BRANCH)

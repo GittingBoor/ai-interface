@@ -33,17 +33,23 @@ Prüfe und melde mir das Ergebnis in einer kurzen Liste:
 
 | Was | Prüfen mit | Mindestens |
 |---|---|---|
-| Node.js | `node --version` | 22 |
-| Git | `git --version` | beliebig |
 | Claude Code | `claude --version` (angemeldet?) | aktuell |
-| Windows: Git Bash | `where bash` | für Benachrichtigungen aus Terminals |
+| Windows: Git Bash | `C:\Program Files\Git\bin\bash.exe` vorhanden (nicht das WSL-`bash.exe`) | für Meldungen aus Terminals |
+| Node.js | `node --version` | 22, nur zum Bauen aus dem Quellcode |
+| Git | `git --version` | nur zum Bauen aus dem Quellcode |
 
-Fehlt etwas, nenn mir den Installationsbefehl (Windows: `winget install OpenJS.NodeJS.LTS`, `winget install Git.Git`)
-und warte, bis ich ihn ausgeführt habe.
+Fehlt etwas, nenn mir den Installationsbefehl (Windows: `winget install Git.Git`, zum Bauen zusätzlich
+`winget install OpenJS.NodeJS.LTS`) und warte, bis ich ihn ausgeführt habe.
 
-### Schritt 2: App bauen und installieren (nur nach Rückfrage)
+### Schritt 2: App installieren (nur nach Rückfrage)
 
-Frag mich, wohin das Repository soll (Vorschlag: mein Projektordner aus Schritt 3). Dann:
+**Windows, fertiger Installer (Standard):** Lade die neueste `AI Interface Setup <version>.exe` von
+https://github.com/GittingBoor/ai-interface/releases herunter (z. B. mit
+`gh release download -R GittingBoor/ai-interface -p "*.exe"` oder im Browser) und lass sie mich starten.
+Der Installer ist nicht signiert; Windows fragt evtl. nach („Weitere Informationen“ → „Trotzdem ausführen“).
+
+**Linux oder auf Wunsch aus dem Quellcode:** Frag mich, wohin das Repository soll (Vorschlag: mein Projektordner
+aus Schritt 3). Dann:
 
 ```bash
 git clone https://github.com/GittingBoor/ai-interface.git

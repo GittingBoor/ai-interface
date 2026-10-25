@@ -140,7 +140,8 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
         const updated = c.setup.finish(input)
         applyAutostart(updated.launchOnStartup)
         return updated
-      }
+      },
+      prerequisites: () => c.prerequisites()
     },
     assistant: {
       send: (text) => c.assistant.send(text),

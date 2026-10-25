@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { ApiEvents } from '@shared/api'
-import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, ProjectTasks, Settings, SettingsPatch } from '@shared/types'
+import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, PrerequisiteStatus, ProjectTasks, Settings, SettingsPatch } from '@shared/types'
 import { DbChangeWatcher } from './db/DbChangeWatcher'
 import { openDatabase } from './db/Database'
 import { CategoriesRepo } from './favorites/CategoriesRepo'
@@ -11,6 +11,8 @@ import { FolderLister } from './files/FolderLister'
 import { HostRegistry } from './hosts/HostRegistry'
 import { SshConnection } from './hosts/SshConnection'
 import { SetupService } from './setup/SetupService'
+import { PrerequisiteChecker } from './setup/Prerequisites'
+import { isFile } from './claude/claudePath'
 import { ScanOffsets } from './images/ScanOffsets'
 import { ImageStore } from './images/ImageStore'
 import { SessionImageScanner } from './images/SessionImageScanner'
@@ -449,6 +451,11 @@ export class Container {
     }
     this.todoSignature = ''
     return updated
+  }
+
+  /** Voraussetzungen auf diesem PC; jedes Mal neu, damit „Erneut prüfen“ nach einer Installation greift. */
+  prerequisites(): PrerequisiteStatus[] {
+    return new PrerequisiteChecker({ platform: process.platform, home: homedir(), env: process.env, claudeCommand: this.settings.get().claudeCommand, isFile }).check()
   }
 
   resetFingerprint(id: HostId): Settings {

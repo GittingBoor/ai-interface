@@ -16,9 +16,12 @@ function buildCommit(): string {
   }
 }
 
+/** Gesetzt im Release-Workflow: Die Exe läuft ohne geklonten Ordner, das Update verweist dann auf GitHub-Releases. */
+const RELEASE_BUILD = process.env['AII_RELEASE_BUILD'] === '1'
+
 const buildInfo = {
   __BUILD_COMMIT__: JSON.stringify(buildCommit()),
-  __BUILD_REPO__: JSON.stringify(process.cwd())
+  __BUILD_REPO__: JSON.stringify(RELEASE_BUILD ? '' : process.cwd())
 }
 
 /** Strenge CSP nur im Build; im Dev-Modus braucht Vite Inline-Skripte (React Refresh). */

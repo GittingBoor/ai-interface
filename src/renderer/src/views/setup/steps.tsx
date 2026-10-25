@@ -9,6 +9,7 @@ import { DeviceForm, deviceError, newDevice, withId } from '@renderer/components
 import { ProjectMark } from '@renderer/components/ProjectMark'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { choiceKey, mergeScan, type ProjectChoice, type SetupDraft } from '@renderer/lib/setupDraft'
+import { PrerequisiteCheck } from './Prerequisites'
 
 interface StepProps {
   readonly detection: SetupDetection
@@ -87,6 +88,7 @@ export function WelcomeStep({ detection, draft }: { readonly detection: SetupDet
           </li>
         ))}
       </ul>
+      <PrerequisiteCheck />
       {proposal ? (
         <div className="mt-8 flex gap-3 rounded-lg border border-accent/30 bg-accent-soft px-4 py-3.5">
           <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />

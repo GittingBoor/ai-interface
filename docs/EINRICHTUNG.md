@@ -1,7 +1,7 @@
 # Einrichtung Schritt für Schritt
 
-Diese Anleitung führt von null bis zur fertig eingerichteten App. Rechne mit 15 Minuten, davon die meiste Zeit
-für `npm install` und den Build.
+Diese Anleitung führt von null bis zur fertig eingerichteten App. Unter Windows reicht der fertige Installer
+(ein paar Minuten); wer aus dem Quellcode baut, rechnet mit 15 Minuten.
 
 **Abkürzung:** Gib Claude Code die Datei [`CLAUDE-TEMPLATE.md`](CLAUDE-TEMPLATE.md). Claude prüft die
 Voraussetzungen, sieht sich deine Ordner an und schreibt einen Vorschlag, den die App beim ersten Start übernimmt.
@@ -10,7 +10,7 @@ Die Schritte unten sind dann nur noch zum Nachlesen.
 ## Inhalt
 
 1. [Voraussetzungen](#1-voraussetzungen)
-2. [Bauen und installieren](#2-bauen-und-installieren)
+2. [Installieren](#2-installieren)
 3. [Der Einrichtungsassistent](#3-der-einrichtungsassistent)
 4. [Gerät per SSH anbinden](#4-gerät-per-ssh-anbinden) (optional)
 5. [Obsidian verbinden](#5-obsidian-verbinden) (optional)
@@ -23,16 +23,16 @@ Die Schritte unten sind dann nur noch zum Nachlesen.
 | Was | Wozu | Prüfen |
 |---|---|---|
 | **Claude Code**, angemeldet | Terminals, Verbrauch, Kontingent, Assistent | `claude --version`, einmal `claude` starten und anmelden |
-| **Node.js 22** oder neuer | Bauen der App | `node --version` |
-| **Git** | Klonen, Updates, Git-Stand | `git --version` |
-| Windows: **Git Bash** (kommt mit Git) | Benachrichtigungen aus Claude-Terminals | `where bash` |
+| Windows: **Git Bash** (kommt mit Git for Windows) | Desktop-Meldungen und Status der Claude-Terminals | Der Einrichtungsassistent prüft es |
+| **Node.js 22** oder neuer | nur zum Bauen aus dem Quellcode | `node --version` |
+| **Git** | Bauen aus dem Quellcode, Updates aus dem geklonten Ordner | `git --version` |
 
 Windows (PowerShell):
 
 ```powershell
-winget install OpenJS.NodeJS.LTS
-winget install Git.Git
-irm https://claude.ai/install.ps1 | iex   # falls Claude Code noch fehlt
+irm https://claude.ai/install.ps1 | iex   # Claude Code
+winget install Git.Git                    # Git und Git Bash
+winget install OpenJS.NodeJS.LTS          # nur zum Bauen aus dem Quellcode
 ```
 
 Linux (Debian/Ubuntu): Node 22 über [nodesource](https://github.com/nodesource/distributions) oder `nvm`,
@@ -42,7 +42,16 @@ Weitere Wege (Homebrew, WinGet, npm): [Claude-Code-Installation](https://code.cl
 Claude Code braucht ein Pro-, Max-, Team- oder Enterprise-Abo oder ein API-Konto. Danach einmal `claude` starten
 und im Browser anmelden.
 
-## 2. Bauen und installieren
+## 2. Installieren
+
+### Fertiger Installer (Windows)
+
+Unter [Releases](https://github.com/GittingBoor/ai-interface/releases) die neueste `AI Interface Setup <version>.exe`
+herunterladen und starten. Der Installer ist nicht signiert: Meldet Windows „Der Computer wurde durch Windows
+geschützt“, auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken. Er legt eine Desktop-Verknüpfung an
+und startet die App.
+
+### Aus dem Quellcode (Windows und Linux)
 
 ```bash
 git clone https://github.com/GittingBoor/ai-interface.git
@@ -67,7 +76,10 @@ Lass den geklonten Ordner liegen: Die installierte Windows-Version holt sich bei
 Beim ersten Start (noch keine Daten auf diesem Rechner) öffnet sich statt der normalen Oberfläche der
 Einrichtungsassistent. Jeder Schritt lässt sich später unter **Einstellungen** ändern.
 
-1. **Willkommen.** Die App hat schon gesucht: Projektordner, Obsidian-Vaults, SSH-Schlüssel. Liegt eine
+1. **Willkommen.** Die App prüft die Voraussetzungen (Claude Code, Anmeldung, unter Windows Git Bash). Fehlt
+   etwas, steht dort der Befehl zum Kopieren; nach der Installation „Erneut prüfen“. Weiter geht es auch ohne,
+   dann fehlen die betroffenen Funktionen, bis alles da ist. Außerdem hat die App schon gesucht: Projektordner,
+   Obsidian-Vaults, SSH-Schlüssel. Liegt eine
    `ai-interface-setup.json` im Home-Ordner (z. B. von Claude geschrieben), steht hier
    „Vorschlag gefunden und übernommen“, und alle folgenden Schritte sind vorausgefüllt.
 2. **Projekte.** Wähle den Ordner, in dem deine Code-Projekte liegen (Vorschläge stehen darunter).
@@ -185,7 +197,9 @@ In Obsidian `Projekte/<Projektname>/Protokoll/JJJJ-MM-TT.md`, eine Datei pro Tag
 
 ## 7. Updates
 
-- **Windows, installierte Version:** Beim Start prüft die App, ob GitHub einen neueren Stand hat. Unter
+- **Fertiger Installer:** Neue Versionen unter [Releases](https://github.com/GittingBoor/ai-interface/releases)
+  herunterladen und darüber installieren; Daten und Einstellungen bleiben erhalten.
+- **Aus dem Quellcode gebaut (Windows):** Beim Start prüft die App, ob GitHub einen neueren Stand hat. Unter
   Einstellungen → Updates wählst du, was dann passiert:
   - **Manuell (Standard):** Hinweis „Update verfügbar“ in der Seitenleiste; ein Klick auf „Aktualisieren“ baut den
     Stand im geklonten Ordner und installiert ihn. Die App startet danach neu.
@@ -204,6 +218,6 @@ In Obsidian `Projekte/<Projektname>/Protokoll/JJJJ-MM-TT.md`, eine Datei pro Tag
 | „Der SSH-Schlüssel von … hat sich geändert“ | Nur wenn das Gerät neu aufgesetzt wurde: Einstellungen → Geräte → Fingerabdruck zurücksetzen |
 | Kontingent zeigt nichts | einmal `claude` im Terminal starten und anmelden; die App liest nur dessen Anmeldung |
 | TODOs leer | Einstellungen → Ordner und Notizen: Vault und TODO-Datei prüfen |
-| Keine Benachrichtigungen (Windows) | Git Bash installiert? Benachrichtigungen unter Einstellungen eingeschaltet? |
+| Keine Benachrichtigungen (Windows) | Git Bash installiert (`winget install Git.Git`, dann App neu starten)? Benachrichtigungen unter Einstellungen eingeschaltet? |
 | Vorschlagsdatei wird nicht übernommen | Der Assistent zeigt den Fehler mit Feldname; JSON prüfen (Backslashes verdoppelt?), dann „Einrichtung starten“ |
 | Etwas anderes | Einstellungen → App → „Log öffnen“ |

@@ -9,6 +9,7 @@ import type {
   DetectedProject,
   DeviceSettings,
   DeviceTestResult,
+  PrerequisiteStatus,
   SetupDetection,
   SetupInput,
   VaultScan,
@@ -143,6 +144,8 @@ export interface AiApiCalls {
     scanVault(path: string): Promise<Result<VaultScan>>
     testDevice(device: DeviceSettings): Promise<Result<DeviceTestResult>>
     finish(input: SetupInput): Promise<Result<Settings>>
+    /** Claude Code, Anmeldung und (Windows) Git Bash; bei jedem Aufruf neu geprüft. */
+    prerequisites(): Promise<Result<PrerequisiteStatus[]>>
   }
   readonly assistant: {
     /** Schickt eine Nachricht; kehrt zurück, wenn die Antwort fertig ist (Verlauf über `assistant:event`). */
@@ -284,7 +287,7 @@ export const API_CHANNELS = {
   vault: ['list', 'read'],
   models: ['ollama', 'listCustom', 'upsertCustom', 'removeCustom'],
   settings: ['get', 'update', 'resetFingerprint'],
-  setup: ['detect', 'scanProjects', 'scanVault', 'testDevice', 'finish'],
+  setup: ['detect', 'scanProjects', 'scanVault', 'testDevice', 'finish', 'prerequisites'],
   assistant: ['send', 'stop', 'reset', 'confirm'],
   skills: ['catalog', 'summaries', 'summarize'],
   minipc: ['snapshot', 'info', 'git', 'fetch'],

@@ -1,0 +1,47 @@
+# Baut bei einem Versions-Tag (z. B. v0.2.0) den Windows-Installer und hängt ihn an ein GitHub-Release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag für das Release (muss existieren, z. B. v0.2.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Installer bauen
+        env:
+          AII_RELEASE_BUILD: '1'
+        run: |
+          npm run build
+          npx electron-builder --win --publish never
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$TAG" release/*.exe --title "AI Interface $TAG" --generate-notes

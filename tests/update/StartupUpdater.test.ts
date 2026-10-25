@@ -91,6 +91,13 @@ describe('StartupUpdater', () => {
     expect(runner.calls).not.toContain('git merge --ff-only origin/main')
   })
 
+  it('verweist bei einem Release-Build (ohne Repo-Ordner) auf die Release-Seite', async () => {
+    const runner = new FakeRunner({})
+    const outcome = await new StartupUpdater('', BUILD, runner, files()).check()
+    expect(outcome).toEqual({ kind: 'skipped', reason: expect.stringContaining('/releases') })
+    expect(runner.calls).toEqual([])
+  })
+
   it('überspringt ohne Build-Commit', async () => {
     const runner = new FakeRunner({})
     const outcome = await new StartupUpdater(REPO, '', runner, files()).check()
