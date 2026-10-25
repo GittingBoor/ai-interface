@@ -8,6 +8,10 @@ arbeitest du, was läuft gerade, auf diesem PC und auf deinen anderen Rechnern.
 **[AI Interface für Windows herunterladen](https://github.com/GittingBoor/ai-interface/releases/latest/download/AI-Interface-Setup.exe)** (neueste Version; alle Versionen unter
 [Releases](https://github.com/GittingBoor/ai-interface/releases))
 
+Die Exe liegt nicht im Code dieses Repos, sondern als Anhang am Release: rechte Spalte → **Releases** → neueste
+Version → **Assets** → `AI-Interface-Setup.exe`. Zum Benutzen reicht diese eine Datei; das Repo brauchst du nur,
+wenn du den Code ändern oder für Linux selbst bauen willst.
+
 - **Start:** Meistgenutzte Projekte zum Weiterarbeiten (setzt die letzte Claude-Session fort), offene Aufgaben je
   Projekt aus dem Feld „Offen:“ des neuesten Protokolls (in der App abhakbar), Zahlen der Woche, Kontingent und
   Schnellzugriffe.
