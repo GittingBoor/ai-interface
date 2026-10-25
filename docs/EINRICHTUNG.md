@@ -46,8 +46,8 @@ und im Browser anmelden.
 
 ### Fertiger Installer (Windows)
 
-Unter [Releases](https://github.com/GittingBoor/ai-interface/releases) die neueste `AI Interface Setup <version>.exe`
-herunterladen und starten. Der Installer ist nicht signiert: Meldet Windows „Der Computer wurde durch Windows
+[`AI-Interface-Setup.exe`](https://github.com/GittingBoor/ai-interface/releases/latest/download/AI-Interface-Setup.exe) herunterladen (neueste Version, ältere unter
+[Releases](https://github.com/GittingBoor/ai-interface/releases)) und starten. Der Installer ist nicht signiert: Meldet Windows „Der Computer wurde durch Windows
 geschützt“, auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken. Er legt eine Desktop-Verknüpfung an
 und startet die App.
 

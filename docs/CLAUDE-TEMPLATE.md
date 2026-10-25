@@ -43,9 +43,9 @@ Fehlt etwas, nenn mir den Installationsbefehl (Windows: `winget install Git.Git`
 
 ### Schritt 2: App installieren (nur nach Rückfrage)
 
-**Windows, fertiger Installer (Standard):** Lade die neueste `AI Interface Setup <version>.exe` von
-https://github.com/GittingBoor/ai-interface/releases herunter (z. B. mit
-`gh release download -R GittingBoor/ai-interface -p "*.exe"` oder im Browser) und lass sie mich starten.
+**Windows, fertiger Installer (Standard):** Lade die neueste Version von
+https://github.com/GittingBoor/ai-interface/releases/latest/download/AI-Interface-Setup.exe herunter (z. B. mit
+`gh release download -R GittingBoor/ai-interface -p "AI-Interface-Setup.exe"` oder im Browser) und lass sie mich starten.
 Der Installer ist nicht signiert; Windows fragt evtl. nach („Weitere Informationen“ → „Trotzdem ausführen“).
 
 **Linux oder auf Wunsch aus dem Quellcode:** Frag mich, wohin das Repository soll (Vorschlag: mein Projektordner

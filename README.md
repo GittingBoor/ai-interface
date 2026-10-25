@@ -5,6 +5,9 @@
 Eine Desktop-App (Electron) als Steuerzentrale für die Arbeit mit **Claude Code**: Was hast du verbraucht, woran
 arbeitest du, was läuft gerade, auf diesem PC und auf deinen anderen Rechnern.
 
+**[AI Interface für Windows herunterladen](https://github.com/GittingBoor/ai-interface/releases/latest/download/AI-Interface-Setup.exe)** (neueste Version; alle Versionen unter
+[Releases](https://github.com/GittingBoor/ai-interface/releases))
+
 - **Start:** Meistgenutzte Projekte zum Weiterarbeiten (setzt die letzte Claude-Session fort), offene Aufgaben je
   Projekt aus dem Feld „Offen:“ des neuesten Protokolls (in der App abhakbar), Zahlen der Woche, Kontingent und
   Schnellzugriffe.
@@ -39,8 +42,7 @@ Einträge legst du selbst fest.
 
 ## Schnellstart
 
-**Windows:** `AI Interface Setup <version>.exe` unter [Releases](https://github.com/GittingBoor/ai-interface/releases)
-herunterladen und starten. Der Installer ist nicht signiert; meldet Windows „Der Computer wurde durch Windows
+**Windows:** [`AI-Interface-Setup.exe`](https://github.com/GittingBoor/ai-interface/releases/latest/download/AI-Interface-Setup.exe) herunterladen und starten. Der Installer ist nicht signiert; meldet Windows „Der Computer wurde durch Windows
 geschützt“, auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken.
 
 Die App braucht [Claude Code](https://code.claude.com/docs/en/setup) (angemeldet, Pro-/Max-Abo oder API-Konto) und
@@ -116,20 +118,6 @@ SSH-Integrationstests laufen nur mit einem Test-sshd:
 | `src/main/skills/`, `src/main/assistant/` | Skill-Katalog, KI-Assistent (Agent SDK, Pfadschutz, Bestätigung) |
 | `src/renderer/` | React-Oberfläche (`views/`, `components/`, `stores/`); `views/setup/` ist der Einrichtungsassistent |
 | `tests/` | Vitest-Tests |
-
-Design und Architektur: [`docs/superpowers/specs/`](docs/superpowers/specs/).
-
-### TODO-Format
-
-```markdown
-## Server
-- [ ] Backup prüfen ⏫ 📅 2026-10-01
-  Notiz (eingerückt)
-- [x] Updates eingespielt ✅ 2026-09-20
-```
-
-`⏫` = hoch, `🔽` = niedrig, `📅` = fällig, `✅` = erledigt am. Überschriften sind die Gruppen.
-Alle anderen Zeilen der Datei bleiben beim Schreiben unverändert.
 
 ## Lizenz
 

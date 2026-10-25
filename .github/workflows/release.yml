@@ -37,7 +37,8 @@ jobs:
           AII_RELEASE_BUILD: '1'
         run: |
           npm run build
-          npx electron-builder --win --publish never
+          # Fester Dateiname ohne Version: .../releases/latest/download/AI-Interface-Setup.exe bleibt gültig.
+          npx electron-builder --win --publish never -c.nsis.artifactName=AI-Interface-Setup.exe
 
       - name: Release anlegen
         env:
