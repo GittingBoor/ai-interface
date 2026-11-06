@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { FolderGit2, MousePointerClick, Plus, SearchX, Star, Tags } from 'lucide-react'
-import type { Category, Favorite } from '@shared/types'
+import type { Category, Favorite, ProjectUsage, TodoItem } from '@shared/types'
 import { Button } from '@renderer/components/Button'
 import { Segmented } from '@renderer/components/Controls'
 import { ProjectMark } from '@renderer/components/ProjectMark'
@@ -31,6 +31,9 @@ const NOW_TICK_MS = 30_000
 const OTHER_LIMIT = 8
 const FALLBACK_COLOR = '#e08a4f'
 const EMPTY_STATS: FavoriteStats = { tokens7d: 0, cost7d: 0, lastActive: null, sessions: 0 }
+// Feste leere Listen: ein neues [] im Selektor gälte bei jedem Aufruf als Änderung und renderte endlos neu.
+const NO_PROJECTS: readonly ProjectUsage[] = []
+const NO_TODOS: readonly TodoItem[] = []
 
 const layoutOptions = (t: Messages['projects']['view']): readonly { readonly value: ProjectsLayout; readonly label: string }[] => [
   { value: 'grouped', label: t.layoutGrouped },
@@ -126,8 +129,8 @@ export function ProjectsView(): React.JSX.Element {
   const reorder = useFavorites((s) => s.reorder)
   const categories = useCategories((s) => s.categories)
   const projects7d = useUsage((s) => s.projects7d)
-  const projects30d = useUsage((s) => s.overview?.projects ?? [])
-  const todoItems = useTodos((s) => s.state?.items ?? [])
+  const projects30d = useUsage((s) => s.overview?.projects ?? NO_PROJECTS)
+  const todoItems = useTodos((s) => s.state?.items ?? NO_TODOS)
   const selectedId = useNav((s) => s.selectedFavoriteId)
   const layout = useProjectsView((s) => s.layout)
   const filter = useProjectsView((s) => s.filter)

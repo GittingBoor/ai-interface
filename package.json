@@ -1,7 +1,7 @@
 {
   "name": "ai-interface",
   "productName": "AI Interface",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Desktop-App zur Verwaltung der KI-Arbeit: Verbrauch, Projekte, Claude-Terminals, Modelle, TODOs, Protokolle",
   "main": "./out/main/index.js",
   "author": "GittingBoor",
