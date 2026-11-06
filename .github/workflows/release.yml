@@ -35,6 +35,8 @@ jobs:
       - name: Installer bauen
         env:
           AII_RELEASE_BUILD: '1'
+        # bash statt PowerShell: PowerShell zerlegt -c.nsis.artifactName=… und electron-builder sucht eine Datei.
+        shell: bash
         run: |
           npm run build
           # Fester Dateiname ohne Version: .../releases/latest/download/AI-Interface-Setup.exe bleibt gültig.
