@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { motion } from 'motion/react'
 import { Check, ChevronDown, Mic, Square } from 'lucide-react'
 import { BrandSpinner } from '@renderer/components/BrandSpinner'
-import { SPEECH_HOTKEY_KEYS, SPEECH_MODELS } from '@shared/speech'
+import { SPEECH_MODELS, speechHotkeyKeys, speechModelText } from '@shared/speech'
+import { useT } from '@renderer/i18n/useT'
 import { useSpeech } from '@renderer/stores/speechStore'
 import { useSettings } from '@renderer/stores/settingsStore'
 import { sameTarget, type SpeechTarget } from '@renderer/lib/speechText'
@@ -21,6 +22,7 @@ interface MicButtonProps {
 
 /** Diktat: Klick startet, Klick stoppt; der Pfeil daneben wechselt das Modell. */
 export function MicButton({ target, disabled = false, menuBelow = false }: MicButtonProps): React.JSX.Element {
+  const t = useT()
   const phase = useSpeech((s) => (sameTarget(s.target, target) ? s.phase : 'idle'))
   const busyElsewhere = useSpeech((s) => s.phase !== 'idle' && !sameTarget(s.target, target))
   const status = useSpeech((s) => s.status)
@@ -29,8 +31,8 @@ export function MicButton({ target, disabled = false, menuBelow = false }: MicBu
   const unsupported = status?.supported === false
   const recording = phase === 'recording'
   const transcribing = phase === 'transcribing'
-  const shortcut = hotkey ? ` (${SPEECH_HOTKEY_KEYS.join('+')})` : ''
-  const label = unsupported ? 'Spracheingabe nur unter Windows eingerichtet' : recording ? `Aufnahme beenden${shortcut} · Esc verwirft` : transcribing ? 'Wird erkannt …' : `Diktieren${shortcut}`
+  const shortcut = hotkey ? ` (${speechHotkeyKeys(t).join('+')})` : ''
+  const label = unsupported ? t.frame.stores.speechUnsupported : recording ? t.speech.mic.stop(shortcut) : transcribing ? t.speech.mic.transcribing : t.speech.mic.dictate(shortcut)
 
   return (
     <div className="flex shrink-0 items-center">
@@ -59,6 +61,7 @@ export function MicButton({ target, disabled = false, menuBelow = false }: MicBu
 }
 
 function ModelMenu({ below }: { readonly below: boolean }): React.JSX.Element {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -107,8 +110,8 @@ function ModelMenu({ below }: { readonly below: boolean }): React.JSX.Element {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Sprachmodell wählen"
-        title="Sprachmodell wählen"
+        aria-label={t.speech.mic.chooseModel}
+        title={t.speech.mic.chooseModel}
         onClick={() => setOpen(!open)}
         className={`grid h-7 w-4 place-items-center rounded-md transition-colors duration-150 hover:bg-raised-2 hover:text-ink ${open ? 'bg-raised-2 text-ink' : 'text-ink-3'}`}
       >
@@ -118,7 +121,7 @@ function ModelMenu({ below }: { readonly below: boolean }): React.JSX.Element {
         <motion.ul
           ref={list}
           role="menu"
-          aria-label="Sprachmodell"
+          aria-label={t.speech.mic.modelMenu}
           onKeyDown={onMenuKey}
           initial={{ opacity: 0, y: below ? -MENU_OFFSET_PX : MENU_OFFSET_PX }}
           animate={{ opacity: 1, y: 0 }}
@@ -143,8 +146,8 @@ function ModelMenu({ below }: { readonly below: boolean }): React.JSX.Element {
                 >
                   <Check className={`mt-0.5 size-3.5 shrink-0 ${active ? 'text-accent' : 'opacity-0'}`} aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-[560] text-ink">{m.label}</span>
-                    <span className="block text-2xs text-ink-3">{installed ? m.description : `Nicht geladen · ${Math.round(m.bytes / BYTES_PER_MB)} MB`}</span>
+                    <span className="block text-xs font-[560] text-ink">{speechModelText(m.id, t).label}</span>
+                    <span className="block text-2xs text-ink-3">{installed ? speechModelText(m.id, t).description : t.speech.mic.notLoaded(Math.round(m.bytes / BYTES_PER_MB))}</span>
                   </span>
                 </button>
               </li>

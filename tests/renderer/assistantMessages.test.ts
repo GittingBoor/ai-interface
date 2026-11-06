@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { messagesFor } from '@shared/i18n/messages'
 import {
   applyAssistantEvent,
   clampAssistantWidth,
@@ -40,9 +41,11 @@ describe('applyAssistantEvent', () => {
 
 describe('Beschriftungen und Breite', () => {
   it('übersetzt bekannte Werkzeuge, sonst Name', () => {
-    expect(toolLabel('list_projects')).toBe('Liest Projekte')
-    expect(toolLabel('Read')).toBe('Read')
-    expect(confirmTitle('create_project_folder')).toBe('Projektordner anlegen')
+    const de = messagesFor('de')
+    expect(toolLabel('list_projects', de)).toBe('Liest Projekte')
+    expect(toolLabel('Read', de)).toBe('Read')
+    expect(confirmTitle('create_project_folder', de)).toBe('Projektordner anlegen')
+    expect(confirmTitle('create_project_folder', messagesFor('en'))).toBe('Create project folder')
   })
 
   it('begrenzt die Breite auf 360 bis 640', () => {

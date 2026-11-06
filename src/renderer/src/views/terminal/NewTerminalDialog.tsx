@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FolderOpen, Search, Star } from 'lucide-react'
 import type { Favorite, HostId, LaunchMode } from '@shared/types'
+import type { Messages } from '@shared/i18n/messages'
 import { api } from '@renderer/api/client'
 import { attempt } from '@renderer/api/call'
 import { Button } from '@renderer/components/Button'
@@ -16,26 +17,32 @@ import { type LaunchTarget, useTerminals } from '@renderer/stores/terminalStore'
 import { baseName } from '@renderer/lib/format'
 import { pinnedFirst } from '@renderer/lib/projectOrganize'
 import { findDevice, hostOptions } from '@renderer/lib/hosts'
+import { useT } from '@renderer/i18n/useT'
 import { OrchestratorMark } from './TerminalMark'
 
 type Source = 'project' | 'folder'
 
-const SOURCE_OPTIONS: readonly { readonly value: Source; readonly label: string }[] = [
-  { value: 'project', label: 'Projekt' },
-  { value: 'folder', label: 'Ordner' }
+interface LabeledOption<V> {
+  readonly value: V
+  readonly label: string
+}
+
+const sourceOptions = (t: Messages['terminal']['dialog']): readonly LabeledOption<Source>[] => [
+  { value: 'project', label: t.sourceProject },
+  { value: 'folder', label: t.sourceFolder }
 ]
 
-const MODE_OPTIONS: readonly { readonly value: LaunchMode; readonly label: string }[] = [
-  { value: 'new', label: 'Claude neu' },
-  { value: 'continue', label: 'Claude fortsetzen' },
-  { value: 'shell', label: 'Nur Shell' }
+const modeOptions = (t: Messages['terminal']['dialog']): readonly LabeledOption<LaunchMode>[] => [
+  { value: 'new', label: t.modeNew },
+  { value: 'continue', label: t.modeContinue },
+  { value: 'shell', label: t.modeShell }
 ]
 
 /** Der Orchestrator startet immer Claude, eine reine Shell ergibt für ihn keinen Sinn. */
-const ORCHESTRATOR_MODE_OPTIONS: readonly { readonly value: LaunchMode; readonly label: string }[] = MODE_OPTIONS.filter((o) => o.value !== 'shell')
+const orchestratorModeOptions = (t: Messages['terminal']['dialog']): readonly LabeledOption<LaunchMode>[] => modeOptions(t).filter((o) => o.value !== 'shell')
 
+/** Eigenname und gespeicherter Titel des Orchestrators: wird nicht übersetzt. */
 export const ORCHESTRATOR_NAME = 'Orchestrator'
-export const ORCHESTRATOR_HINT = 'Steuert deine Terminals und Projekte'
 
 type PickerEntry = { readonly kind: 'orchestrator'; readonly open: boolean } | { readonly kind: 'project'; readonly favorite: Favorite }
 
@@ -49,26 +56,28 @@ function matches(favorite: Favorite, query: string): boolean {
 }
 
 function OrchestratorOption({ open, selected }: { readonly open: boolean; readonly selected: boolean }): React.JSX.Element {
+  const t = useT().terminal
   return (
     <>
       <OrchestratorMark size="md" />
       <div className="min-w-0 flex-1">
         <p className={`truncate text-[0.8125rem] font-[560] ${selected ? 'text-ink' : 'text-ink-2'}`}>{ORCHESTRATOR_NAME}</p>
-        <p className="truncate text-2xs text-ink-3">{ORCHESTRATOR_HINT}</p>
+        <p className="truncate text-2xs text-ink-3">{t.orchestratorHint}</p>
       </div>
-      {open ? <span className="shrink-0 rounded-full border border-accent/30 px-1.5 py-px text-2xs font-[560] text-accent">offen</span> : null}
+      {open ? <span className="shrink-0 rounded-full border border-accent/30 px-1.5 py-px text-2xs font-[560] text-accent">{t.dialog.openBadge}</span> : null}
     </>
   )
 }
 
 function ProjectOption({ favorite, selected }: { readonly favorite: Favorite; readonly selected: boolean }): React.JSX.Element {
+  const t = useT().terminal
   return (
     <>
       <ProjectMark color={favorite.color} icon={favorite.icon} size="md" />
       <div className="min-w-0 flex-1">
         <p className={`flex items-center gap-1.5 truncate text-[0.8125rem] font-[560] ${selected ? 'text-ink' : 'text-ink-2'}`}>
           {favorite.name}
-          {favorite.starred ? <Star className="size-3 shrink-0 fill-accent text-accent" aria-label="angepinnt" /> : null}
+          {favorite.starred ? <Star className="size-3 shrink-0 fill-accent text-accent" aria-label={t.pinned} /> : null}
         </p>
         <p className="truncate font-mono text-2xs text-ink-3">{favorite.path}</p>
       </div>
@@ -87,6 +96,7 @@ interface ProjectPickerProps {
 }
 
 function ProjectPicker({ entries, index, onIndex, onConfirm, query, onQuery }: ProjectPickerProps): React.JSX.Element {
+  const t = useT().terminal.dialog
   const listId = useId()
   const list = useRef<HTMLUListElement>(null)
 
@@ -115,19 +125,19 @@ function ProjectPicker({ entries, index, onIndex, onConfirm, query, onQuery }: P
           aria-expanded="true"
           aria-controls={listId}
           aria-activedescendant={entries[index] ? `${listId}-${index}` : undefined}
-          aria-label="Projekt suchen"
+          aria-label={t.searchProject}
           value={query}
           onChange={(e) => onQuery(e.target.value)}
           onKeyDown={onKey}
-          placeholder="Projekt suchen …"
+          placeholder={t.searchPlaceholder}
           spellCheck={false}
           className="h-10 w-full bg-transparent pr-3 pl-9 text-[0.8125rem] text-ink outline-none"
         />
       </div>
       {entries.length === 0 ? (
-        <p className="px-4 py-8 text-center text-xs text-ink-3">{query ? `Kein Projekt passt zu „${query}“.` : 'Noch keine Projekte. Wähle stattdessen einen Ordner.'}</p>
+        <p className="px-4 py-8 text-center text-xs text-ink-3">{query ? t.noMatch(query) : t.noProjects}</p>
       ) : (
-        <ul ref={list} id={listId} role="listbox" aria-label="Projekte" className="min-h-0 flex-1 overflow-y-auto py-1">
+        <ul ref={list} id={listId} role="listbox" aria-label={t.projectsAria} className="min-h-0 flex-1 overflow-y-auto py-1">
           {entries.map((entry, i) => {
             const selected = i === index
             const isOrchestrator = entry.kind === 'orchestrator'
@@ -164,15 +174,16 @@ interface FolderPickerProps {
 }
 
 function FolderPicker({ host, onHost, localPath, onLocalPath, miniPath, onMiniPath, onConfirm }: FolderPickerProps): React.JSX.Element {
+  const t = useT().terminal.dialog
   const pick = async (): Promise<void> => {
     const folder = await attempt(api.favorites.pickFolder())
     if (folder) onLocalPath(folder)
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <Segmented label="Rechner" value={host} options={hostOptions()} onChange={onHost} />
+      <Segmented label={t.computer} value={host} options={hostOptions()} onChange={onHost} />
       {host === 'local' ? (
-        <Field label="Ordner" hint="Pfad eintippen oder im Dateidialog wählen">
+        <Field label={t.folder} hint={t.folderHint}>
           {(id, describedBy) => (
             <div className="flex gap-2">
               <input
@@ -191,7 +202,7 @@ function FolderPicker({ host, onHost, localPath, onLocalPath, miniPath, onMiniPa
                 className="field font-mono text-xs"
               />
               <Button icon={FolderOpen} onClick={() => void pick()}>
-                Ordner wählen …
+                {t.chooseFolder}
               </Button>
             </div>
           )}
@@ -205,6 +216,7 @@ function FolderPicker({ host, onHost, localPath, onLocalPath, miniPath, onMiniPa
 
 /** Dialog „Neues Terminal“: Projekt oder freier Ordner, Startmodus, optionaler Titel. */
 export function NewTerminalDialog(): React.JSX.Element {
+  const { terminal: t, common } = useT()
   const open = useTerminals((s) => s.dialogOpen)
   const closeDialog = useTerminals((s) => s.closeDialog)
   const launch = useTerminals((s) => s.launch)
@@ -263,7 +275,7 @@ export function NewTerminalDialog(): React.JSX.Element {
   return createPortal(
     <Modal
       open={open}
-      label="Neues Terminal"
+      label={t.newTerminalTitle}
       onClose={closeDialog}
       align="top"
       className="flex max-h-[76vh] w-full max-w-xl flex-col rounded-xl border border-line-strong/70 bg-raised p-5 shadow-[0_24px_60px_-12px_oklch(0_0_0/0.7)]"
@@ -276,8 +288,8 @@ export function NewTerminalDialog(): React.JSX.Element {
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[0.9375rem] font-[640] text-ink">Neues Terminal</h2>
-          <Segmented<Source> label="Startpunkt" value={source} options={SOURCE_OPTIONS} onChange={setSource} />
+          <h2 className="text-[0.9375rem] font-[640] text-ink">{t.newTerminalTitle}</h2>
+          <Segmented<Source> label={t.dialog.startPoint} value={source} options={sourceOptions(t.dialog)} onChange={setSource} />
         </div>
 
         <div className="mt-4 flex h-[19rem] min-h-0 flex-col">
@@ -308,17 +320,17 @@ export function NewTerminalDialog(): React.JSX.Element {
 
         <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4">
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-[560] text-ink-2">Start</span>
-            <Segmented<LaunchMode> label="Startmodus" value={mode} options={orchestratorChosen ? ORCHESTRATOR_MODE_OPTIONS : MODE_OPTIONS} onChange={setMode} />
+            <span className="text-xs font-[560] text-ink-2">{t.dialog.start}</span>
+            <Segmented<LaunchMode> label={t.dialog.modeLabel} value={mode} options={orchestratorChosen ? orchestratorModeOptions(t.dialog) : modeOptions(t.dialog)} onChange={setMode} />
           </div>
-          <Field label="Titel (optional)">
+          <Field label={t.dialog.titleOptional}>
             {(id) => (
               <input
                 id={id}
                 value={orchestratorChosen ? ORCHESTRATOR_NAME : title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={orchestratorChosen}
-                placeholder={target?.name ?? 'Tab-Titel'}
+                placeholder={target?.name ?? t.dialog.tabTitle}
                 className="field disabled:cursor-not-allowed disabled:hover:border-line"
               />
             )}
@@ -327,21 +339,21 @@ export function NewTerminalDialog(): React.JSX.Element {
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
           {orchestratorChosen ? (
-            <p className="min-w-0 truncate text-2xs text-ink-3">{ORCHESTRATOR_HINT}</p>
+            <p className="min-w-0 truncate text-2xs text-ink-3">{t.orchestratorHint}</p>
           ) : (
             <p className="min-w-0 truncate font-mono text-2xs text-ink-3" title={target?.path}>
-              {target ? target.path : 'Noch kein Ziel gewählt'}
+              {target ? target.path : t.dialog.noTarget}
             </p>
           )}
           <div className="flex shrink-0 items-center gap-2">
             <span className="mr-1 hidden items-center gap-1 text-2xs text-ink-3 sm:flex">
-              <Kbd>Enter</Kbd> öffnet
+              <Kbd>Enter</Kbd> {t.dialog.enterOpens}
             </span>
             <Button variant="ghost" onClick={closeDialog}>
-              Abbrechen
+              {common.cancel}
             </Button>
             <Button type="submit" variant="primary" disabled={!target && !orchestratorChosen} loading={opening}>
-              Öffnen
+              {t.dialog.open}
             </Button>
           </div>
         </div>

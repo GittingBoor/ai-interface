@@ -1,6 +1,7 @@
+import { de } from '@shared/i18n/de'
 import { describe, expect, it } from 'vitest'
 import type { WebLinkSettings } from '@shared/types'
-import { isWebUrl, linkError, normalizeUrl } from '@shared/links'
+import { isWebUrl, keptLinks, linkError, normalizeUrl, rememberOpened } from '@shared/links'
 
 const link = (patch: Partial<WebLinkSettings> = {}): WebLinkSettings => ({ id: 'ha', name: 'Smart Home', url: 'http://192.168.0.10:8123', color: '#5fb3c8', icon: null, deviceId: null, ...patch })
 
@@ -20,12 +21,25 @@ describe('Webseiten', () => {
   })
 
   it('meldet fehlende Angaben, doppelte Namen und fremde Protokolle', () => {
-    expect(linkError(link())).toBeNull()
-    expect(linkError(link({ url: 'panel.example.org' }))).toBeNull()
-    expect(linkError(link({ name: ' ' }))).toMatch(/Namen/)
-    expect(linkError(link({ url: '' }))).toMatch(/Adresse/)
-    expect(linkError(link({ url: 'file:///etc/passwd' }))).toMatch(/http/)
-    expect(linkError(link({ id: '' }), [link()])).toMatch(/gibt es schon/)
-    expect(linkError(link(), [link()])).toBeNull()
+    expect(linkError(link(), [], de)).toBeNull()
+    expect(linkError(link({ url: 'panel.example.org' }), [], de)).toBeNull()
+    expect(linkError(link({ name: ' ' }), [], de)).toMatch(/Namen/)
+    expect(linkError(link({ url: '' }), [], de)).toMatch(/Adresse/)
+    expect(linkError(link({ url: 'file:///etc/passwd' }), [], de)).toMatch(/http/)
+    expect(linkError(link({ id: '' }), [link()], de)).toMatch(/gibt es schon/)
+    expect(linkError(link(), [link()], de)).toBeNull()
+  })
+
+  it('merkt sich geöffnete Seiten nur einmal', () => {
+    const opened = rememberOpened([], 'ha')
+    expect(opened).toEqual(['ha'])
+    expect(rememberOpened(opened, 'ha')).toBe(opened)
+    expect(rememberOpened(opened, 'music')).toEqual(['ha', 'music'])
+    expect(rememberOpened(opened, null)).toBe(opened)
+  })
+
+  it('hält nur geöffnete Seiten geladen, die es noch gibt', () => {
+    const links = [link(), link({ id: 'music', name: 'Musik' }), link({ id: 'panel', name: 'Panel' })]
+    expect(keptLinks(links, ['music', 'entfernt']).map((l) => l.id)).toEqual(['music'])
   })
 })

@@ -5,7 +5,8 @@ import type { Priority, TodoItem } from '@shared/types'
 import { IconButton } from '@renderer/components/Button'
 import { Segmented } from '@renderer/components/Controls'
 import { daysUntil, formatDayShort, formatDue } from '@renderer/lib/format'
-import { PRIORITY_OPTIONS } from './TodoComposer'
+import { useT } from '@renderer/i18n/useT'
+import { priorityOptions } from './TodoComposer'
 
 type DueState = 'overdue' | 'today' | 'soon' | 'later'
 
@@ -61,6 +62,7 @@ interface TodoRowProps {
 }
 
 function EditForm({ item, onCancel, onSave }: { readonly item: TodoItem; onCancel(): void; onSave(text: string, priority: Priority, due: string | null): void }): React.JSX.Element {
+  const t = useT()
   const [text, setText] = useState(item.text)
   const [priority, setPriority] = useState<Priority>(item.priority)
   const [due, setDue] = useState(item.due ?? '')
@@ -75,13 +77,13 @@ function EditForm({ item, onCancel, onSave }: { readonly item: TodoItem; onCance
         if (e.key === 'Escape') onCancel()
       }}
     >
-      <input autoFocus aria-label="TODO-Text" value={text} onChange={(e) => setText(e.target.value)} className="field" />
+      <input autoFocus aria-label={t.todos.row.editText} value={text} onChange={(e) => setText(e.target.value)} className="field" />
       <div className="flex flex-wrap items-center gap-2">
-        <Segmented<Priority> label="Priorität" value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
-        <input type="date" aria-label="Fällig am" value={due} onChange={(e) => setDue(e.target.value)} className="field h-8 w-36 text-xs" />
+        <Segmented<Priority> label={t.todos.priority} value={priority} onChange={setPriority} options={priorityOptions(t)} />
+        <input type="date" aria-label={t.todos.row.dueOn} value={due} onChange={(e) => setDue(e.target.value)} className="field h-8 w-36 text-xs" />
         <div className="ml-auto flex gap-1">
-          <IconButton size="sm" icon={X} label="Abbrechen" onClick={onCancel} />
-          <IconButton size="sm" type="submit" icon={Check} label="Speichern" />
+          <IconButton size="sm" icon={X} label={t.common.cancel} onClick={onCancel} />
+          <IconButton size="sm" type="submit" icon={Check} label={t.common.save} />
         </div>
       </div>
     </form>
@@ -89,6 +91,7 @@ function EditForm({ item, onCancel, onSave }: { readonly item: TodoItem; onCance
 }
 
 export function TodoRow({ item, done, onToggle, onEdit, onDelete }: TodoRowProps): React.JSX.Element {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const due = item.due && !done ? dueState(item.due) : null
 
@@ -111,24 +114,24 @@ export function TodoRow({ item, done, onToggle, onEdit, onDelete }: TodoRowProps
         />
       ) : (
         <>
-          <Checkbox checked={done} label={done ? `„${item.text}“ wieder öffnen` : `„${item.text}“ erledigen`} onToggle={onToggle} />
+          <Checkbox checked={done} label={done ? t.todos.row.reopen(item.text) : t.todos.row.complete(item.text)} onToggle={onToggle} />
           <div className="min-w-0 flex-1" onDoubleClick={() => setEditing(true)}>
             <p className={`text-[0.8125rem] leading-snug transition-colors duration-200 ${done ? 'text-ink-3 line-through decoration-ink-3/60' : 'text-ink'}`}>
-              {item.priority === 'high' ? <ChevronsUp className="mr-1 -mt-0.5 inline size-3.5 text-accent-text" aria-label="Hohe Priorität" /> : null}
-              {item.priority === 'low' ? <ChevronsDown className="mr-1 -mt-0.5 inline size-3.5 text-ink-3" aria-label="Niedrige Priorität" /> : null}
+              {item.priority === 'high' ? <ChevronsUp className="mr-1 -mt-0.5 inline size-3.5 text-accent-text" aria-label={t.todos.row.highPriority} /> : null}
+              {item.priority === 'low' ? <ChevronsDown className="mr-1 -mt-0.5 inline size-3.5 text-ink-3" aria-label={t.todos.row.lowPriority} /> : null}
               {item.text}
             </p>
             {item.notes ? <p className="mt-0.5 text-xs whitespace-pre-line text-ink-3">{item.notes}</p> : null}
-            {done && item.doneDate ? <p className="num mt-0.5 text-2xs text-ink-3">erledigt am {formatDayShort(item.doneDate)}</p> : null}
+            {done && item.doneDate ? <p className="num mt-0.5 text-2xs text-ink-3">{t.todos.row.doneOn(formatDayShort(item.doneDate))}</p> : null}
           </div>
           {due && item.due ? (
-            <span className={`num inline-flex h-5 shrink-0 items-center rounded-full px-2 text-2xs font-[600] ${DUE_STYLE[due]}`} title={`Fällig am ${formatDayShort(item.due)}`}>
+            <span className={`num inline-flex h-5 shrink-0 items-center rounded-full px-2 text-2xs font-[600] ${DUE_STYLE[due]}`} title={t.todos.row.dueTitle(formatDayShort(item.due))}>
               {formatDue(item.due)}
             </span>
           ) : null}
           <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-            <IconButton size="sm" icon={Pencil} label="Bearbeiten" onClick={() => setEditing(true)} />
-            <IconButton size="sm" icon={Trash2} tone="danger" label="Löschen" onClick={onDelete} />
+            <IconButton size="sm" icon={Pencil} label={t.todos.row.edit} onClick={() => setEditing(true)} />
+            <IconButton size="sm" icon={Trash2} tone="danger" label={t.common.delete} onClick={onDelete} />
           </div>
         </>
       )}

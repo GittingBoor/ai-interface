@@ -1,19 +1,20 @@
+import { languageDirective } from '@shared/i18n/directive'
+import { mainLocale, mainT } from '../i18n'
 import type { OrchestratorLaunchMode, OrchestratorSettings, TerminalInfo, TerminalOpenRequest } from '@shared/types'
 import { OrchestratorUnavailableError } from '../errors'
 import type { LaunchExtras } from '../terminal/TerminalService'
 import type { OrchestratorTool } from './orchestratorTools'
 import { MCP_SERVER_NAME, type McpEndpoint, type OrchestratorWorkspace } from './OrchestratorWorkspace'
 
-const TITLE = 'Orchestrator'
 const DEFAULT_COLS = 120
 const DEFAULT_ROWS = 32
 
 type ToolRef = Pick<OrchestratorTool, 'name' | 'mutating'>
 
-/** Claude-Argumente: MCP-Server laden; ändernde Werkzeuge nur ohne Rückfrage freigeben. */
-export function orchestratorClaudeArgs(mcpConfigPath: string, confirmBeforeSend: boolean, tools: readonly ToolRef[]): string[] {
+/** Claude-Argumente: MCP-Server laden; ändernde Werkzeuge nur ohne Rückfrage freigeben; Sprachvorgabe anhängen. */
+export function orchestratorClaudeArgs(mcpConfigPath: string, confirmBeforeSend: boolean, tools: readonly ToolRef[], directive: string): string[] {
   const allowed = tools.filter((t) => !confirmBeforeSend || !t.mutating).map((t) => `mcp__${MCP_SERVER_NAME}__${t.name}`)
-  return ['--mcp-config', mcpConfigPath, '--allowedTools', allowed.join(',')]
+  return ['--mcp-config', mcpConfigPath, '--allowedTools', allowed.join(','), '--append-system-prompt', directive]
 }
 
 export interface OrchestratorServiceDeps {
@@ -38,7 +39,7 @@ export class OrchestratorService {
 
   /** Öffnet den Orchestrator oder liefert das offene Terminal. */
   open(mode: OrchestratorLaunchMode): Promise<TerminalInfo> {
-    if (!this.deps.settings().enabled) return Promise.reject(new OrchestratorUnavailableError('in den Einstellungen ausgeschaltet.'))
+    if (!this.deps.settings().enabled) return Promise.reject(new OrchestratorUnavailableError(mainT().errors.orchestratorUnavailable.disabled))
     const existing = this.terminalId ? this.deps.terminal(this.terminalId) : undefined
     if (existing) return Promise.resolve(existing)
     this.opening ??= this.launch(mode).finally(() => (this.opening = null))
@@ -64,8 +65,8 @@ export class OrchestratorService {
     const endpoint = await this.deps.server.start()
     try {
       const files = await this.deps.workspace.prepare(endpoint)
-      const request: TerminalOpenRequest = { host: 'local', path: files.dir, mode, title: TITLE, cols: DEFAULT_COLS, rows: DEFAULT_ROWS }
-      const extraArgs = orchestratorClaudeArgs(files.mcpConfig, this.deps.settings().confirmBeforeSend, this.deps.tools)
+      const request: TerminalOpenRequest = { host: 'local', path: files.dir, mode, title: mainT().main.orchestratorTitle, cols: DEFAULT_COLS, rows: DEFAULT_ROWS }
+      const extraArgs = orchestratorClaudeArgs(files.mcpConfig, this.deps.settings().confirmBeforeSend, this.deps.tools, languageDirective(mainLocale()))
       const info = await this.deps.openTerminal(request, { orchestrator: true, extraArgs })
       this.terminalId = info.id
       return info

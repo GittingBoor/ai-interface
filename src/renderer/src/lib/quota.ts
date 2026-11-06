@@ -11,13 +11,6 @@ export const QUOTA_STALE_MS = 15 * 60_000
 
 export type QuotaLevel = 'normal' | 'warn' | 'danger'
 
-export const QUOTA_LABEL: Readonly<Record<QuotaWindowKind, string>> = {
-  five_hour: '5 Std.',
-  seven_day: 'Woche',
-  seven_day_opus: 'Woche · Opus',
-  seven_day_sonnet: 'Woche · Sonnet'
-}
-
 const ORDER: readonly QuotaWindowKind[] = ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet']
 
 export function quotaLevel(percent: number): QuotaLevel {

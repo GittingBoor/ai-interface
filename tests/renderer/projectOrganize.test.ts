@@ -3,6 +3,7 @@ import type { Category, Favorite } from '@shared/types'
 import { groupProjects, matchesFilter, mergeSubsetOrder, moveBy, pinnedFirst } from '../../src/renderer/src/lib/projectOrganize'
 import { aiImagesMessage } from '../../src/renderer/src/lib/aiImages'
 import { EMOJI_GROUPS, searchEmoji } from '../../src/renderer/src/lib/emojiList'
+import { messagesFor } from '@shared/i18n/messages'
 import { isValidIcon, formatIcon } from '@shared/projectIcon'
 
 const project = (id: number, over: Partial<Favorite> = {}): Favorite => ({
@@ -78,8 +79,15 @@ describe('Emoji-Liste', () => {
     for (const emoji of all) expect(isValidIcon(formatIcon({ kind: 'emoji', value: emoji })), emoji).toBe(true)
   })
 
+  it('findet auch über englische Wörter und den Gruppennamen der Sprache', () => {
+    const en = messagesFor('en')
+    expect(searchEmoji('guitar', en).map((e) => e.emoji)).toContain('🎸')
+    expect(searchEmoji('university', en).length).toBeGreaterThan(5)
+  })
+
   it('findet über deutsche Wörter und Gruppennamen', () => {
-    expect(searchEmoji('gitarre').map((e) => e.emoji)).toContain('🎸')
-    expect(searchEmoji('uni').length).toBeGreaterThan(5)
+    const de = messagesFor('de')
+    expect(searchEmoji('gitarre', de).map((e) => e.emoji)).toContain('🎸')
+    expect(searchEmoji('uni', de).length).toBeGreaterThan(5)
   })
 })

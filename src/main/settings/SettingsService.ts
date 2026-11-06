@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { mainT } from '../i18n'
 import type { DeviceSettings, Settings, SettingsPatch, SshSettings } from '@shared/types'
 import { DEFAULT_SPEECH_MODEL } from '@shared/speech'
 import { DEFAULT_NAVIGATION, DEVICE_COLORS } from '@shared/layout'
@@ -18,6 +19,7 @@ export function defaultSettings(homeDir: string, platform: NodeJS.Platform): Set
   const sep = platform === 'win32' ? '\\' : '/'
   const join = (...parts: string[]): string => parts.join(sep)
   return {
+    language: 'system',
     setupDone: false,
     devices: [],
     links: [],
@@ -35,8 +37,10 @@ export function defaultSettings(homeDir: string, platform: NodeJS.Platform): Set
     notifications: { permission: true, question: true, done: true, quotaFree: true },
     orchestrator: { enabled: true, confirmBeforeSend: true },
     images: { importReadImages: false },
+    sources: { openIn: 'app', hintSeen: false },
     projectsRoot: join(homeDir, platform === 'win32' ? 'Projects' : 'projects'),
-    speech: { model: DEFAULT_SPEECH_MODEL, deviceId: '', hotkeyEnabled: false }
+    speech: { model: DEFAULT_SPEECH_MODEL, deviceId: '', hotkeyEnabled: false },
+    knowledge: { projects: [] }
   }
 }
 
@@ -44,7 +48,9 @@ export function defaultSettings(homeDir: string, platform: NodeJS.Platform): Set
 export class SettingsService {
   constructor(
     private readonly db: Database.Database,
-    private readonly defaults: Settings
+    private readonly defaults: Settings,
+    /** Wird nach jedem Speichern mit dem neuen Stand aufgerufen. */
+    private readonly onChange: (settings: Settings) => void = () => undefined
   ) {}
 
   /**
@@ -62,6 +68,7 @@ export class SettingsService {
       this.update({ devices: [device] })
     }
     if (legacy) this.db.prepare('DELETE FROM settings WHERE key = ?').run(LEGACY_MINI_PC_KEY)
+    if (keys.size === 0) this.update({ protocolDir: mainT().main.defaults.protocolDir })
     if (!keys.has('setupDone') && OWN_PATH_KEYS.every((k) => keys.has(k))) this.update({ setupDone: true })
   }
 
@@ -86,6 +93,8 @@ export class SettingsService {
       // Nur bekannte Einstellungen: interne Schlüssel (z. B. der PIN-Hash) sind über die Oberfläche nicht schreibbar.
       for (const [key, value] of Object.entries(patch)) if (value !== undefined && Object.hasOwn(this.defaults, key)) stmt.run(key, JSON.stringify(value))
     })()
-    return this.get()
+    const updated = this.get()
+    this.onChange(updated)
+    return updated
   }
 }

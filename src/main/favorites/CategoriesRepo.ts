@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type Database from 'better-sqlite3'
 import type { Category, CategoryInput } from '@shared/types'
 import { NotFoundError, ValidationError } from '../errors'
@@ -36,7 +37,7 @@ export class CategoriesRepo {
   update(id: number, patch: Partial<CategoryInput>): Category {
     const current = this.get(id)
     const name = patch.name === undefined ? current.name : this.validName(patch.name)
-    if (name.toLocaleLowerCase('de-DE') !== current.name.toLocaleLowerCase('de-DE')) this.assertUnique(name, id)
+    if (name.toLocaleLowerCase('de-DE') !== current.name.toLocaleLowerCase('de-DE')) this.assertUnique(name, id) // i18n-ignore: Vergleich gespeicherter Namen
     const color = patch.color ?? current.color
     const icon = patch.icon === undefined ? current.icon : patch.icon
     if (patch.color !== undefined) assertColor(color)
@@ -62,18 +63,18 @@ export class CategoriesRepo {
 
   private validName(raw: string): string {
     const name = raw.trim()
-    if (!name) throw new ValidationError('Der Name der Art darf nicht leer sein.')
+    if (!name) throw new ValidationError(mainT().errors.favorites.categoryNameEmpty)
     return name
   }
 
   private assertUnique(name: string, exceptId: number | null): void {
     const row = this.db.prepare('SELECT id FROM categories WHERE name = ? COLLATE NOCASE').get(name) as { id: number } | undefined
-    if (row && row.id !== exceptId) throw new ValidationError(`Die Art „${name}“ gibt es schon.`)
+    if (row && row.id !== exceptId) throw new ValidationError(mainT().errors.favorites.categoryExists(name))
   }
 
   private get(id: number): Category {
     const row = this.db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as CategoryRow | undefined
-    if (!row) throw new NotFoundError(`Art ${id}`)
+    if (!row) throw new NotFoundError(mainT().errors.what.category(id))
     return toCategory(row)
   }
 }

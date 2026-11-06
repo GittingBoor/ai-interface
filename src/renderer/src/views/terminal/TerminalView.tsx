@@ -3,6 +3,8 @@ import { MicButton } from '@renderer/components/speech/MicButton'
 import { AnimatePresence, motion } from 'motion/react'
 import { Columns2, FolderGit2, Grid2x2, Play, Plus, RotateCcw, Rows2, Square, SquareTerminal, Star, TerminalSquare, X, type LucideIcon } from 'lucide-react'
 import type { Favorite, TerminalInfo, TerminalLayoutMode } from '@shared/types'
+import { KnowledgeRefreshButton } from '@renderer/components/KnowledgeRefreshButton'
+import type { Messages } from '@shared/i18n/messages'
 import { Button, IconButton } from '@renderer/components/Button'
 import { HostBadge } from '@renderer/components/Host'
 import { OrchestratorMark, TerminalMark } from './TerminalMark'
@@ -17,7 +19,8 @@ import { useCategories } from '@renderer/stores/categoriesStore'
 import { useSettings } from '@renderer/stores/settingsStore'
 import { groupProjects, pinnedFirst } from '@renderer/lib/projectOrganize'
 import { NoCategoryMark } from '../projects/ProjectsView'
-import { NewTerminalDialog, ORCHESTRATOR_HINT, ORCHESTRATOR_NAME } from './NewTerminalDialog'
+import { useT } from '@renderer/i18n/useT'
+import { NewTerminalDialog, ORCHESTRATOR_NAME } from './NewTerminalDialog'
 import { TerminalGrid } from './TerminalGrid'
 
 interface LayoutOption {
@@ -26,11 +29,11 @@ interface LayoutOption {
   readonly icon: LucideIcon
 }
 
-const LAYOUT_OPTIONS: readonly LayoutOption[] = [
-  { value: 'tabs', label: 'Tabs', icon: Square },
-  { value: 'columns', label: 'Nebeneinander', icon: Columns2 },
-  { value: 'rows', label: 'Untereinander', icon: Rows2 },
-  { value: 'grid', label: 'Raster', icon: Grid2x2 }
+const layoutOptions = (t: Messages['terminal']): readonly LayoutOption[] => [
+  { value: 'tabs', label: t.layouts.tabs, icon: Square },
+  { value: 'columns', label: t.layouts.columns, icon: Columns2 },
+  { value: 'rows', label: t.layouts.rows, icon: Rows2 },
+  { value: 'grid', label: t.layouts.grid, icon: Grid2x2 }
 ]
 
 /** Einfügemarke beim Umsortieren: vor diesem Tab bzw. `null` = ans Ende. */
@@ -57,6 +60,7 @@ interface TerminalTabProps {
 }
 
 function TerminalTab({ info, active, shown, attached, exitCode, drag }: TerminalTabProps): React.JSX.Element {
+  const t = useT().terminal
   const activate = useTerminals((s) => s.activate)
   const close = useTerminals((s) => s.close)
   const status = useTerminalStatus(info.id, info.running)
@@ -106,33 +110,35 @@ function TerminalTab({ info, active, shown, attached, exitCode, drag }: Terminal
           <TerminalMark info={info} />
           <span className={`truncate ${active ? 'font-[580] text-ink' : shown ? 'text-ink' : 'text-ink-2'}`}>{info.title}</span>
           <StatusDot status={status} />
-          {info.running ? null : <span className="shrink-0 text-2xs text-ink-3">{exitCode === undefined ? 'beendet' : `Code ${exitCode}`}</span>}
+          {info.running ? null : <span className="shrink-0 text-2xs text-ink-3">{exitCode === undefined ? t.exited : t.exitCode(exitCode)}</span>}
         </button>
       </div>
-      <IconButton size="sm" icon={X} label={`${info.title} schließen`} onClick={() => void close(info.id)} className="mr-1 size-6 opacity-60 group-hover:opacity-100" />
+      <IconButton size="sm" icon={X} label={t.closeTab(info.title)} onClick={() => void close(info.id)} className="mr-1 size-6 opacity-60 group-hover:opacity-100" />
     </motion.div>
   )
 }
 
 function LayoutSwitch(): React.JSX.Element {
+  const t = useT().terminal
+  const options = layoutOptions(t)
   const mode = useTerminals((s) => s.layout.mode)
   const setMode = useTerminals((s) => s.setMode)
   const move = (dir: 1 | -1): void => {
-    const index = LAYOUT_OPTIONS.findIndex((o) => o.value === mode)
-    const next = LAYOUT_OPTIONS[(index + dir + LAYOUT_OPTIONS.length) % LAYOUT_OPTIONS.length]
+    const index = options.findIndex((o) => o.value === mode)
+    const next = options[(index + dir + options.length) % options.length]
     if (next) setMode(next.value)
   }
   return (
     <div
       role="radiogroup"
-      aria-label="Anordnung"
+      aria-label={t.layoutAria}
       className="inline-flex h-8 items-center gap-0.5 rounded-md border border-line bg-canvas p-0.5"
       onKeyDown={(e) => {
         if (e.key === 'ArrowRight') move(1)
         if (e.key === 'ArrowLeft') move(-1)
       }}
     >
-      {LAYOUT_OPTIONS.map(({ value, label, icon: Icon }) => {
+      {options.map(({ value, label, icon: Icon }) => {
         const active = value === mode
         return (
           <button
@@ -162,10 +168,11 @@ interface LaunchButtonsProps {
 }
 
 function LaunchButtons({ startLabel, disabled, onLaunch }: LaunchButtonsProps): React.JSX.Element {
+  const t = useT().terminal
   return (
     <div className="flex shrink-0 items-center gap-2">
       <Button size="sm" variant="ghost" icon={RotateCcw} disabled={disabled} onClick={() => onLaunch('continue')}>
-        Fortsetzen
+        {t.resume}
       </Button>
       <Button size="sm" variant="primary" icon={Play} disabled={disabled} onClick={() => onLaunch('new')}>
         {startLabel}
@@ -175,6 +182,7 @@ function LaunchButtons({ startLabel, disabled, onLaunch }: LaunchButtonsProps): 
 }
 
 function OrchestratorCard(): React.JSX.Element {
+  const t = useT().terminal
   const openOrchestrator = useTerminals((s) => s.openOrchestrator)
   const opening = useTerminals((s) => s.opening)
   return (
@@ -182,14 +190,15 @@ function OrchestratorCard(): React.JSX.Element {
       <OrchestratorMark size="lg" />
       <div className="min-w-0 flex-1 basis-48">
         <h3 className="truncate text-[0.875rem] font-[620] text-ink">{ORCHESTRATOR_NAME}</h3>
-        <p className="mt-0.5 truncate text-xs text-ink-3">{ORCHESTRATOR_HINT}</p>
+        <p className="mt-0.5 truncate text-xs text-ink-3">{t.orchestratorHint}</p>
       </div>
-      <LaunchButtons startLabel="Orchestrator starten" disabled={opening} onLaunch={(mode) => void openOrchestrator(mode)} />
+      <LaunchButtons startLabel={t.startOrchestrator} disabled={opening} onLaunch={(mode) => void openOrchestrator(mode)} />
     </section>
   )
 }
 
 function ProjectCard({ project }: { readonly project: Favorite }): React.JSX.Element {
+  const t = useT().terminal
   const launch = useTerminals((s) => s.launch)
   const opening = useTerminals((s) => s.opening)
   return (
@@ -200,7 +209,7 @@ function ProjectCard({ project }: { readonly project: Favorite }): React.JSX.Ele
           <div className="flex min-w-0 items-center gap-2">
             <p className="flex min-w-0 items-center gap-1.5 text-[0.8125rem] font-[560] text-ink">
               <span className="truncate">{project.name}</span>
-              {project.starred ? <Star className="size-3 shrink-0 fill-accent text-accent" aria-label="angepinnt" /> : null}
+              {project.starred ? <Star className="size-3 shrink-0 fill-accent text-accent" aria-label={t.pinned} /> : null}
             </p>
             <span className="ml-auto shrink-0">
               <HostBadge host={project.host} />
@@ -212,7 +221,7 @@ function ProjectCard({ project }: { readonly project: Favorite }): React.JSX.Ele
         </div>
       </div>
       <div className="flex justify-end">
-        <LaunchButtons startLabel="Claude starten" disabled={opening} onLaunch={(mode) => void launch(project, mode)} />
+        <LaunchButtons startLabel={t.startClaude} disabled={opening} onLaunch={(mode) => void launch(project, mode)} />
       </div>
     </li>
   )
@@ -250,17 +259,19 @@ function PinnedMark(): React.JSX.Element {
 }
 
 function ProjectGroups({ favorites }: { readonly favorites: readonly Favorite[] }): React.JSX.Element {
+  const t = useT().terminal
+  const noCategory = useT().projects.noCategory
   const categories = useCategories((s) => s.categories)
   const pinned = useMemo(() => pinnedFirst(favorites.filter((f) => f.starred)), [favorites])
   const groups = useMemo(() => groupProjects(favorites.filter((f) => !f.starred), categories), [favorites, categories])
   return (
     <>
-      {pinned.length ? <ProjectSection mark={<PinnedMark />} title="Angepinnt" projects={pinned} /> : null}
+      {pinned.length ? <ProjectSection mark={<PinnedMark />} title={t.pinnedGroup} projects={pinned} /> : null}
       {groups.map(({ category, projects }) => (
         <ProjectSection
           key={category?.id ?? 'none'}
           mark={category ? <ProjectMark color={category.color} icon={category.icon} size="md" /> : <NoCategoryMark size="md" />}
-          title={category?.name ?? 'Ohne Art'}
+          title={category?.name ?? noCategory}
           projects={projects}
         />
       ))}
@@ -269,13 +280,14 @@ function ProjectGroups({ favorites }: { readonly favorites: readonly Favorite[] 
 }
 
 function FavoriteLauncher(): React.JSX.Element {
+  const t = useT().terminal
   const favorites = useFavorites((s) => s.favorites)
   const openDialog = useTerminals((s) => s.openDialog)
   const orchestratorEnabled = useSettings((s) => s.settings?.orchestrator.enabled !== false)
   const go = useNav((s) => s.go)
   const newButton = (
     <Button icon={Plus} onClick={openDialog}>
-      Neues Terminal …
+      {t.newTerminalMore}
     </Button>
   )
   const orchestrator = orchestratorEnabled ? <OrchestratorCard /> : null
@@ -286,17 +298,17 @@ function FavoriteLauncher(): React.JSX.Element {
         <div className="grid flex-1 place-items-center">
           <EmptyState
             icon={TerminalSquare}
-            title="Noch keine Projekte"
+            title={t.emptyTitle}
             action={
               <div className="flex gap-2">
                 <Button icon={FolderGit2} onClick={() => go('projects')}>
-                  Projekt anlegen
+                  {t.emptyAction}
                 </Button>
                 {newButton}
               </div>
             }
           >
-            Lege unter Projekte einen Ordner als Projekt an oder öffne ein Terminal in einem beliebigen Ordner, lokal oder auf einem Gerät.
+            {t.emptyBody}
           </EmptyState>
         </div>
       </div>
@@ -306,8 +318,8 @@ function FavoriteLauncher(): React.JSX.Element {
     <div className="flex flex-col gap-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-48 flex-1">
-          <h2 className="text-[0.9375rem] font-[620] text-ink">Kein Terminal offen</h2>
-          <p className="mt-1 text-[0.8125rem] text-ink-3">Starte Claude Code in einem Projekt. Terminals laufen weiter, wenn du den Bereich wechselst.</p>
+          <h2 className="text-[0.9375rem] font-[620] text-ink">{t.noneOpen}</h2>
+          <p className="mt-1 text-[0.8125rem] text-ink-3">{t.noneOpenBody}</p>
         </div>
         {newButton}
       </div>
@@ -368,6 +380,7 @@ function useNewTerminalShortcut(visible: boolean): void {
 }
 
 export function TerminalView({ visible }: { readonly visible: boolean }): React.JSX.Element {
+  const { terminal: t, frame } = useT()
   const terminals = useTerminals((s) => s.terminals)
   const order = useTerminals((s) => s.order)
   const slots = useTerminals((s) => s.slots)
@@ -390,7 +403,7 @@ export function TerminalView({ visible }: { readonly visible: boolean }): React.
       <div className="flex h-14 shrink-0 items-end gap-3 px-6">
         <div
           role="tablist"
-          aria-label="Offene Terminals"
+          aria-label={t.tabsAria}
           className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto"
           onDragOver={(e) => {
             if (!drag.dragId) return
@@ -406,7 +419,7 @@ export function TerminalView({ visible }: { readonly visible: boolean }): React.
         >
           {hasTerminals ? null : (
             <div className="flex h-9 items-center gap-2 pl-2 text-[0.8125rem] font-[600] text-ink">
-              <SquareTerminal className="size-4 text-ink-3" aria-hidden /> Terminal
+              <SquareTerminal className="size-4 text-ink-3" aria-hidden /> {frame.views.terminal}
             </div>
           )}
           <AnimatePresence initial={false}>
@@ -415,7 +428,7 @@ export function TerminalView({ visible }: { readonly visible: boolean }): React.
             ))}
           </AnimatePresence>
           {drag.mark && drag.mark.before === null ? <span aria-hidden className="mb-2.5 h-5 w-0.5 shrink-0 rounded-full bg-accent" /> : null}
-          {opening ? <div className="skeleton mb-1.5 ml-1 h-6 w-28 rounded-md" aria-label="Terminal wird geöffnet" /> : null}
+          {opening ? <div className="skeleton mb-1.5 ml-1 h-6 w-28 rounded-md" aria-label={t.opening} /> : null}
           <div className="min-w-4 flex-1 self-stretch" aria-hidden />
         </div>
         <div className="mb-1.5 flex shrink-0 items-center gap-2">
@@ -425,8 +438,9 @@ export function TerminalView({ visible }: { readonly visible: boolean }): React.
             </p>
           ) : null}
           {active ? <MicButton target={{ kind: 'terminal', id: active.id }} disabled={!active.running} menuBelow /> : null}
-          <IconButton icon={Plus} label="Neues Terminal (Strg+T)" onClick={openDialog} />
+          <IconButton icon={Plus} label={frame.withShortcut(t.newTerminalTitle, 'T')} onClick={openDialog} />
           {hasTerminals ? <LayoutSwitch /> : null}
+          <KnowledgeRefreshButton size="sm" />
         </div>
       </div>
       <div

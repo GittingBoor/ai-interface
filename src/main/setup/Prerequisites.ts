@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { posix, win32 } from 'node:path'
 import type { PrerequisiteStatus } from '@shared/types'
 import { resolveClaudeExecutable } from '../claude/claudePath'
@@ -41,7 +42,7 @@ export class PrerequisiteChecker {
       id: 'claude',
       label: 'Claude Code',
       ok: found !== null,
-      detail: found ?? 'Ohne Claude Code laufen keine Terminals, kein Verbrauch und kein Assistent.',
+      detail: found ?? mainT().main.prerequisites.claudeMissing,
       required: true,
       fixCommand: found ? null : platform === 'win32' ? INSTALL_WINDOWS : INSTALL_POSIX,
       helpUrl: found ? null : CLAUDE_HELP
@@ -54,9 +55,9 @@ export class PrerequisiteChecker {
     const ok = viaKey || this.deps.isFile(credentials)
     return {
       id: 'login',
-      label: 'Bei Claude angemeldet',
+      label: mainT().main.prerequisites.loginLabel,
       ok,
-      detail: viaKey ? `API-Schlüssel (${API_KEY_ENV})` : ok ? credentials : 'Einmal claude starten und im Browser anmelden (Pro-, Max-, Team- oder API-Konto).',
+      detail: viaKey ? mainT().main.prerequisites.loginViaKey(API_KEY_ENV) : ok ? credentials : mainT().main.prerequisites.loginHint,
       required: true,
       fixCommand: ok ? null : 'claude',
       helpUrl: ok ? null : CLAUDE_HELP
@@ -69,7 +70,7 @@ export class PrerequisiteChecker {
       id: 'gitBash',
       label: 'Git Bash',
       ok: found !== null,
-      detail: found ?? 'Ohne Git Bash keine Desktop-Meldungen und kein Status (arbeitet, fertig, Frage) in den Terminals.',
+      detail: found ?? mainT().main.prerequisites.gitBashMissing,
       required: false,
       fixCommand: found ? null : INSTALL_GIT,
       helpUrl: found ? null : GIT_HELP

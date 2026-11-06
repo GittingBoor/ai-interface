@@ -1,3 +1,6 @@
+import { languageDirective } from '@shared/i18n/directive'
+import type { Locale } from '@shared/i18n/locales'
+import { mainLocale, mainT } from '../i18n'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ReviewedTask, TaskReviewResult, TerminalInfo, TerminalOpenRequest } from '@shared/types'
@@ -5,7 +8,6 @@ import type { LaunchExtras } from '../terminal/TerminalService'
 import type { McpEndpoint } from '../orchestrator/OrchestratorWorkspace'
 
 export const TASK_REVIEW_SERVER = 'aufgaben'
-const TITLE = 'Aufgaben-Prüfung'
 const MCP_CONFIG = 'mcp.json'
 const DEFAULT_COLS = 120
 const DEFAULT_ROWS = 32
@@ -21,7 +23,13 @@ Vorgehen:
 3. Hake mit mark_done nur ab, was eindeutig belegt ist (Commit, Code, Datei), mit kurzem Beleg als reason. Im Zweifel offen lassen.
 4. Rufe zum Schluss immer finish mit einer kurzen Zusammenfassung auf.
 
-Nur lesen: nichts ändern, nichts committen, keine Dateien schreiben. Antworte auf Deutsch und knapp.`
+Nur lesen: nichts ändern, nichts committen, keine Dateien schreiben. Antworte knapp.`
+
+/** Prompt der Aufgaben-Prüfung samt Sprachvorgabe. */
+export function taskReviewPrompt(locale: Locale): string {
+  return `${TASK_REVIEW_PROMPT}
+${languageDirective(locale)}`
+}
 
 export interface TaskReviewServiceDeps {
   readonly dir: string
@@ -86,8 +94,8 @@ export class TaskReviewService {
     try {
       const mcpConfig = await this.writeConfig(endpoint)
       const allowed = this.deps.toolNames.map((name) => `mcp__${TASK_REVIEW_SERVER}__${name}`).join(',')
-      const request: TerminalOpenRequest = { host: 'local', path: this.deps.dir, mode: 'new', title: TITLE, cols: DEFAULT_COLS, rows: DEFAULT_ROWS }
-      const info = await this.deps.openTerminal(request, { initialPrompt: TASK_REVIEW_PROMPT, extraArgs: ['--mcp-config', mcpConfig, '--allowedTools', allowed] })
+      const request: TerminalOpenRequest = { host: 'local', path: this.deps.dir, mode: 'new', title: mainT().main.taskReviewTitle, cols: DEFAULT_COLS, rows: DEFAULT_ROWS }
+      const info = await this.deps.openTerminal(request, { initialPrompt: taskReviewPrompt(mainLocale()), extraArgs: ['--mcp-config', mcpConfig, '--allowedTools', allowed] })
       this.terminalId = info.id
       this.checked = []
       this.reported = false

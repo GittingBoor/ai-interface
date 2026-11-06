@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { ApiEvents } from '@shared/api'
-import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, PrerequisiteStatus, ProjectTasks, Settings, SettingsPatch } from '@shared/types'
+import type { KnowledgeDraft, ProjectKnowledge } from '@shared/knowledge'
+import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, Favorite, PrerequisiteStatus, ProjectTasks, ProtocolEntry, Settings, SettingsPatch, TerminalInfo } from '@shared/types'
 import { DbChangeWatcher } from './db/DbChangeWatcher'
 import { openDatabase } from './db/Database'
 import { CategoriesRepo } from './favorites/CategoriesRepo'
@@ -16,14 +17,22 @@ import { isFile } from './claude/claudePath'
 import { ScanOffsets } from './images/ScanOffsets'
 import { ImageStore } from './images/ImageStore'
 import { SessionImageScanner } from './images/SessionImageScanner'
+import { SourceRepo } from './sources/SourceRepo'
+import { SessionSourceScanner } from './sources/SessionSourceScanner'
 import { CustomModelRepo } from './models/CustomModelRepo'
 import { OllamaSource } from './models/OllamaSource'
+import { setMainLanguage } from './i18n'
 import { defaultSettings, SettingsService } from './settings/SettingsService'
 import { HookBridge } from './notify/HookBridge'
 import { TerminalStatusTracker } from './terminal/TerminalStatusTracker'
 import { NotificationService, type ShownNotification } from './notify/NotificationService'
 import { MiniPcService } from './minipc/MiniPcService'
 import { SkillsService } from './skills/SkillsService'
+import { AgentService } from './agents/AgentService'
+import { AgentRunner } from './automations/AgentRunner'
+import { AutomationRepo } from './automations/AutomationRepo'
+import { AutomationService } from './automations/AutomationService'
+import { runClaudePrint } from './claude/claudePrint'
 import type { AssistantService } from './assistant/AssistantService'
 import { createAssistant } from './assistant/createAssistant'
 import { QuotaService } from './quota/QuotaService'
@@ -41,10 +50,18 @@ import { VaultReader } from './vault/VaultReader'
 import { OpenTasksService } from './tasks/OpenTasksService'
 import { TaskChecksRepo } from './tasks/TaskChecksRepo'
 import { TaskReviewService } from './tasks/TaskReviewService'
+import { KnowledgeInspector } from './knowledge/KnowledgeInspector'
+import { KnowledgeService, type KnowledgeRunServer } from './knowledge/KnowledgeService'
+import { KnowledgeStore } from './knowledge/KnowledgeStore'
+import { KnowledgeWorkspace } from './knowledge/KnowledgeWorkspace'
+import { ClaudeTrust } from './claude/claudeTrust'
+import { assertOwnProtocol } from './knowledge/protocolGuard'
+import { createKnowledgeTools } from './knowledge/knowledgeTools'
+import type { InspectedProject } from './knowledge/KnowledgeInspector'
 import { createTaskReviewTools } from './tasks/taskReviewTools'
 import { PrivacyService, type PinStore } from './privacy/PrivacyService'
 import { PrivateProjectsRepo } from './privacy/PrivateProjectsRepo'
-import { filterFavorites, filterGit, filterMiniPc, filterRuns, filterSkills, filterTerminals, imagesAddedPayload, isTerminalHidden } from './privacy/filters'
+import { filterFavorites, filterGit, filterMiniPc, filterRuns, filterSkills, filterTerminals, imagesAddedPayload, isTerminalHidden, withoutBackground, withoutRunsIn } from './privacy/filters'
 import { WHISPER_ASSETS } from './speech/whisperAssets'
 import { WhisperInstaller } from './speech/WhisperInstaller'
 import { WhisperServer } from './speech/WhisperServer'
@@ -75,8 +92,11 @@ const WHISPER_READY_TIMEOUT_MS = 120_000
 const RELAY_TICK_MS = 1_000
 const ORCHESTRATOR_DIR = 'orchestrator'
 const TASK_REVIEW_DIR = 'aufgaben-pruefung'
+const KNOWLEDGE_DIR_NAME = 'projektwissen'
+const CLAUDE_CONFIG_FILE = '.claude.json'
 const TASK_TERMINAL_COLS = 120
 const TASK_TERMINAL_ROWS = 32
+const AGENT_ASSIST_TIMEOUT_MS = 180_000
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -115,6 +135,7 @@ export class Container {
   readonly categories: CategoriesRepo
   readonly customModels: CustomModelRepo
   readonly images: ImageStore
+  readonly sources: SourceRepo
   readonly ollama = new OllamaSource(fetchJson)
   readonly todos: TodoMarkdownStore
   readonly vault: VaultReader
@@ -127,6 +148,8 @@ export class Container {
   readonly quota: QuotaService
   readonly minipc: MiniPcService
   readonly skills: SkillsService
+  readonly agents: AgentService
+  readonly automations: AutomationService
   readonly assistant: AssistantService
   readonly speech: SpeechService
   readonly privacy: PrivacyService
@@ -134,13 +157,16 @@ export class Container {
   readonly orchestrator: OrchestratorService
   readonly orchestratorRelay: OrchestratorRelay
   readonly taskReview: TaskReviewService
+  readonly knowledge: KnowledgeService
   private readonly hookBridge: HookBridge
   private readonly imageScanner: SessionImageScanner
+  private readonly sourceScanner: SessionSourceScanner
   readonly runs: InterruptedRunsRepo
   private readonly runScanner: RunScanner
   private runsSignature = ''
   private readonly scanning = new Set<HostId>()
   private readonly timers: NodeJS.Timeout[] = []
+  private readonly knowledgeDir: string
   private readonly dbWatcher: DbChangeWatcher
   private todoSignature = ''
   private todoTimer: NodeJS.Timeout | null = null
@@ -151,10 +177,12 @@ export class Container {
     private readonly logError: (message: string, error: unknown) => void,
     desktop: Desktop
   ) {
+    this.knowledgeDir = join(dataDir, KNOWLEDGE_DIR_NAME)
     const db = openDatabase(join(dataDir, 'ai-interface.db'))
     this.dbWatcher = new DbChangeWatcher(db, () => this.emit('data:changed', { at: Date.now() }))
-    this.settings = new SettingsService(db, defaultSettings(homedir(), process.platform))
+    this.settings = new SettingsService(db, defaultSettings(homedir(), process.platform), (s) => setMainLanguage(s.language))
     this.settings.migrate()
+    setMainLanguage(this.settings.get().language)
     this.hosts = new HostRegistry(
       () => this.settings.get().devices,
       (id, fingerprint) => this.updateDevice(id, { hostFingerprint: fingerprint })
@@ -191,13 +219,15 @@ export class Container {
       () => this.favorites.list(),
       () => this.settings.get().images
     )
+    this.sources = new SourceRepo(db)
+    this.sourceScanner = new SessionSourceScanner(new ScanOffsets(db, 'source_offsets'), this.sources, () => this.favorites.list())
     const vaultHost = (): ReturnType<HostRegistry['get']> => this.hosts.get(this.settings.get().vault.host)
     this.todos = new TodoMarkdownStore(vaultHost, () => this.settings.get(), localDate)
     this.vault = new VaultReader(vaultHost, () => this.settings.get(), () => this.favorites.list())
     this.tasks = new OpenTasksService(this.vault, new TaskChecksRepo(db), logError)
     this.notifications = new NotificationService({
       settings: () => this.settings.get().notifications,
-      terminal: (id) => this.terminals.list().find((t) => t.id === id && !hidden(t.host, t.path)),
+      terminal: (id) => this.terminals.list().find((t) => t.id === id && t.background === undefined && !hidden(t.host, t.path)),
       show: (n) => desktop.showNotification(n),
       focusTerminal: (id) => {
         // Alte Windows-Meldung eines inzwischen verborgenen Terminals: nichts öffnen.
@@ -230,13 +260,16 @@ export class Container {
         onExit: (id, code) => {
           this.terminalStatus.exit(id)
           this.emit('terminal:exit', { id, code })
+          // Ein Projektwissen-Lauf, dessen Claude von selbst endet, gibt seinen Platz sofort frei.
+          if (this.terminals.list().find((t) => t.id === id)?.background === 'knowledge') this.closeAppTerminal(id)
         },
         onOpen: (id) => this.terminalStatus.add(id),
         onClose: (id) => {
           this.terminalStatus.remove(id)
           this.orchestratorRelay.unwatch(id)
           void this.orchestrator.handleClosed(id).catch((error: unknown) => logError('Orchestrator-Server stoppen', error))
-          void this.taskReview.handleClosed(id).catch((error: unknown) => logError('Server der Aufgaben-Prüfung stoppen', error))
+          void this.taskReview.handleClosed(id).catch((error: unknown) => logError('Server der Aufgaben-Prüfung stoppen', error)) // i18n-ignore: Logtext
+          void this.knowledge.handleClosed(id).catch((error: unknown) => logError('Projektwissen-Lauf beenden', error)) // i18n-ignore: Logtext
         }
       },
       this.hookBridge
@@ -260,6 +293,7 @@ export class Container {
     this.terminalStatus.subscribe((change) => this.orchestratorRelay.onStatus(change))
     this.orchestrator = this.createOrchestrator(dataDir, hidden)
     this.taskReview = this.createTaskReview(dataDir, hidden)
+    this.knowledge = this.createKnowledge(hidden)
     this.runs = new InterruptedRunsRepo(db)
     this.minipc = new MiniPcService((id) => this.hosts.get(id))
     this.skills = new SkillsService(db, (id) => this.hosts.get(id), () => this.favorites.list(), () => this.settings.get().claudeCommand, (p) => this.emit('skills:progress', p))
@@ -285,6 +319,24 @@ export class Container {
         this.emit('quota:updated', state)
         quotaFree.update(state)
       }
+    })
+    this.agents = new AgentService({
+      hosts: (id) => this.hosts.get(id),
+      projects: () => this.favorites.list(),
+      assist: (model, prompt) => runClaudePrint(this.settings.get().claudeCommand, ['--model', model, '--output-format', 'text'], prompt, { timeoutMs: AGENT_ASSIST_TIMEOUT_MS })
+    })
+    const runner = new AgentRunner({
+      host: (id) => this.hosts.get(id),
+      local: (args, input, options) => runClaudePrint(this.settings.get().claudeCommand, args, input, options)
+    })
+    this.automations = new AutomationService({
+      repo: new AutomationRepo(db),
+      run: (input) => runner.run(input),
+      quota: () => this.quota.state(),
+      now: Date.now,
+      notify: (title, body) => desktop.showNotification({ title, body, onClick: () => desktop.focusWindow() }),
+      changed: () => this.emit('automations:changed', { at: Date.now() }),
+      logError
     })
     this.assistant = createAssistant({
       hosts: (id) => this.hosts.get(id),
@@ -348,7 +400,7 @@ export class Container {
       projects: () => filterFavorites(this.favorites.list(), hidden),
       categories: () => this.categories.list(),
       hostLabel: (host) => this.hosts.label(host),
-      terminals: () => filterTerminals(this.terminals.list(), hidden),
+      terminals: () => withoutBackground(filterTerminals(this.terminals.list(), hidden)),
       status: (id) => this.terminalStatus.status(id),
       lastAnswer: (id) => this.terminalStatus.lastAnswer(id),
       pendingPrompt: (id) => this.terminalStatus.pendingPrompt(id),
@@ -402,15 +454,82 @@ export class Container {
       toolNames: tools.map((t) => t.name),
       server,
       openTerminal: (request, extras) => this.terminals.open(request, extras),
-      closeTerminal: (id) => {
-        this.terminals.close(id)
-        this.emit('terminal:closed', { id })
-      },
+      closeTerminal: (id) => this.closeAppTerminal(id),
       terminal: (id) => this.terminals.list().find((t) => t.id === id),
       onFinished: (result) => this.emit('tasks:reviewed', result),
       check: (groupId, key) => this.tasks.check(groupId, key),
       schedule: (run, ms) => void setTimeout(run, ms)
     })
+  }
+
+  /** Schließt ein Terminal, das die App selbst geöffnet hat, und meldet es dem Renderer. */
+  private closeAppTerminal(id: string): void {
+    this.terminals.close(id)
+    this.emit('terminal:closed', { id })
+  }
+
+  /** Claude erstellt je Projekt das Projektwissen über eigene Werkzeuge; Verborgenes bleibt außen vor. */
+  private createKnowledge(hidden: (host: HostId, path: string | null) => boolean): KnowledgeService {
+    const store = new KnowledgeStore()
+    const inspector = new KnowledgeInspector({ host: (id) => this.hosts.get(id), store, protocols: () => this.vault.list() })
+    return new KnowledgeService({
+      // Nur Projekte, bei denen Projektwissen eingeschaltet ist; jeder Lauf kostet Kontingent.
+      favorites: () => filterFavorites(this.favorites.list(), hidden).filter((f) => this.settings.get().knowledge.projects.includes(f.id)),
+      inspector,
+      quota: () => this.quota.state(),
+      onProgress: (progress) => this.emit('knowledge:progress', progress),
+      workspace: new KnowledgeWorkspace(this.knowledgeDir),
+      ensureTrusted: async (dir) => {
+        // Scheitert das, läuft der Lauf trotzdem; im schlimmsten Fall endet er am Zeitlimit.
+        await new ClaudeTrust(join(homedir(), CLAUDE_CONFIG_FILE)).ensure(dir).catch((error: unknown) => this.logError('Projektwissen-Ordner als vertraut eintragen', error)) // i18n-ignore: Logtext
+      },
+      createServer: (project, hooks) => this.createKnowledgeServer(project, hooks),
+      openTerminal: (request, extras) => this.terminals.open(request, extras),
+      closeTerminal: (id) => this.closeAppTerminal(id),
+      write: (project, draft) => this.writeKnowledge(store, project, draft),
+      schedule: (run, ms) => {
+        const timer = setTimeout(run, ms)
+        return () => clearTimeout(timer)
+      },
+      logError: this.logError
+    })
+  }
+
+  private createKnowledgeServer(project: InspectedProject, hooks: { save(draft: KnowledgeDraft): Promise<void>; finish(summary: string): void }): KnowledgeRunServer {
+    const protocols = async (): Promise<ProtocolEntry[]> =>
+      (await this.vault.list()).filter((group) => group.favoriteId === project.favorite.id).flatMap((group) => [...group.entries])
+    const tools = createKnowledgeTools({
+      project,
+      hostLabel: this.hosts.label(project.favorite.host),
+      host: () => this.hosts.get(project.favorite.host),
+      protocols,
+      readProtocol: async (path) => {
+        assertOwnProtocol(await protocols(), path)
+        return (await this.vault.read(path)).content
+      },
+      save: hooks.save,
+      finish: hooks.finish
+    })
+    const server = new OrchestratorMcpServer(() => tools, this.logError)
+    return { tools, start: () => server.start(), stop: () => server.stop() }
+  }
+
+  private async writeKnowledge(store: KnowledgeStore, project: InspectedProject, draft: KnowledgeDraft): Promise<void> {
+    const knowledge: ProjectKnowledge = { version: 1, generatedAt: Date.now(), basedOn: project.current, ...draft }
+    const { favorite } = project
+    await store.write(this.hosts.get(favorite.host), favorite.path, knowledge)
+    this.emit('knowledge:updated', { favoriteId: favorite.id })
+  }
+
+  /** Hintergrund-Terminals der laufenden Projektwissen-Läufe (ohne verborgene Projekte). */
+  knowledgeRuns(): TerminalInfo[] {
+    const ids = new Set(this.knowledge.progress().runs.map((run) => run.terminalId))
+    return filterTerminals(this.terminals.list(), (host, path) => this.privacy.isHidden(host, path)).filter((t) => ids.has(t.id))
+  }
+
+  /** Projekt für „Datei öffnen“: nur sichtbare Favoriten. */
+  visibleFavorite(favoriteId: number): Favorite | undefined {
+    return filterFavorites(this.favorites.list(), (host, path) => this.privacy.isHidden(host, path)).find((f) => f.id === favoriteId)
   }
 
   start(): void {
@@ -421,6 +540,7 @@ export class Container {
     this.dbWatcher.start(DB_WATCH_INTERVAL_MS)
     this.hookBridge.start()
     this.quota.start()
+    this.automations.start()
     void this.cleanupPastedImages()
     this.timers.push(setInterval(() => void this.cleanupPastedImages(), PASTE_CLEANUP_INTERVAL_MS))
     this.timers.push(setInterval(() => void this.orchestratorRelay.tick().catch((error: unknown) => this.logError('Orchestrator-Statuszeile', error)), RELAY_TICK_MS))
@@ -431,9 +551,11 @@ export class Container {
     this.dbWatcher.stop()
     this.hookBridge.stop()
     this.quota.stop()
+    this.automations.stop()
     if (this.todoTimer) clearTimeout(this.todoTimer)
     void this.orchestrator.stop()
     void this.taskReview.stop()
+    void this.knowledge.stop()
     this.terminals.closeAll()
     this.speech.stop()
     this.hosts.resetConnection()
@@ -495,6 +617,7 @@ export class Container {
     free.forEach((id) => this.scanning.add(id))
     try {
       await this.scanSessionImages(free)
+      await this.scanSessionSources(free)
       await this.scanRuns(free)
     } finally {
       free.forEach((id) => this.scanning.delete(id))
@@ -507,7 +630,7 @@ export class Container {
       try {
         await this.runScanner.scan(this.hosts.get(id))
       } catch (error) {
-        if (id === 'local') this.logError('Offene Durchläufe lesen fehlgeschlagen', error)
+        if (id === 'local') this.logError('Offene Durchläufe lesen fehlgeschlagen', error) // i18n-ignore: Logtext
       }
     }
     const open = this.openRuns()
@@ -519,7 +642,7 @@ export class Container {
 
   /** Offene Durchläufe ohne gerade private Projekte. */
   openRuns(): InterruptedRun[] {
-    return filterRuns(this.runs.open(), (host, path) => this.privacy.isHidden(host, path))
+    return withoutRunsIn(filterRuns(this.runs.open(), (host, path) => this.privacy.isHidden(host, path)), this.knowledgeDir)
   }
 
   /** Liegt das Terminal gerade in einem privaten Ordner? */
@@ -539,11 +662,24 @@ export class Container {
       try {
         added.push(...(await this.imageScanner.scan(this.hosts.get(id))))
       } catch (error) {
-        if (id === 'local') this.logError('KI-Bilder übernehmen fehlgeschlagen', error)
+        if (id === 'local') this.logError('KI-Bilder übernehmen fehlgeschlagen', error) // i18n-ignore: Logtext
       }
     }
     const payload = imagesAddedPayload(added, (host, path) => this.privacy.isHidden(host, path))
     if (payload) this.emit('images:added', payload)
+  }
+
+  /** Seiten, die Claude gelesen hat, in die Quellen übernehmen; ein Offline-Gerät ist kein Fehler. */
+  private async scanSessionSources(ids: readonly HostId[]): Promise<void> {
+    let added = 0
+    for (const id of ids.filter((h) => this.isEnabled(h))) {
+      try {
+        added += (await this.sourceScanner.scan(this.hosts.get(id))).length
+      } catch (error) {
+        if (id === 'local') this.logError('KI-Quellen übernehmen fehlgeschlagen', error) // i18n-ignore: Logtext
+      }
+    }
+    if (added) this.emit('sources:changed', { at: Date.now() })
   }
 
   /** Alte eingefügte Bilder löschen; ein Offline-Gerät ist kein Fehler. */
@@ -552,7 +688,7 @@ export class Container {
       try {
         await this.pasteImages.cleanup(this.hosts.get(id), PASTE_MAX_AGE_MS)
       } catch (error) {
-        if (id === 'local') this.logError('Eingefügte Bilder aufräumen fehlgeschlagen', error)
+        if (id === 'local') this.logError('Eingefügte Bilder aufräumen fehlgeschlagen', error) // i18n-ignore: Logtext
       }
     }
   }

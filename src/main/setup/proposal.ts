@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { z } from 'zod'
 import type { SetupProposal } from '@shared/types'
 
@@ -49,12 +50,12 @@ export function parseProposal(text: string): ProposalResult {
   try {
     raw = JSON.parse(text.replace(/^﻿/, ''))
   } catch (error) {
-    return { proposal: null, error: `Kein gültiges JSON: ${error instanceof Error ? error.message : String(error)}` }
+    return { proposal: null, error: mainT().errors.setup.invalidJson(error instanceof Error ? error.message : String(error)) }
   }
   const parsed = proposalSchema.safeParse(raw)
   if (!parsed.success) {
     const first = parsed.error.issues[0]
-    return { proposal: null, error: `Ungültiger Inhalt bei „${first?.path.join('.') || 'Wurzel'}“: ${first?.message ?? 'unbekannt'}` }
+    return { proposal: null, error: mainT().errors.setup.invalidContent(first?.path.join('.') || mainT().errors.setup.rootPath, first?.message ?? mainT().errors.setup.unknown) }
   }
   return { proposal: parsed.data as SetupProposal, error: null }
 }

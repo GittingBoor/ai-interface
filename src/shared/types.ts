@@ -1,3 +1,4 @@
+import type { LanguageSetting } from './i18n/locales'
 import type { SpeechSettings } from './speech'
 
 /** Gemeinsame Domänentypen für Main-Prozess und Renderer. */
@@ -301,6 +302,45 @@ export interface WebLinkSettings {
   readonly deviceId: HostId | null
 }
 
+/** Wer die Quelle angelegt hat: du selbst oder die KI (aus einer Claude-Session). */
+export type SourceOrigin = 'user' | 'ai'
+
+/** Eine gemerkte Webseite unter „Quellen“, je Projekt; mit Stern auch in der Seitenleiste unter „Webseiten“. */
+export interface Source {
+  readonly id: number
+  readonly url: string
+  readonly title: string
+  /** Kurze Info, wofür die Quelle gut ist (bei KI-Quellen: was Claude beim Abruf wissen wollte). */
+  readonly note: string
+  /** Host des Projekts; `null` mit `project = null` = „Allgemein“. */
+  readonly host: HostId | null
+  /** Projektpfad (Favorit); `null` = „Allgemein“. */
+  readonly project: string | null
+  readonly origin: SourceOrigin
+  readonly starred: boolean
+  readonly sessionId: string | null
+  readonly createdAt: number
+}
+
+export interface SourceInput {
+  readonly url: string
+  readonly title: string
+  readonly note: string
+  readonly host: HostId | null
+  readonly project: string | null
+}
+
+export type SourcePatch = Partial<Pick<Source, 'title' | 'note' | 'host' | 'project' | 'origin' | 'starred'>>
+
+/** Wo sich Quellen öffnen: eingebettet in der App oder im Standardbrowser. */
+export type SourceOpenMode = 'app' | 'browser'
+
+export interface SourceSettings {
+  readonly openIn: SourceOpenMode
+  /** Der einmalige Hinweis zum Umschalten wurde geschlossen. */
+  readonly hintSeen: boolean
+}
+
 /** Eine Gruppe der Seitenleiste mit Einträgen (`ViewId`, `device:<id>` oder `link:<id>`). */
 export interface NavGroup {
   readonly id: string
@@ -327,6 +367,8 @@ export interface SectionLayout {
 }
 
 export interface Settings {
+  /** Sprache der Oberfläche; `system` folgt dem Betriebssystem. */
+  readonly language: LanguageSetting
   /** Erste Einrichtung abgeschlossen. */
   readonly setupDone: boolean
   readonly devices: readonly DeviceSettings[]
@@ -353,9 +395,17 @@ export interface Settings {
   /** Orchestrator-Terminal im Dialog „Neues Terminal“. */
   readonly orchestrator: OrchestratorSettings
   readonly images: ImageSettings
+  readonly sources: SourceSettings
   /** Wurzel der Projektordner (optionale Checkliste `CLAUDE.md` darin), Arbeitsordner des Assistenten. */
   readonly projectsRoot: string
   readonly speech: SpeechSettings
+  readonly knowledge: KnowledgeSettings
+}
+
+/** Projektwissen kostet Kontingent: Nur ausgewählte Projekte bekommen es (anfangs keins). */
+export interface KnowledgeSettings {
+  /** Favoriten-IDs mit Projektwissen. */
+  readonly projects: readonly number[]
 }
 
 export type UpdateMode = 'manual' | 'auto'
@@ -521,6 +571,15 @@ export interface TerminalOpenRequest {
   readonly sessionId?: string
 }
 
+/** Bildformate, die Claude Code als eingefügten Pfad annimmt. */
+export const PASTE_IMAGE_EXTENSIONS: readonly string[] = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+
+/** Ins Terminal gezogenes Bild; `extension` stammt aus `PASTE_IMAGE_EXTENSIONS`. */
+export interface DroppedImage {
+  readonly data: Uint8Array
+  readonly extension: string
+}
+
 export interface TerminalInfo {
   readonly id: string
   readonly host: HostId
@@ -531,6 +590,8 @@ export interface TerminalInfo {
   readonly startedAt: number
   /** Das Orchestrator-Terminal der App. */
   readonly orchestrator?: boolean
+  /** Hintergrundlauf der App (Projektwissen): in keiner Terminal-Liste, ohne Meldungen. */
+  readonly background?: 'knowledge'
 }
 
 /** Zustand eines Terminals aus den Claude-Hooks: arbeitet, bereit, fertig (ungesehen), Frage, Erlaubnis, beendet. */
@@ -746,6 +807,18 @@ export interface MiniPcSnapshot {
   readonly fetchedAt: number
 }
 
+/**
+ * Claude-Anmeldung auf einem Gerät. `expiresAt` ist das feste Ende der Vollanmeldung (Refresh-Token),
+ * das sich beim Token-Refresh nicht verlängert. Ob sie schon abgelaufen ist, ergibt sich aus `expiresAt`.
+ */
+export type ClaudeAuth =
+  | { readonly state: 'signedIn'; readonly expiresAt: number; readonly checkedAt: number }
+  | { readonly state: 'signedOut'; readonly checkedAt: number }
+  /** Weder Claude Code noch eine Anmeldedatei auf dem Gerät. */
+  | { readonly state: 'notInstalled'; readonly checkedAt: number }
+  /** Nicht prüfbar, z. B. Gerät nicht erreichbar. */
+  | { readonly state: 'unknown'; readonly reason: string; readonly checkedAt: number }
+
 export type SkillKind = 'skill' | 'agent' | 'command'
 export type SkillAi = 'claude' | 'codex'
 /** Herkunft: eigene (~/.claude), per claude.ai synchronisiert, Plugin, Projektordner, deaktiviert. */
@@ -767,6 +840,8 @@ export interface SkillEntry {
   readonly tools: readonly string[]
   readonly model: string | null
   readonly skills: readonly string[]
+  /** Anzeigefarbe aus dem Frontmatter (`color`), nur bei Agents. */
+  readonly color: string | null
   /** SHA-256 des Dateiinhalts (Schlüssel für KI-Zusammenfassungen). */
   readonly hash: string
   readonly bodyExcerpt: string

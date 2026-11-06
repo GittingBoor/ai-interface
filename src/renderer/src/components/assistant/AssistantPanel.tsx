@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion } from 'motion/react'
 import { SquarePen, X } from 'lucide-react'
+import { useT } from '@renderer/i18n/useT'
 import { useAssistant } from '@renderer/stores/assistantStore'
 import { ASSISTANT_DEFAULT_WIDTH, hasPendingConfirm } from '@renderer/lib/assistantMessages'
 import { IconButton } from '../Button'
@@ -11,17 +12,17 @@ export const ASSISTANT_PANEL_ID = 'assistant-panel'
 const RESIZE_KEY_STEP_PX = 16
 const PANEL_TRANSITION = { duration: 0.28, ease: [0.16, 1, 0.3, 1] } as const
 const NO_TRANSITION = { duration: 0 } as const
-const SUGGESTIONS = ['Neues Projekt anlegen', 'Wie steht mein Kontingent?', 'Was läuft gerade auf meinen Geräten?'] as const
 
 function Suggestions({ onPick }: { onPick(text: string): void }): React.JSX.Element {
+  const t = useT()
   return (
     <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-4 pb-4">
-      <p className="text-sm font-[600] text-ink">Was steht an?</p>
+      <p className="text-sm font-[600] text-ink">{t.assistant.heading}</p>
       <p className="mt-1 max-w-[34ch] text-[0.8125rem] leading-relaxed text-ink-3">
-        Der Assistent kennt deine Projekte, TODOs und das Kontingent. Bevor er etwas anlegt oder schreibt, fragt er nach.
+        {t.assistant.intro}
       </p>
       <ul className="mt-4 flex flex-wrap gap-1.5">
-        {SUGGESTIONS.map((s, i) => (
+        {t.assistant.suggestions.map((s, i) => (
           <motion.li key={s} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ ...PANEL_TRANSITION, delay: 0.04 * i }}>
             <button
               type="button"
@@ -39,6 +40,7 @@ function Suggestions({ onPick }: { onPick(text: string): void }): React.JSX.Elem
 
 /** Griff am linken Rand: Ziehen, Pfeiltasten oder Doppelklick (Standardbreite). */
 function ResizeHandle({ onDragChange }: { onDragChange(dragging: boolean): void }): React.JSX.Element {
+  const t = useT()
   const width = useAssistant((s) => s.width)
   const setWidth = useAssistant((s) => s.setWidth)
   const start = useRef<{ readonly x: number; readonly width: number } | null>(null)
@@ -70,7 +72,7 @@ function ResizeHandle({ onDragChange }: { onDragChange(dragging: boolean): void 
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Breite des Assistenten"
+      aria-label={t.assistant.resizeAria}
       aria-valuenow={width}
       tabIndex={0}
       onPointerDown={onPointerDown}
@@ -79,7 +81,7 @@ function ResizeHandle({ onDragChange }: { onDragChange(dragging: boolean): void 
       onPointerCancel={onPointerUp}
       onDoubleClick={() => setWidth(ASSISTANT_DEFAULT_WIDTH, true)}
       onKeyDown={onKeyDown}
-      title="Ziehen zum Ändern der Breite"
+      title={t.assistant.resizeTitle}
       className="group absolute inset-y-0 left-0 z-10 w-2 cursor-col-resize touch-none focus-visible:outline-none"
     >
       <span className="absolute inset-y-0 left-0 w-px bg-transparent transition-colors duration-150 group-hover:bg-accent/60 group-focus-visible:bg-accent group-active:bg-accent" />
@@ -89,6 +91,7 @@ function ResizeHandle({ onDragChange }: { onDragChange(dragging: boolean): void 
 
 /** Assistent rechts neben dem Inhalt; schiebt den Inhalt beim Öffnen schmaler statt ihn zu überdecken. */
 export function AssistantPanel(): React.JSX.Element {
+  const t = useT()
   const open = useAssistant((s) => s.open)
   const width = useAssistant((s) => s.width)
   const messages = useAssistant((s) => s.messages)
@@ -112,7 +115,7 @@ export function AssistantPanel(): React.JSX.Element {
     <motion.aside
       ref={panel}
       id={ASSISTANT_PANEL_ID}
-      aria-label="Assistent"
+      aria-label={t.assistant.title}
       aria-hidden={!open}
       inert={!open}
       initial={false}
@@ -124,11 +127,11 @@ export function AssistantPanel(): React.JSX.Element {
       <div className="absolute inset-y-0 left-0 flex flex-col overflow-hidden" style={{ width }}>
         <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line/70 pr-2 pl-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-[0.875rem] leading-tight font-[640] tracking-[-0.01em] text-ink [font-stretch:110%]">Assistent</h2>
-            <p className="text-2xs text-ink-3">Opus 5.5 · Abo</p>
+            <h2 className="text-[0.875rem] leading-tight font-[640] tracking-[-0.01em] text-ink [font-stretch:110%]">{t.assistant.title}</h2>
+            <p className="text-2xs text-ink-3">{t.assistant.plan}</p>
           </div>
-          <IconButton icon={SquarePen} label="Neuer Chat" onClick={() => void newChat()} disabled={messages.length === 0 && !running} />
-          <IconButton icon={X} label="Schließen (Strg+J)" onClick={() => setOpen(false)} />
+          <IconButton icon={SquarePen} label={t.assistant.newChat} onClick={() => void newChat()} disabled={messages.length === 0 && !running} />
+          <IconButton icon={X} label={t.frame.withShortcut(t.common.close, 'J')} onClick={() => setOpen(false)} />
         </header>
         {messages.length === 0 ? (
           <Suggestions onPick={(text) => void send(text)} />

@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Wrench, type LucideIcon } from 'lucide-react'
 import type { SkillEntry, SkillRelation } from '@shared/types'
 import { HostDot } from '@renderer/components/Host'
+import { useLocale, useT } from '@renderer/i18n/useT'
 import { useElementSize } from '@renderer/lib/hooks'
 import { hostLabel } from '@renderer/lib/hosts'
 import {
@@ -79,9 +80,11 @@ interface SkillGraphProps {
 
 /** Drei Spalten: Quellen → Skills/Agents/Befehle → Tools. Hover zeigt den Pfad, Klick das Detail. */
 export function SkillGraph({ entries, relations, selectedId, showHost, onSelect }: SkillGraphProps): React.JSX.Element {
+  const t = useT().skills
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [hover, setHover] = useState<string | null>(null)
-  const graph = useMemo(() => buildGraph(entries, relations), [entries, relations])
+  const locale = useLocale()
+  const graph = useMemo(() => buildGraph(entries, relations), [entries, relations, locale])
   const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph])
   const cols = columnsFor(width)
   const focus = hover ?? (selectedId && byId.has(selectedId) ? selectedId : null)
@@ -93,9 +96,9 @@ export function SkillGraph({ entries, relations, selectedId, showHost, onSelect 
     <div ref={ref} className="min-w-0 overflow-x-auto pb-6">
       {width > 0 ? (
         <div className="relative" style={{ width: cols.width, height: graph.height + HEAD_H }} onMouseLeave={() => setHover(null)}>
-          <ColumnHead x={cols.source} w={SOURCE_W} label="Quellen" />
-          <ColumnHead x={cols.entry} w={ENTRY_W} label="Skills, Agents, Befehle" count={entries.length} />
-          <ColumnHead x={cols.tool} w={TOOL_W} label="Tools" count={graph.nodes.filter((n) => n.column === 'tool').length} />
+          <ColumnHead x={cols.source} w={SOURCE_W} label={t.columnSources} />
+          <ColumnHead x={cols.entry} w={ENTRY_W} label={t.columnEntries} count={entries.length} />
+          <ColumnHead x={cols.tool} w={TOOL_W} label={t.columnTools} count={graph.nodes.filter((n) => n.column === 'tool').length} />
           <svg width={cols.width} height={graph.height} className="absolute left-0 overflow-visible" style={{ top: HEAD_H }} aria-hidden>
             {graph.edges.map((e) => {
               const on = edgeLit(e)
@@ -121,7 +124,7 @@ export function SkillGraph({ entries, relations, selectedId, showHost, onSelect 
               )
             })}
           </svg>
-          <ul aria-label="Grafik der Skills" className="absolute left-0" style={{ top: HEAD_H, width: cols.width, height: graph.height }}>
+          <ul aria-label={t.graphAria} className="absolute left-0" style={{ top: HEAD_H, width: cols.width, height: graph.height }}>
             {graph.nodes.map((n) => (
               <Node
                 key={n.id}
@@ -168,6 +171,7 @@ interface NodeProps {
 const NODE_WIDTH: Readonly<Record<GraphNode['column'], number>> = { source: SOURCE_W, entry: ENTRY_W, tool: TOOL_W }
 
 function Node({ node, x, state, selected, showHost, onHover, onSelect }: NodeProps): React.JSX.Element {
+  const t = useT().skills
   const style = { left: x, top: node.y - NODE_H / 2, width: NODE_WIDTH[node.column], height: NODE_H }
   const ring = selected
     ? 'border-accent/70 bg-accent-soft text-ink'
@@ -186,7 +190,7 @@ function Node({ node, x, state, selected, showHost, onHover, onSelect }: NodePro
         <button
           type="button"
           aria-pressed={selected}
-          title={`${entry.name} · ${hostLabel(entry.host)}`}
+          title={t.nodeTitle(entry.name, hostLabel(entry.host))}
           onClick={() => onSelect(entry.id)}
           {...hoverProps}
           className={`flex size-full items-center gap-1.5 rounded-md border px-2 text-left ${ring} ${fade}`}
@@ -223,13 +227,14 @@ const SOURCE_ICON: Readonly<Record<string, LucideIcon>> = {
 const sourceIcon = (id: string): LucideIcon => SOURCE_ICON[id] ?? SCOPE_ICON.user
 
 function Legend(): React.JSX.Element {
+  const t = useT().skills
   const items: readonly { readonly label: string; readonly dash?: string; readonly color: string }[] = [
-    { label: 'enthält', color: 'var(--color-line-strong)' },
-    { label: 'nutzt Tool / Skill', color: 'var(--color-ink-3)' },
-    { label: 'erwähnt', color: 'var(--color-ink-3)', dash: '3 3' }
+    { label: t.legendContains, color: 'var(--color-line-strong)' },
+    { label: t.legendUses, color: 'var(--color-ink-3)' },
+    { label: t.legendMentions, color: 'var(--color-ink-3)', dash: '3 3' }
   ]
   return (
-    <ul aria-label="Legende" className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-2xs text-ink-3">
+    <ul aria-label={t.legendAria} className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-2xs text-ink-3">
       {items.map((i) => (
         <li key={i.label} className="flex items-center gap-1.5">
           <svg width={22} height={6} aria-hidden>
@@ -238,7 +243,7 @@ function Legend(): React.JSX.Element {
           {i.label}
         </li>
       ))}
-      <li>Überfahren zeigt die Verbindungen, Klick öffnet das Detail.</li>
+      <li>{t.legendHint}</li>
     </ul>
   )
 }

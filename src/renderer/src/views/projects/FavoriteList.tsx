@@ -10,6 +10,7 @@ import { StarToggle } from './ProjectFields'
 import { useTerminals } from '@renderer/stores/terminalStore'
 import type { FavoriteStats } from '@renderer/lib/projects'
 import { formatRelative, formatTokens } from '@renderer/lib/format'
+import { useT } from '@renderer/i18n/useT'
 
 interface FavoriteRowProps {
   readonly fav: Favorite
@@ -29,6 +30,7 @@ interface FavoriteRowProps {
 
 function FavoriteRow(props: FavoriteRowProps): React.JSX.Element {
   const { fav, stats, openTodos, selected, dragging, now, category } = props
+  const t = useT().projects.list
   const update = useFavorites((s) => s.update)
   const launch = useTerminals((s) => s.launch)
   const opening = useTerminals((s) => s.opening)
@@ -69,7 +71,7 @@ function FavoriteRow(props: FavoriteRowProps): React.JSX.Element {
               }
             }}
             aria-pressed={selected}
-            aria-description="Alt+Pfeiltasten verschieben"
+            aria-description={t.moveHint}
             className="truncate text-left text-[0.875rem] font-[600] text-ink hover:underline hover:decoration-line-strong hover:underline-offset-4"
           >
             {fav.name}
@@ -86,15 +88,11 @@ function FavoriteRow(props: FavoriteRowProps): React.JSX.Element {
           <span className="truncate font-mono text-2xs">{fav.path}</span>
         </p>
         <p className="num mt-1 flex flex-wrap gap-x-3 text-xs text-ink-3">
-          <span>{stats.lastActive ? formatRelative(stats.lastActive, now) : 'keine Aktivität'}</span>
+          <span>{stats.lastActive ? formatRelative(stats.lastActive, now) : t.noActivity}</span>
           <span>
-            <span className="text-ink-2">{formatTokens(stats.tokens7d)}</span> Token · 7 T
+            <span className="text-ink-2">{formatTokens(stats.tokens7d)}</span> {t.tokens7dSuffix}
           </span>
-          {openTodos > 0 ? (
-            <span>
-              <span className="text-ink-2">{openTodos}</span> {openTodos === 1 ? 'offenes TODO' : 'offene TODOs'}
-            </span>
-          ) : null}
+          {openTodos > 0 ? <span>{t.openTodos(openTodos)}</span> : null}
         </p>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -104,12 +102,12 @@ function FavoriteRow(props: FavoriteRowProps): React.JSX.Element {
           onToggle={() => void update(fav.id, { starred: !fav.starred })}
           className={fav.starred ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}
         />
-        <IconButton size="sm" icon={SquareTerminal} label={`Shell in ${fav.name}`} disabled={opening} onClick={() => void launch(fav, 'shell')} />
-        <Button size="sm" variant="ghost" icon={RotateCcw} disabled={opening} onClick={() => void launch(fav, 'continue')} title="Letzte Claude-Sitzung fortsetzen">
-          Fortsetzen
+        <IconButton size="sm" icon={SquareTerminal} label={t.shellIn(fav.name)} disabled={opening} onClick={() => void launch(fav, 'shell')} />
+        <Button size="sm" variant="ghost" icon={RotateCcw} disabled={opening} onClick={() => void launch(fav, 'continue')} title={t.resumeTitle}>
+          {t.resume}
         </Button>
         <Button size="sm" variant="soft" icon={Play} disabled={opening} onClick={() => void launch(fav, 'new')}>
-          Claude starten
+          {t.startClaude}
         </Button>
       </div>
       </div>
@@ -132,6 +130,7 @@ interface FavoriteListProps {
 }
 
 export function FavoriteList({ favorites, statsById, todosById, selectedId, now, categoriesById, label, onSelect, onReorder }: FavoriteListProps): React.JSX.Element {
+  const t = useT().projects.list
   const [order, setOrder] = useState<number[]>(() => favorites.map((f) => f.id))
   const [dragId, setDragId] = useState<number | null>(null)
 
@@ -153,7 +152,7 @@ export function FavoriteList({ favorites, statsById, todosById, selectedId, now,
   const empty: FavoriteStats = { tokens7d: 0, cost7d: 0, lastActive: null, sessions: 0 }
 
   return (
-    <ul className="space-y-0.5" aria-label={`${label}, per Ziehen oder Alt+Pfeiltasten sortierbar`}>
+    <ul className="space-y-0.5" aria-label={t.aria(label)}>
       {order.map((id, index) => {
         const fav = byId.get(id)
         if (!fav) return null

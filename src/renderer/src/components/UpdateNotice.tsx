@@ -3,33 +3,35 @@ import { ArrowDownToLine, TriangleAlert } from 'lucide-react'
 import type { UpdateState } from '@shared/types'
 import { showsUpdateNotice, UPDATES_SETTINGS_ANCHOR, useUpdate } from '@renderer/stores/updateStore'
 import { useNav } from '@renderer/stores/navStore'
+import { useT } from '@renderer/i18n/useT'
 import { BrandSpinner } from './BrandSpinner'
 import { Button } from './Button'
 
 const ENTER = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 6 }, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } } as const
 
 function Available({ onInstall }: { onInstall(): void }): React.JSX.Element {
+  const t = useT()
   return (
     <>
       <div className="mx-3 mb-2 rounded-md border border-line bg-base p-2.5 max-lg:hidden">
         <p className="flex items-center gap-2 text-xs font-[560] text-ink">
           <ArrowDownToLine className="size-3.5 shrink-0 text-accent" aria-hidden strokeWidth={2} />
-          Update verfügbar
+          {t.frame.update.available}
         </p>
-        <p className="mt-0.5 pl-5.5 text-2xs text-ink-3">Dauert einige Minuten.</p>
+        <p className="mt-0.5 pl-5.5 text-2xs text-ink-3">{t.frame.update.takesMinutes}</p>
         <Button size="sm" variant="soft" className="mt-2 w-full" onClick={onInstall}>
-          Aktualisieren
+          {t.frame.update.install}
         </Button>
       </div>
       <button
         type="button"
         onClick={onInstall}
-        title="Update verfügbar – Aktualisieren"
+        title={t.frame.update.railTitle}
         className="relative mx-2 mb-2 flex h-8 items-center justify-center rounded-md border border-line bg-base text-accent transition-colors hover:border-line-strong lg:hidden"
       >
         <ArrowDownToLine className="size-3.5" aria-hidden strokeWidth={2} />
         <span className="absolute top-1 right-1 size-1.5 animate-pulse-dot rounded-full bg-accent text-accent" aria-hidden />
-        <span className="sr-only">Update verfügbar. Aktualisieren.</span>
+        <span className="sr-only">{t.frame.update.railHint}</span>
       </button>
     </>
   )
@@ -48,30 +50,32 @@ function Working({ title, hint }: { readonly title: string; readonly hint: strin
 }
 
 function Failed({ onOpen }: { onOpen(): void }): React.JSX.Element {
+  const t = useT()
   return (
     <button
       type="button"
       onClick={onOpen}
-      title="Update fehlgeschlagen. Details in den Einstellungen."
+      title={t.frame.update.failedTitle}
       className="mx-2 mb-2 flex h-7 shrink-0 items-center justify-center gap-2 rounded-md text-left text-2xs text-danger-ink transition-colors hover:bg-base lg:mx-3 lg:justify-start lg:px-2.5"
     >
       <TriangleAlert className="size-3.5 shrink-0" aria-hidden strokeWidth={1.75} />
-      <span className="flex-1 max-lg:sr-only">Update fehlgeschlagen</span>
-      <span className="sr-only">: Details in den Einstellungen.</span>
+      <span className="flex-1 max-lg:sr-only">{t.frame.update.failed}</span>
+      <span className="sr-only">: {t.frame.update.failedHint}</span>
     </button>
   )
 }
 
 function NoticeBody({ state }: { readonly state: UpdateState }): React.JSX.Element | null {
+  const t = useT()
   const install = useUpdate((s) => s.install)
   const openSettings = useNav((s) => s.openSettings)
   switch (state.phase) {
     case 'available':
       return <Available onInstall={() => void install()} />
     case 'building':
-      return <Working title="Wird gebaut …" hint="Dauert einige Minuten" />
+      return <Working title={t.frame.update.building} hint={t.frame.update.buildingHint} />
     case 'installing':
-      return <Working title="Wird installiert" hint="App startet gleich neu" />
+      return <Working title={t.frame.update.installing} hint={t.frame.update.installingHint} />
     case 'failed':
       return <Failed onOpen={() => openSettings(UPDATES_SETTINGS_ANCHOR)} />
     default:

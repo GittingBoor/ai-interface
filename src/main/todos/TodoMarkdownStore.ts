@@ -1,10 +1,12 @@
+import { mainT } from '../i18n'
 import type { Settings, TodoChange, TodoState } from '@shared/types'
 import { type Host, joinPath } from '../hosts/Host'
 import { AppError } from '../errors'
 
 export class VaultMissingError extends AppError {
   constructor() {
-    super('VAULT_MISSING', 'Es ist kein Obsidian-Vault eingerichtet.', 'In den Einstellungen unter „Notizen“ einen Vault-Ordner wählen.')
+    const t = mainT().errors.vaultMissing
+    super('VAULT_MISSING', t.message, t.hint)
   }
 }
 import { applyTodoChange, parseTodos } from './TodoMarkdown'
@@ -13,7 +15,8 @@ const WRITE_ATTEMPTS = 3
 
 export class TodoConflictError extends AppError {
   constructor() {
-    super('TODO_CONFLICT', 'Die TODO-Datei wird gerade woanders bearbeitet.', 'Kurz warten und erneut versuchen.')
+    const t = mainT().errors.todoConflict
+    super('TODO_CONFLICT', t.message, t.hint)
   }
 }
 

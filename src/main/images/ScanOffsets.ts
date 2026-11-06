@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3'
 import type { HostId } from '@shared/types'
 
 /** Tabellen mit Lesepositionen je Session-Datei (eine je Scanner). */
-export type OffsetTable = 'image_offsets' | 'run_offsets'
+export type OffsetTable = 'image_offsets' | 'run_offsets' | 'source_offsets'
 
 /** Leseposition je Session-Datei, unabhängig vom Verbrauchssammler. */
 export class ScanOffsets {

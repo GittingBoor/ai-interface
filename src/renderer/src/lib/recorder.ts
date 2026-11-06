@@ -3,7 +3,6 @@ import { MicrophoneError, type RecorderLike } from './speechController'
 
 /** Nach 5 min automatisch stoppen. */
 const MAX_RECORDING_MS = 5 * 60_000
-const MIC_HINT = 'Windows: Einstellungen > Datenschutz und Sicherheit > Mikrofon prüfen.'
 
 /** Nimmt per MediaRecorder auf und dekodiert auf 16 kHz Mono (Chromium resampelt beim Dekodieren). */
 export class BrowserRecorder implements RecorderLike {
@@ -26,7 +25,7 @@ export class BrowserRecorder implements RecorderLike {
       this.recorder = new MediaRecorder(this.stream)
     } catch (error) {
       this.release()
-      throw new MicrophoneError('Aufnahme konnte nicht starten', error instanceof Error ? error.message : MIC_HINT)
+      throw new MicrophoneError('startFailed', error instanceof Error ? error.message : '')
     }
     this.recorder.ondataavailable = (e) => this.chunks.push(e.data)
     this.recorder.start()
@@ -64,7 +63,7 @@ export class BrowserRecorder implements RecorderLike {
 
 function toMicrophoneError(error: unknown): MicrophoneError {
   const name = error instanceof DOMException ? error.name : ''
-  if (name === 'NotAllowedError') return new MicrophoneError('Mikrofonzugriff verweigert', MIC_HINT)
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return new MicrophoneError('Kein Mikrofon gefunden', `Im Tab Steuerung ein anderes Mikrofon wählen. ${MIC_HINT}`)
-  return new MicrophoneError('Mikrofon konnte nicht geöffnet werden', error instanceof Error ? error.message : MIC_HINT)
+  if (name === 'NotAllowedError') return new MicrophoneError('denied')
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return new MicrophoneError('notFound')
+  return new MicrophoneError('openFailed', error instanceof Error ? error.message : '')
 }

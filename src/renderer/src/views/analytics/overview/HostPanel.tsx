@@ -3,20 +3,23 @@ import type { HostStatus } from '@shared/types'
 import { HostDot } from '@renderer/components/Host'
 import { hostIds, hostLabel } from '@renderer/lib/hosts'
 import { formatInteger, formatRelative } from '@renderer/lib/format'
+import { useT } from '@renderer/i18n/useT'
 
-type HostState = 'online' | 'offline' | 'deaktiviert' | 'unbekannt'
+type HostState = 'online' | 'offline' | 'disabled' | 'unknown'
 
 const STATE_STYLE: Readonly<Record<HostState, string>> = {
   online: 'text-ink-2 bg-raised',
   offline: 'text-danger-ink bg-danger-soft',
-  deaktiviert: 'text-ink-3 bg-raised',
-  unbekannt: 'text-ink-3 bg-raised'
+  disabled: 'text-ink-3 bg-raised',
+  unknown: 'text-ink-3 bg-raised'
 }
 
 const stateOf = (status: HostStatus | undefined): HostState =>
-  !status ? 'unbekannt' : !status.enabled ? 'deaktiviert' : status.online ? 'online' : 'offline'
+  !status ? 'unknown' : !status.enabled ? 'disabled' : status.online ? 'online' : 'offline'
 
 export function HostPanel({ hosts, now }: { readonly hosts: readonly HostStatus[]; readonly now: number }): React.JSX.Element {
+  const messages = useT()
+  const t = messages.usage.overview.host
   return (
     <ul className="divide-y divide-line">
       {hostIds().map((id) => {
@@ -27,24 +30,24 @@ export function HostPanel({ hosts, now }: { readonly hosts: readonly HostStatus[
           <li key={id} className="py-3.5 first:pt-0">
             <div className="flex items-center gap-2.5">
               <HostDot host={id} className="size-2.5" />
-              <span className="flex-1 text-[0.8125rem] font-[600] text-ink">{status?.label ?? hostLabel(id)}</span>
+              <span className="flex-1 text-[0.8125rem] font-[600] text-ink">{hostLabel(id)}</span>
               <span className={`inline-flex h-5 items-center gap-1.5 rounded-full px-2 text-2xs font-[600] ${STATE_STYLE[state]}`}>
-                {state}
+                {messages.frame.quota.hostStates[state]}
               </span>
             </div>
             <dl className="mt-2.5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 pl-5 text-xs">
-              <dt className="text-ink-3">Letzte Abfrage</dt>
-              <dd className="num text-right text-ink-2">{collect ? formatRelative(collect.finishedAt, now) : 'noch nie'}</dd>
+              <dt className="text-ink-3">{t.lastCollect}</dt>
+              <dd className="num text-right text-ink-2">{collect ? formatRelative(collect.finishedAt, now) : t.never}</dd>
               {collect ? (
                 <>
-                  <dt className="text-ink-3">Dateien</dt>
+                  <dt className="text-ink-3">{t.files}</dt>
                   <dd className="num text-right text-ink-2">{formatInteger(collect.files)}</dd>
-                  <dt className="text-ink-3">Neue Einträge</dt>
+                  <dt className="text-ink-3">{t.newRecords}</dt>
                   <dd className="num text-right text-ink-2">{formatInteger(collect.newRecords)}</dd>
                   {collect.skippedLines > 0 ? (
                     <>
-                      <dt className="text-ink-3">Übersprungen</dt>
-                      <dd className="num text-right text-warn">{formatInteger(collect.skippedLines)} Zeilen</dd>
+                      <dt className="text-ink-3">{t.skipped}</dt>
+                      <dd className="num text-right text-warn">{t.lines(collect.skippedLines)}</dd>
                     </>
                   ) : null}
                 </>

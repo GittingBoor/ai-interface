@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { execFile, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
@@ -18,7 +19,7 @@ export function freePort(): Promise<number> {
     server.once('error', reject)
     server.listen(0, '127.0.0.1', () => {
       const address = server.address()
-      server.close(() => (address && typeof address === 'object' ? resolve(address.port) : reject(new Error('Kein freier Port gefunden'))))
+      server.close(() => (address && typeof address === 'object' ? resolve(address.port) : reject(new Error(mainT().errors.speech.noFreePort))))
     })
   })
 }

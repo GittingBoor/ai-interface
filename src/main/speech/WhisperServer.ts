@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { WhisperStartError } from '../errors'
 
 const HOST = '127.0.0.1'
@@ -87,11 +88,11 @@ export class WhisperServer {
     const cpu = await this.tryStart(modelPath, [CPU_FLAG], generation)
     if (cpu) return cpu
     this.throwIfStopped(generation)
-    throw new WhisperStartError('whisper-server antwortet weder mit GPU noch mit CPU')
+    throw new WhisperStartError(mainT().errors.speech.noServerAnswer)
   }
 
   private throwIfStopped(generation: number): void {
-    if (generation !== this.generation) throw new WhisperStartError('Start abgebrochen, weil die Spracherkennung beendet wurde')
+    if (generation !== this.generation) throw new WhisperStartError(mainT().errors.speech.startCancelled)
   }
 
   private async tryStart(modelPath: string, extra: readonly string[], generation: number): Promise<Running | null> {

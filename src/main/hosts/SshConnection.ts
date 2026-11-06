@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -14,11 +15,8 @@ const WINDOWS_AGENT_PIPE = '\\\\.\\pipe\\openssh-ssh-agent'
 
 export class HostKeyMismatchError extends AppError {
   constructor(label: string) {
-    super(
-      'HOST_KEY_MISMATCH',
-      `Der SSH-Schlüssel von „${label}“ hat sich geändert, Verbindung abgelehnt.`,
-      `Wenn „${label}“ neu installiert wurde: Einstellungen → Geräte → Fingerabdruck zurücksetzen.`
-    )
+    const t = mainT().errors.hostKeyMismatch
+    super('HOST_KEY_MISMATCH', t.message(label), t.hint(label))
   }
 }
 
@@ -35,7 +33,7 @@ export class SshConnection {
   constructor(
     private readonly settings: () => SshSettings,
     private readonly rememberFingerprint: (fingerprint: string) => void,
-    private readonly label: () => string = () => 'Gerät'
+    private readonly label: () => string = () => mainT().main.deviceFallback
   ) {}
 
   async exec(command: string): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -78,12 +76,16 @@ export class SshConnection {
 
   private connect(): Promise<Client> {
     const s = this.settings()
-    if (!s.enabled) return Promise.reject(new HostUnreachableError(this.label(), 'in den Einstellungen deaktiviert'))
+    if (!s.enabled) return Promise.reject(new HostUnreachableError(this.label(), mainT().errors.ssh.disabled))
     this.client ??= new Promise<Client>((resolve, reject) => {
       const client = new Client()
       let mismatch = false
       client
-        .on('ready', () => resolve(client))
+        .on('ready', () => {
+          // Ohne noDelay wartet jede kleine SFTP-Anfrage auf ein verzögertes ACK (Nagle): Katalog vom Mini-PC 30 s statt 0,3 s.
+          client.setNoDelay(true)
+          resolve(client)
+        })
         .on('error', (error) => {
           this.reset()
           reject(mismatch ? new HostKeyMismatchError(this.label()) : new HostUnreachableError(this.label(), error.message))
@@ -125,9 +127,9 @@ export class SshConnection {
     if (usableKey) return { privateKey: usableKey, ...(agent ? { agent } : {}) }
     if (agent) return { agent }
     if (key) {
-      throw new HostUnreachableError(this.label(), `SSH-Schlüssel ${s.privateKeyPath} hat eine Passphrase; bitte den SSH-Agent starten (ssh-add)`)
+      throw new HostUnreachableError(this.label(), mainT().errors.ssh.keyPassphrase(s.privateKeyPath))
     }
-    throw new HostUnreachableError(this.label(), `SSH-Schlüssel ${s.privateKeyPath} fehlt und kein SSH-Agent läuft`)
+    throw new HostUnreachableError(this.label(), mainT().errors.ssh.keyMissing(s.privateKeyPath))
   }
 
   private reset(): void {

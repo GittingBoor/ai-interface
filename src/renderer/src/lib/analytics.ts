@@ -1,6 +1,8 @@
 import type { AnalyticsMetric, AnalyticsQuery, AnalyticsRange, AnalyticsResolution, AnalyticsResult, AnalyticsSplit, Favorite, HostId } from '@shared/types'
 import { findFavorite } from './projects'
 import { baseName, formatInteger, formatTokens, formatUsd } from './format'
+import { activeLocale, localized } from '../i18n/activeLocale'
+import { messagesFor } from '@shared/i18n/messages'
 
 export type ChartMode = 'lines' | 'stacked' | 'percent'
 
@@ -13,24 +15,20 @@ export interface SeriesStyle {
 
 export const TOP_SERIES = 6
 export const REST_SERIES_KEY = 'rest'
-const REST_LABEL = 'Rest'
 const REST_COLOR = 'var(--color-ink-3)'
 const PROJECT_KEY_SEPARATOR = '|'
 
-export const METRIC_LABEL: Readonly<Record<AnalyticsMetric, string>> = {
-  tokens: 'Token',
-  cost: 'API-Gegenwert',
-  hours: 'Stunden',
-  prompts: 'Prompts',
-  sessions: 'Sessions'
+/** Beschriftung einer Kennzahl in der aktiven Sprache. */
+export function metricLabel(metric: AnalyticsMetric): string {
+  return messagesFor(activeLocale()).usage.metrics[metric]
 }
 
-const hours = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
+const hours = localized((tag) => new Intl.NumberFormat(tag, { maximumFractionDigits: 1 }))
 
 export function formatMetric(metric: AnalyticsMetric, value: number): string {
   if (metric === 'tokens') return formatTokens(value)
   if (metric === 'cost') return formatUsd(value)
-  if (metric === 'hours') return `${hours.format(value)} h`
+  if (metric === 'hours') return messagesFor(activeLocale()).usage.hoursValue(hours().format(value))
   return formatInteger(value)
 }
 
@@ -67,7 +65,7 @@ function identify(
   style: SeriesStyle
 ): Pick<Draft, 'key' | 'label' | 'color'> {
   if (split === 'host' && host !== null) return { key, label: style.hostLabel(host), color: style.hostColor(host) }
-  if (split !== 'project' || host === null) return { key, label: split === 'none' ? 'Gesamt' : key, color: null }
+  if (split !== 'project' || host === null) return { key, label: split === 'none' ? messagesFor(activeLocale()).usage.total : key, color: null }
   const path = key.slice(key.indexOf(PROJECT_KEY_SEPARATOR) + 1)
   const fav = findFavorite(favorites, host, path)
   return fav ? { key: `fav-${fav.id}`, label: fav.name, color: fav.color } : { key, label: baseName(path), color: null }
@@ -116,7 +114,7 @@ export function topWithRestSeries(series: readonly ChartSeries[], limit: number)
     ...series.slice(0, limit),
     {
       key: REST_SERIES_KEY,
-      label: REST_LABEL,
+      label: messagesFor(activeLocale()).usage.rest,
       color: REST_COLOR,
       values: Array.from({ length }, (_, i) => rest.reduce((sum, s) => sum + (s.values[i] ?? 0), 0)),
       total: rest.reduce((sum, s) => sum + s.total, 0),

@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type Database from 'better-sqlite3'
 import type { CustomModel, CustomModelInput } from '@shared/types'
 import { NotFoundError, ValidationError } from '../errors'
@@ -24,7 +25,7 @@ export class CustomModelRepo {
   }
 
   upsert(input: CustomModelInput): CustomModel {
-    if (!input.name.trim()) throw new ValidationError('Das Modell braucht einen Namen.')
+    if (!input.name.trim()) throw new ValidationError(mainT().errors.models.nameRequired)
     const values = [input.name.trim(), input.host, input.path, input.kind, input.note, input.status, Date.now()]
     if (input.id === undefined) {
       const info = this.db
@@ -44,7 +45,7 @@ export class CustomModelRepo {
 
   private get(id: number): CustomModel {
     const row = this.db.prepare('SELECT * FROM custom_models WHERE id = ?').get(id) as Row | undefined
-    if (!row) throw new NotFoundError(`Modell ${id}`)
+    if (!row) throw new NotFoundError(mainT().errors.what.model(id))
     return toModel(row)
   }
 }

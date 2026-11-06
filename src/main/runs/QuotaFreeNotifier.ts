@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { QuotaState } from '@shared/types'
 
 export interface QuotaFreeDeps {
@@ -21,7 +22,7 @@ export class QuotaFreeNotifier {
     if (!rolledOver || !this.deps.enabled()) return
     const open = this.deps.openRuns()
     if (open === 0) return
-    const body = open === 1 ? '1 Durchlauf wartet auf Fortsetzung.' : `${open} Durchläufe warten auf Fortsetzung.`
-    this.deps.show('Kontingent wieder frei', body)
+    const t = mainT().notify
+    this.deps.show(t.quotaFreeTitle, t.quotaFreeBody(open))
   }
 }

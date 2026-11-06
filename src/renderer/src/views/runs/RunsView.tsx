@@ -13,11 +13,16 @@ import { useFavorites } from '@renderer/stores/favoritesStore'
 import { findFavorite } from '@renderer/lib/projects'
 import { useNow } from '@renderer/lib/hooks'
 import { fiveHourAvailability } from '@renderer/lib/quota'
-import { baseName, formatCountdown, formatInteger, formatRelative, formatTime } from '@renderer/lib/format'
+import { baseName, formatCountdown, formatRelative, formatTime } from '@renderer/lib/format'
+import { activeTag, localized } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
 
 const TICK_MS = 1_000
 const PROMPT_MAX_CHARS = 180
 const ROW_EXIT_S = 0.18
+const PERCENT_DIVISOR = 100
+
+const percentFormat = localized((tag) => new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 0 }))
 
 interface RunGroup {
   readonly key: string
@@ -48,6 +53,7 @@ function groupRuns(favorites: readonly Favorite[], runs: readonly InterruptedRun
 const shorten = (text: string): string => (text.length > PROMPT_MAX_CHARS ? `${text.slice(0, PROMPT_MAX_CHARS).trimEnd()} …` : text)
 
 function QuotaHint({ now }: { readonly now: number }): React.JSX.Element {
+  const t = useT().runs
   const state = useQuota((s) => s.state)
   const availability = fiveHourAvailability(state, now)
   if (availability.kind === 'free') {
@@ -55,8 +61,7 @@ function QuotaHint({ now }: { readonly now: number }): React.JSX.Element {
       <p className="flex items-center gap-2.5 text-[0.8125rem] text-ink-2">
         <CircleCheck className="size-4 shrink-0 text-accent" aria-hidden strokeWidth={1.75} />
         <span>
-          <span className="font-[600] text-ink">Kontingent frei</span> · 5-Stunden-Fenster bei <span className="num">{formatInteger(availability.percent)} %</span>. Du kannst
-          fortsetzen.
+          <span className="font-[600] text-ink">{t.quotaFree}</span> · <span className="num">{t.quotaFreeBody(percentFormat().format(availability.percent / PERCENT_DIVISOR))}</span>
         </span>
       </p>
     )
@@ -67,15 +72,7 @@ function QuotaHint({ now }: { readonly now: number }): React.JSX.Element {
       <p className="flex items-center gap-2.5 text-[0.8125rem] text-ink-2">
         <CircleAlert className="size-4 shrink-0 text-warn" aria-hidden strokeWidth={1.75} />
         <span>
-          <span className="font-[600] text-ink">Kontingent voll</span>
-          {until !== null ? (
-            <>
-              {' '}
-              bis <span className="num">{formatTime(until)}</span> (in <span className="num">{formatCountdown(until - now)}</span>). Fortsetzen bricht bis dahin sofort wieder ab.
-            </>
-          ) : (
-            '. Der Reset-Zeitpunkt ist unbekannt.'
-          )}
+          <span className="font-[600] text-ink">{t.quotaFull}</span> · {until !== null ? <span className="num">{t.quotaFullUntil(formatTime(until), formatCountdown(until - now))}</span> : t.quotaFullUnknown}
         </span>
       </p>
     )
@@ -84,7 +81,7 @@ function QuotaHint({ now }: { readonly now: number }): React.JSX.Element {
     <p className="flex items-center gap-2.5 text-[0.8125rem] text-ink-2">
       <CircleDashed className="size-4 shrink-0 text-ink-3" aria-hidden strokeWidth={1.75} />
       <span>
-        <span className="font-[600] text-ink">Kontingent unbekannt</span> · {state.status === 'loading' ? 'wird abgefragt …' : 'keine aktuelle Quelle, siehe unten links.'}
+        <span className="font-[600] text-ink">{t.quotaUnknown}</span> · {state.status === 'loading' ? t.quotaLoading : t.quotaNoSource}
       </span>
     </p>
   )
@@ -100,6 +97,7 @@ interface RunRowProps {
 }
 
 function RunRow({ run, name, now, resumed, busy, onResume }: RunRowProps): React.JSX.Element {
+  const t = useT().runs
   const dismiss = useRuns((s) => s.dismiss)
   return (
     <motion.li
@@ -112,8 +110,8 @@ function RunRow({ run, name, now, resumed, busy, onResume }: RunRowProps): React
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
             <HostBadge host={run.host} />
-            <span className="num" title={new Date(run.hitAt).toLocaleString('de-DE')}>
-              abgebrochen {formatRelative(run.hitAt, now)}
+            <span className="num" title={new Date(run.hitAt).toLocaleString(activeTag())}>
+              {t.abortedAgo(formatRelative(run.hitAt, now))}
             </span>
             <span className="min-w-0 truncate font-mono text-2xs" title={run.message}>
               {run.message}
@@ -121,19 +119,19 @@ function RunRow({ run, name, now, resumed, busy, onResume }: RunRowProps): React
           </p>
           {run.lastPrompt ? (
             <p className="mt-1.5 line-clamp-2 max-w-[72ch] text-[0.8125rem] leading-relaxed text-ink-2 italic" title={run.lastPrompt}>
-              „{shorten(run.lastPrompt)}“
+              {t.quoted(shorten(run.lastPrompt))}
             </p>
           ) : (
-            <p className="mt-1.5 text-[0.8125rem] text-ink-3">Letzte Eingabe nicht erfasst.</p>
+            <p className="mt-1.5 text-[0.8125rem] text-ink-3">{t.noPrompt}</p>
           )}
-          {resumed ? <p className="mt-1.5 text-xs text-accent-text">Im Terminal fortgesetzt · verschwindet, sobald Claude wieder antwortet.</p> : null}
+          {resumed ? <p className="mt-1.5 text-xs text-accent-text">{t.resumedNote}</p> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-          <Button size="sm" variant="ghost" icon={Check} onClick={() => void dismiss(run)} title="Aus der Liste nehmen, ohne fortzusetzen">
-            Erledigt
+          <Button size="sm" variant="ghost" icon={Check} onClick={() => void dismiss(run)} title={t.dismissTitle}>
+            {t.dismiss}
           </Button>
-          <Button size="sm" variant={resumed ? 'secondary' : 'soft'} icon={Play} loading={busy} onClick={onResume} title={`claude --resume in ${name}`}>
-            {resumed ? 'Erneut öffnen' : 'Fortsetzen'}
+          <Button size="sm" variant={resumed ? 'secondary' : 'soft'} icon={Play} loading={busy} onClick={onResume} title={t.resumeTitle(name)}>
+            {resumed ? t.reopen : t.resume}
           </Button>
         </div>
       </div>
@@ -142,6 +140,8 @@ function RunRow({ run, name, now, resumed, busy, onResume }: RunRowProps): React
 }
 
 export function RunsView(): React.JSX.Element {
+  const t = useT().runs
+  const views = useT().frame.views
   const runs = useRuns((s) => s.runs)
   const loaded = useRuns((s) => s.loaded)
   const error = useRuns((s) => s.error)
@@ -172,24 +172,24 @@ export function RunsView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
-        title="Offen"
+        title={views.runs}
         actions={
           runs.length ? (
             <Button variant={quotaFull ? 'secondary' : 'primary'} icon={PlayCircle} disabled={!pending.length || busy !== null} onClick={() => void resumeAll()}>
-              {pending.length > 1 ? `Alle fortsetzen (${pending.length})` : 'Alle fortsetzen'}
+              {pending.length > 1 ? t.resumeAllCount(pending.length) : t.resumeAll}
             </Button>
           ) : null
         }
       >
-        Durchläufe, die am vollen Kontingent abgebrochen sind
+        {t.description}
       </ViewHeader>
 
       <div className="@container/main flex-1 overflow-y-auto px-8 pb-10">
         {error && !runs.length ? <ErrorState message={error} onRetry={() => void load()} /> : null}
         {!loaded ? <SkeletonRows rows={3} /> : null}
         {loaded && !error && !runs.length ? (
-          <EmptyState icon={CircleCheck} title="Nichts offen – alle Durchläufe sind abgeschlossen">
-            Bricht Claude am vollen Kontingent ab, landet der Durchlauf hier. Sobald das Kontingent wieder frei ist, setzt du ihn mit einem Klick fort.
+          <EmptyState icon={CircleCheck} title={t.emptyTitle}>
+            {t.emptyBody}
           </EmptyState>
         ) : null}
         {runs.length ? (
@@ -212,7 +212,7 @@ export function RunsView(): React.JSX.Element {
                       <h2 className="truncate text-sm font-[620] text-ink">{g.name}</h2>
                       <p className="truncate font-mono text-2xs text-ink-3">{g.title}</p>
                     </div>
-                    <span className="num ml-auto text-xs text-ink-3">{g.runs.length === 1 ? '1 Durchlauf' : `${g.runs.length} Durchläufe`}</span>
+                    <span className="num ml-auto text-xs text-ink-3">{t.runCount(g.runs.length)}</span>
                   </header>
                   <ul>
                     <AnimatePresence initial={false}>

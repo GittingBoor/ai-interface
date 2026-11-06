@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { OllamaModel, OllamaStatus } from '@shared/types'
 import type { Host } from '../hosts/Host'
 
@@ -45,7 +46,7 @@ export class OllamaSource {
   private async get<T>(host: Host, path: string): Promise<T> {
     if (host.id === 'local') return (await this.fetchJson(`${OLLAMA_URL}${path}`)) as T
     const result = await host.exec(`curl -s -m ${REMOTE_TIMEOUT_S} ${OLLAMA_URL}${path}`)
-    if (result.code !== 0 || !result.stdout.trim()) throw new Error(`Ollama antwortet nicht (${result.code})`)
+    if (result.code !== 0 || !result.stdout.trim()) throw new Error(mainT().errors.models.ollamaNoAnswer(result.code))
     return JSON.parse(result.stdout) as T
   }
 }

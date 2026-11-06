@@ -5,8 +5,12 @@ import { api } from '@renderer/api/client'
 import { attempt } from '@renderer/api/call'
 import { Button, IconButton } from '@renderer/components/Button'
 import { HostBadge } from '@renderer/components/Host'
-import { AI_LABEL, KIND_LABEL, RELATION_LABEL, SCOPE_LABEL, relationsFor, type RelationDirection, type RelationItem } from '@renderer/lib/skills'
+import { useT } from '@renderer/i18n/useT'
+import type { Messages } from '@shared/i18n/messages'
+import { AI_LABEL, relationsFor, type RelationDirection, type RelationItem } from '@renderer/lib/skills'
 import { useSkills } from '@renderer/stores/skillsStore'
+import { useAgents } from '@renderer/stores/agentsStore'
+import { useNav } from '@renderer/stores/navStore'
 import { EntryTags, KindIcon } from './skillMarks'
 
 /** Reihenfolge der Beziehungsgruppen im Detail. */
@@ -19,10 +23,10 @@ const RELATION_ORDER: readonly (readonly [SkillRelationKind, RelationDirection])
   ['uses-tool', 'out']
 ]
 
-function originText(entry: SkillEntry): string {
-  if (entry.scope === 'plugin' && entry.plugin) return `Plugin ${entry.plugin}`
-  if (entry.scope === 'project' && entry.project) return `Projekt ${entry.project}`
-  return SCOPE_LABEL[entry.scope]
+function originText(entry: SkillEntry, t: Messages['skills']): string {
+  if (entry.scope === 'plugin' && entry.plugin) return t.pluginOrigin(entry.plugin)
+  if (entry.scope === 'project' && entry.project) return t.projectOrigin(entry.project)
+  return t.scope[entry.scope]
 }
 
 interface SkillDetailProps {
@@ -32,10 +36,17 @@ interface SkillDetailProps {
 }
 
 export function SkillDetail({ entry, relations, byId }: SkillDetailProps): React.JSX.Element {
+  const t = useT().skills
   const summary = useSkills((s) => s.summaries[entry.hash])
   const busy = useSkills((s) => s.progress !== null)
   const summarize = useSkills((s) => s.summarize)
-  const select = useSkills((s) => s.select)
+  const selectSkill = useSkills((s) => s.select)
+  /** Agents öffnen sich im eigenen Bereich. */
+  const select = (id: string): void => {
+    if (byId.get(id)?.kind !== 'agent') return selectSkill(id)
+    useAgents.getState().select(id)
+    useNav.getState().go('agents')
+  }
   const items = useMemo(() => relationsFor(entry, relations, byId), [entry, relations, byId])
   const toolCount = items.filter((i) => i.kind === 'uses-tool').length
 
@@ -52,7 +63,7 @@ export function SkillDetail({ entry, relations, byId }: SkillDetailProps): React
               <EntryTags entry={entry} />
             </div>
             <p className="text-xs text-ink-3">
-              {KIND_LABEL[entry.kind]} · {originText(entry)}
+              {t.kindSingular[entry.kind]} · {originText(entry, t)}
             </p>
           </div>
         </div>
@@ -61,59 +72,59 @@ export function SkillDetail({ entry, relations, byId }: SkillDetailProps): React
           <p className="min-w-0 flex-1 truncate font-mono text-2xs text-ink-3" title={entry.path}>
             {entry.path}
           </p>
-          {entry.host === 'local' ? <IconButton size="sm" icon={FolderOpen} label="Im Ordner zeigen" onClick={() => void attempt(api.app.showInFolder(entry.path))} /> : null}
+          {entry.host === 'local' ? <IconButton size="sm" icon={FolderOpen} label={t.showInFolder} onClick={() => void attempt(api.app.showInFolder(entry.path))} /> : null}
         </div>
       </div>
 
       <dl className="grid grid-cols-3 border-y border-line py-3.5 text-xs">
         <div>
-          <dt className="text-ink-3">KI</dt>
+          <dt className="text-ink-3">{t.factAi}</dt>
           <dd className="mt-1 text-[0.8125rem] font-[600] text-ink">{AI_LABEL[entry.ai]}</dd>
         </div>
         <div>
-          <dt className="text-ink-3">Modell</dt>
+          <dt className="text-ink-3">{t.factModel}</dt>
           <dd className="mt-1 truncate text-[0.8125rem] font-[600] text-ink" title={entry.model ?? undefined}>
-            {entry.model ?? <span className="font-[500] text-ink-3">Standard</span>}
+            {entry.model ?? <span className="font-[500] text-ink-3">{t.factModelDefault}</span>}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-3">Herkunft</dt>
-          <dd className="mt-1 truncate text-[0.8125rem] font-[600] text-ink" title={originText(entry)}>
-            {entry.plugin ?? entry.project ?? SCOPE_LABEL[entry.scope]}
+          <dt className="text-ink-3">{t.factOrigin}</dt>
+          <dd className="mt-1 truncate text-[0.8125rem] font-[600] text-ink" title={originText(entry, t)}>
+            {entry.plugin ?? entry.project ?? t.scope[entry.scope]}
           </dd>
         </div>
       </dl>
 
-      <section aria-label="KI-Zusammenfassung">
+      <section aria-label={t.summaryTitle}>
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-[600] text-ink-2">
           <Sparkles className="size-3.5 text-accent" aria-hidden strokeWidth={1.75} />
-          KI-Zusammenfassung
+          {t.summaryTitle}
         </h3>
         {summary ? (
           <p className="text-[0.8125rem] leading-relaxed text-ink">{summary}</p>
         ) : (
           <div className="flex flex-col items-start gap-2.5 rounded-lg border border-dashed border-line-strong px-3.5 py-3">
-            <p className="text-xs leading-relaxed text-ink-3">Noch keine deutsche Zusammenfassung. Claude Haiku liest die Datei und fasst in zwei Sätzen zusammen, wofür sie gut ist.</p>
+            <p className="text-xs leading-relaxed text-ink-3">{t.summaryNone}</p>
             <Button size="sm" variant="soft" icon={WandSparkles} disabled={busy} onClick={() => void summarize([entry.id])}>
-              Zusammenfassung erzeugen
+              {t.summaryCreate}
             </Button>
           </div>
         )}
       </section>
 
-      <section aria-label="Beschreibung">
-        <h3 className="mb-2 text-xs font-[600] text-ink-2">Beschreibung</h3>
+      <section aria-label={t.descriptionTitle}>
+        <h3 className="mb-2 text-xs font-[600] text-ink-2">{t.descriptionTitle}</h3>
         {entry.description ? (
           <p className="text-[0.8125rem] leading-relaxed text-ink-2">{entry.description}</p>
         ) : (
-          <p className="text-xs text-ink-3">Im Frontmatter steht keine Beschreibung.</p>
+          <p className="text-xs text-ink-3">{t.descriptionNone}</p>
         )}
       </section>
 
       {entry.kind === 'agent' || entry.tools.length > 0 ? (
-        <section aria-label="Tools">
+        <section aria-label={t.toolsTitle}>
           <h3 className="mb-2 flex items-baseline gap-1.5 text-xs font-[600] text-ink-2">
-            Tools
+            {t.toolsTitle}
             {entry.tools.length ? <span className="num font-[500] text-ink-3">{entry.tools.length}</span> : null}
           </h3>
           {entry.tools.length ? (
@@ -125,7 +136,7 @@ export function SkillDetail({ entry, relations, byId }: SkillDetailProps): React
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-ink-3">Keine Einschränkung: der Agent erbt alle Tools.</p>
+            <p className="text-xs text-ink-3">{t.toolsInherit}</p>
           )}
         </section>
       ) : null}
@@ -133,8 +144,8 @@ export function SkillDetail({ entry, relations, byId }: SkillDetailProps): React
       <Relations items={items.filter((i) => i.kind !== 'uses-tool')} toolCount={toolCount} onSelect={select} />
 
       {entry.bodyExcerpt ? (
-        <section aria-label="Anfang des Inhalts">
-          <h3 className="mb-2 text-xs font-[600] text-ink-2">Anfang des Inhalts</h3>
+        <section aria-label={t.bodyStart}>
+          <h3 className="mb-2 text-xs font-[600] text-ink-2">{t.bodyStart}</h3>
           <pre className="max-h-72 overflow-auto rounded-md border border-line bg-canvas px-3 py-2.5 font-mono text-2xs leading-relaxed whitespace-pre-wrap text-ink-3">
             {entry.bodyExcerpt}
           </pre>
@@ -151,17 +162,18 @@ interface RelationsProps {
 }
 
 function Relations({ items, toolCount, onSelect }: RelationsProps): React.JSX.Element {
+  const t = useT().skills
   const groups = RELATION_ORDER.map(([kind, direction]) => ({ kind, direction, items: items.filter((i) => i.kind === kind && i.direction === direction) })).filter((g) => g.items.length)
   return (
-    <section aria-label="Beziehungen">
-      <h3 className="mb-2 text-xs font-[600] text-ink-2">Beziehungen</h3>
+    <section aria-label={t.relationsTitle}>
+      <h3 className="mb-2 text-xs font-[600] text-ink-2">{t.relationsTitle}</h3>
       {groups.length === 0 ? (
-        <p className="text-xs text-ink-3">{toolCount ? 'Nur Tools, siehe oben.' : 'Keine Verbindungen zu Plugins, Agents oder anderen Skills.'}</p>
+        <p className="text-xs text-ink-3">{toolCount ? t.relationsOnlyTools : t.relationsNone}</p>
       ) : (
         <dl className="divide-y divide-line">
           {groups.map((g) => (
             <div key={`${g.kind}-${g.direction}`} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 py-2">
-              <dt className="pt-0.5 text-xs text-ink-3">{RELATION_LABEL[g.kind][g.direction]}</dt>
+              <dt className="pt-0.5 text-xs text-ink-3">{t.relation[g.kind][g.direction]}</dt>
               <dd className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
                 {g.items.map((item) =>
                   item.entry ? (

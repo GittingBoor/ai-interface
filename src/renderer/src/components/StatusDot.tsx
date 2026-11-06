@@ -3,6 +3,7 @@ import type { ComponentType } from 'react'
 import { Check, Lock } from 'lucide-react'
 import type { TerminalStatus } from '@shared/types'
 import { useTerminals } from '@renderer/stores/terminalStore'
+import { currentT } from '@renderer/i18n/useT'
 
 export type StatusDotSize = 'md' | 'sm'
 
@@ -29,13 +30,9 @@ interface SizeSpec {
   readonly plain: string
 }
 
-export const STATUS_LABEL: Readonly<Record<TerminalStatus, string>> = {
-  working: 'arbeitet',
-  review: 'fertig – noch nicht angesehen',
-  idle: 'bereit',
-  question: 'Frage offen',
-  permission: 'wartet auf Erlaubnis',
-  exited: 'beendet'
+/** Beschriftung eines Terminal-Zustands in der aktiven Sprache. */
+export function statusLabel(status: TerminalStatus): string {
+  return currentT().frame.terminalStatus[status]
 }
 
 const SIZES: Readonly<Record<StatusDotSize, SizeSpec>> = {
@@ -117,7 +114,7 @@ function Visual({ visual, spec }: { readonly visual: StatusVisual; readonly spec
 export function StatusDot({ status, size = 'md', className = '' }: StatusDotProps): React.JSX.Element {
   const reduced = useReducedMotion() ?? false
   const spec = SIZES[size]
-  const label = STATUS_LABEL[status]
+  const label = statusLabel(status)
   return (
     <span role="img" aria-label={label} title={label} className={`relative inline-block shrink-0 ${spec.box} ${className}`}>
       <AnimatePresence initial={false}>

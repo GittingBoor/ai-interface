@@ -3,6 +3,7 @@ import type { DailyUsage, UsageOverview, UsageTotals } from '@shared/types'
 import { AnimatedNumber } from '@renderer/components/AnimatedNumber'
 import { hostColor, hostLabel, useHostIds } from '@renderer/lib/hosts'
 import { formatInteger, formatTokens, formatUsd, splitTokens } from '@renderer/lib/format'
+import { useT } from '@renderer/i18n/useT'
 
 function TokenFigure({ value, size }: { readonly value: number; readonly size: 'lg' | 'md' }): React.JSX.Element {
   const unit = splitTokens(value).unit
@@ -19,16 +20,17 @@ function TokenFigure({ value, size }: { readonly value: number; readonly size: '
 }
 
 function CostLine({ totals }: { readonly totals: UsageTotals }): React.JSX.Element {
+  const t = useT().usage
   return (
     <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-ink-3">
       <span className="whitespace-nowrap">
-        <span className="num text-ink-2">{formatUsd(totals.costUsd)}</span> API-Gegenwert
+        <span className="num text-ink-2">{formatUsd(totals.costUsd)}</span> {t.metrics.cost}
       </span>
       {totals.hasUnpriced ? (
-        <span title="Enthält Token von Modellen ohne hinterlegten Preis. Preise in den Einstellungen ergänzen." className="inline-flex items-center gap-1 whitespace-nowrap text-warn">
+        <span title={t.unpriced.title} className="inline-flex items-center gap-1 whitespace-nowrap text-warn">
           <CircleDashed className="size-3" aria-hidden />
-          <span className="sr-only">Enthält unbepreiste Modelle</span>
-          <span aria-hidden>+ unbepreist</span>
+          <span className="sr-only">{t.unpriced.sr}</span>
+          <span aria-hidden>{t.unpriced.badge}</span>
         </span>
       ) : null}
     </p>
@@ -66,34 +68,35 @@ interface MetricStripProps {
 
 /** Kennzahlenleiste: 30 Tage führt, die übrigen Werte stehen daneben. */
 export function MetricStrip({ overview, openTodos }: MetricStripProps): React.JSX.Element {
+  const t = useT().usage.overview
   return (
     <div className="grid grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))_minmax(0,0.8fr)] border-y border-line max-[1180px]:grid-cols-[minmax(0,1.5fr)_repeat(2,minmax(0,1fr))] @max-[40rem]:grid-cols-2">
       <div className="py-5 pr-8 max-[1180px]:row-span-2 @max-[40rem]:col-span-2 @max-[40rem]:row-span-1 @max-[40rem]:pr-0">
-        <p className="mb-2.5 text-xs font-[560] text-ink-2">Token · 30 Tage</p>
+        <p className="mb-2.5 text-xs font-[560] text-ink-2">{t.tokens30}</p>
         <TokenFigure value={overview.month.totalTokens} size="lg" />
         <CostLine totals={overview.month} />
         <HostSplit daily={overview.daily} />
       </div>
       <div className="border-l border-line px-7 py-5 @max-[40rem]:border-t @max-[40rem]:border-l-0 @max-[40rem]:pl-0">
-        <p className="mb-2.5 text-xs font-[560] text-ink-2">Heute</p>
+        <p className="mb-2.5 text-xs font-[560] text-ink-2">{t.today}</p>
         <TokenFigure value={overview.today.totalTokens} size="md" />
         <CostLine totals={overview.today} />
       </div>
       <div className="border-l border-line px-7 py-5 @max-[40rem]:border-t">
-        <p className="mb-2.5 text-xs font-[560] text-ink-2">7 Tage</p>
+        <p className="mb-2.5 text-xs font-[560] text-ink-2">{t.days7}</p>
         <TokenFigure value={overview.week.totalTokens} size="md" />
         <CostLine totals={overview.week} />
       </div>
       <div className="flex flex-col justify-center gap-4 border-l border-line px-7 py-5 max-[1180px]:col-span-2 max-[1180px]:flex-row max-[1180px]:justify-start max-[1180px]:gap-10 max-[1180px]:border-t max-[1180px]:py-4 @max-[40rem]:border-l-0 @max-[40rem]:pl-0">
         <div>
-          <p className="text-xs font-[560] text-ink-2">Aktive Sessions</p>
+          <p className="text-xs font-[560] text-ink-2">{t.activeSessions}</p>
           <p className="mt-1 flex items-center gap-2">
             <AnimatedNumber value={overview.activeSessions} format={formatInteger} className="text-[1.25rem] leading-tight font-[620] text-ink" />
             {overview.activeSessions > 0 ? <span className="size-1.5 animate-pulse-dot rounded-full bg-accent text-accent" aria-hidden /> : null}
           </p>
         </div>
         <div>
-          <p className="text-xs font-[560] text-ink-2">Offene TODOs</p>
+          <p className="text-xs font-[560] text-ink-2">{t.openTodos}</p>
           <p className="mt-1 text-[1.25rem] leading-tight font-[620] text-ink">
             {openTodos === null ? <span className="text-ink-3">–</span> : <AnimatedNumber value={openTodos} format={formatInteger} />}
           </p>

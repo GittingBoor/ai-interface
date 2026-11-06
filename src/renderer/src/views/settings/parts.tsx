@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@renderer/components/Button'
+import { useT } from '@renderer/i18n/useT'
 
 interface GroupProps {
   readonly id: string
@@ -24,15 +25,16 @@ export function Group({ id, title, description, children }: GroupProps): React.J
 }
 
 export function SaveBar({ dirty, saving, onSave, onReset }: { readonly dirty: boolean; readonly saving: boolean; onSave(): void; onReset(): void }): React.JSX.Element {
+  const t = useT()
   return (
     <div className="mt-5 flex justify-end gap-2">
       {dirty ? (
         <Button size="sm" variant="ghost" onClick={onReset}>
-          Verwerfen
+          {t.settings.discard}
         </Button>
       ) : null}
       <Button size="sm" variant="primary" disabled={!dirty} loading={saving} onClick={onSave}>
-        Speichern
+        {t.common.save}
       </Button>
     </div>
   )

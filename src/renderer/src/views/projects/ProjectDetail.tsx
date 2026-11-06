@@ -6,17 +6,20 @@ import { errorMessage, unwrap, attempt } from '@renderer/api/call'
 import { Button, IconButton } from '@renderer/components/Button'
 import { HostBadge } from '@renderer/components/Host'
 import { ColorPicker } from '@renderer/components/ColorPicker'
-import { Field } from '@renderer/components/Controls'
+import { Field, Switch } from '@renderer/components/Controls'
 import { ProjectMark } from '@renderer/components/ProjectMark'
 import { SkeletonRows } from '@renderer/components/States'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { useCategories } from '@renderer/stores/categoriesStore'
+import { useSettings } from '@renderer/stores/settingsStore'
+import { useKnowledge } from '@renderer/stores/knowledgeStore'
 import { useTerminals } from '@renderer/stores/terminalStore'
 import { useNav } from '@renderer/stores/navStore'
 import { confirmAction } from '@renderer/stores/confirmStore'
 import { galleryImageUrl } from '@renderer/lib/imageUrl'
 import type { FavoriteStats } from '@renderer/lib/projects'
 import { formatDuration, formatRelative, formatTokens, formatUsd } from '@renderer/lib/format'
+import { currentT, useT } from '@renderer/i18n/useT'
 import { CategorySelect, IconField, StarToggle } from './ProjectFields'
 
 const SESSION_LIMIT = 12
@@ -46,6 +49,8 @@ function useProjectData(fav: Favorite): { sessions: SessionSummary[] | null; ima
 }
 
 function NameEditor({ fav }: { readonly fav: Favorite }): React.JSX.Element {
+  const { projects, common } = useT()
+  const t = projects.detail
   const update = useFavorites((s) => s.update)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(fav.name)
@@ -60,7 +65,7 @@ function NameEditor({ fav }: { readonly fav: Favorite }): React.JSX.Element {
     return (
       <div className="flex min-w-0 items-center gap-1.5">
         <h2 className="truncate text-[1.0625rem] font-[640] tracking-[-0.01em] text-ink">{fav.name}</h2>
-        <IconButton size="sm" icon={Pencil} label="Umbenennen" onClick={() => setEditing(true)} />
+        <IconButton size="sm" icon={Pencil} label={t.rename} onClick={() => setEditing(true)} />
       </div>
     )
   }
@@ -74,7 +79,7 @@ function NameEditor({ fav }: { readonly fav: Favorite }): React.JSX.Element {
     >
       <input
         autoFocus
-        aria-label="Name des Projekts"
+        aria-label={t.nameAria}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
@@ -85,8 +90,8 @@ function NameEditor({ fav }: { readonly fav: Favorite }): React.JSX.Element {
         }}
         className="field h-8 text-[0.9375rem] font-[600]"
       />
-      <IconButton size="sm" type="submit" icon={Check} label="Speichern" />
-      <IconButton size="sm" icon={X} label="Abbrechen" onClick={() => setEditing(false)} />
+      <IconButton size="sm" type="submit" icon={Check} label={common.save} />
+      <IconButton size="sm" icon={X} label={common.cancel} onClick={() => setEditing(false)} />
     </form>
   )
 }
@@ -99,7 +104,16 @@ interface ProjectDetailProps {
   onRemoved(): void
 }
 
+/** Projektwissen je Projekt: kostet Kontingent, deshalb bewusst einzeln einzuschalten. */
+function KnowledgeSwitch({ favoriteId }: { readonly favoriteId: number }): React.JSX.Element {
+  const t = useT().knowledge
+  const enabled = useSettings((s) => s.settings?.knowledge.projects.includes(favoriteId) ?? false)
+  const setEnabled = useKnowledge((s) => s.setEnabled)
+  return <Switch checked={enabled} label={t.enabledLabel} description={t.enabledHint} onChange={(on) => void setEnabled(favoriteId, on)} />
+}
+
 export function ProjectDetail({ fav, stats, openTodos, now, onRemoved }: ProjectDetailProps): React.JSX.Element {
+  const t = useT().projects.detail
   const update = useFavorites((s) => s.update)
   const remove = useFavorites((s) => s.remove)
   const categories = useCategories((s) => s.categories)
@@ -110,10 +124,11 @@ export function ProjectDetail({ fav, stats, openTodos, now, onRemoved }: Project
   const { sessions, images, error } = useProjectData(fav)
 
   const onDelete = async (): Promise<void> => {
+    const texts = currentT().projects.detail
     const ok = await confirmAction({
-      title: `„${fav.name}“ entfernen?`,
-      message: 'Nur das Projekt wird aus der App entfernt. Ordner, Verbrauchsdaten und Bilder bleiben erhalten.',
-      confirmLabel: 'Entfernen',
+      title: texts.removeTitle(fav.name),
+      message: texts.removeMessage,
+      confirmLabel: texts.removeConfirm,
       danger: true
     })
     if (ok && (await remove(fav.id))) onRemoved()
@@ -134,33 +149,35 @@ export function ProjectDetail({ fav, stats, openTodos, now, onRemoved }: Project
           <p className="min-w-0 flex-1 truncate font-mono text-2xs text-ink-3" title={fav.path}>
             {fav.path}
           </p>
-          {fav.host === 'local' ? <IconButton size="sm" icon={FolderOpen} label="Im Explorer zeigen" onClick={() => void attempt(api.app.showInFolder(fav.path))} /> : null}
+          {fav.host === 'local' ? <IconButton size="sm" icon={FolderOpen} label={t.showInExplorer} onClick={() => void attempt(api.app.showInFolder(fav.path))} /> : null}
         </div>
       </div>
 
+      <KnowledgeSwitch favoriteId={fav.id} />
+
       <div className="grid grid-cols-2 gap-2">
         <Button variant="primary" icon={Play} disabled={opening} onClick={() => void launch(fav, 'new')} className="col-span-2 h-9">
-          Claude starten
+          {t.startClaude}
         </Button>
         <Button icon={RotateCcw} disabled={opening} onClick={() => void launch(fav, 'continue')}>
-          Fortsetzen
+          {t.resume}
         </Button>
         <Button icon={SquareTerminal} disabled={opening} onClick={() => void launch(fav, 'shell')}>
-          Shell
+          {t.shell}
         </Button>
       </div>
 
       <dl className="num grid grid-cols-3 border-y border-line py-3.5 text-xs">
         <div>
-          <dt className="text-ink-3">Token · 7 T</dt>
+          <dt className="text-ink-3">{t.tokens7d}</dt>
           <dd className="mt-1 text-[0.9375rem] font-[600] text-ink">{formatTokens(stats.tokens7d)}</dd>
         </div>
         <div>
-          <dt className="text-ink-3">Kosten · 7 T</dt>
+          <dt className="text-ink-3">{t.cost7d}</dt>
           <dd className="mt-1 text-[0.9375rem] font-[600] text-ink">{formatUsd(stats.cost7d)}</dd>
         </div>
         <div>
-          <dt className="text-ink-3">Offene TODOs</dt>
+          <dt className="text-ink-3">{t.openTodos}</dt>
           <dd className="mt-1 text-[0.9375rem] font-[600] text-ink">
             <button type="button" className="hover:text-accent-text hover:underline hover:underline-offset-4" onClick={() => requestTodo('todos')}>
               {openTodos}
@@ -169,17 +186,17 @@ export function ProjectDetail({ fav, stats, openTodos, now, onRemoved }: Project
         </div>
       </dl>
 
-      <section aria-label="Sessions">
-        <h3 className="mb-2 text-xs font-[600] text-ink-2">Sessions</h3>
+      <section aria-label={t.sessions}>
+        <h3 className="mb-2 text-xs font-[600] text-ink-2">{t.sessions}</h3>
         {error ? <p className="text-xs text-danger-ink">{error}</p> : null}
         {!sessions && !error ? <SkeletonRows rows={3} /> : null}
-        {sessions && sessions.length === 0 ? <p className="text-xs text-ink-3">Noch keine Sessions in diesem Projekt.</p> : null}
+        {sessions && sessions.length === 0 ? <p className="text-xs text-ink-3">{t.noSessions}</p> : null}
         {sessions && sessions.length > 0 ? (
           <ul className="divide-y divide-line">
             {sessions.map((s) => (
-              <li key={s.sessionId} className="num grid grid-cols-[minmax(0,1fr)_auto_4.5rem_3.75rem] items-center gap-x-3 py-2 text-xs whitespace-nowrap" title={`Modelle: ${s.models.join(', ')}`}>
+              <li key={s.sessionId} className="num grid grid-cols-[minmax(0,1fr)_auto_4.5rem_3.75rem] items-center gap-x-3 py-2 text-xs whitespace-nowrap" title={t.models(s.models.join(', '))}>
                 <span className="truncate text-ink-2">{formatRelative(s.startedAt, now)}</span>
-                <span className="text-right text-ink-3" title="Aktive Zeit">
+                <span className="text-right text-ink-3" title={t.activeTime}>
                   {formatDuration(s.activeMs)}
                 </span>
                 <span className="text-right text-ink">{formatTokens(s.totalTokens)}</span>
@@ -190,14 +207,14 @@ export function ProjectDetail({ fav, stats, openTodos, now, onRemoved }: Project
         ) : null}
       </section>
 
-      <section aria-label="Bilder">
+      <section aria-label={t.images}>
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-[600] text-ink-2">Bilder</h3>
+          <h3 className="text-xs font-[600] text-ink-2">{t.images}</h3>
           <Button size="sm" variant="ghost" icon={Images} onClick={() => openGallery(fav.path)}>
-            In Galerie
+            {t.inGallery}
           </Button>
         </div>
-        {images && images.length === 0 ? <p className="text-xs text-ink-3">Keine Bilder. Ziehe in der Galerie Bilder hinein und ordne sie diesem Projekt zu.</p> : null}
+        {images && images.length === 0 ? <p className="text-xs text-ink-3">{t.noImages}</p> : null}
         {images && images.length > 0 ? (
           <ul className="grid grid-cols-3 gap-1.5">
             {images.slice(0, IMAGE_PREVIEW).map((img) => (
@@ -211,17 +228,17 @@ export function ProjectDetail({ fav, stats, openTodos, now, onRemoved }: Project
         ) : null}
       </section>
 
-      <section aria-label="Einordnung und Darstellung" className="flex flex-col gap-4 border-t border-line pt-4">
+      <section aria-label={t.setup} className="flex flex-col gap-4 border-t border-line pt-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Art">{(id) => <CategorySelect id={id} value={fav.categoryId} categories={categories} onChange={(categoryId) => void update(fav.id, { categoryId })} />}</Field>
-          <Field label="Symbol">{(id) => <IconField id={id} value={fav.icon} color={fav.color} subject={fav.name} onChange={(icon) => void update(fav.id, { icon })} />}</Field>
+          <Field label={t.category}>{(id) => <CategorySelect id={id} value={fav.categoryId} categories={categories} onChange={(categoryId) => void update(fav.id, { categoryId })} />}</Field>
+          <Field label={t.icon}>{(id) => <IconField id={id} value={fav.icon} color={fav.color} subject={fav.name} onChange={(icon) => void update(fav.id, { icon })} />}</Field>
         </div>
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-[560] text-ink-2">Farbe</span>
-          <ColorPicker label="Farbe des Projekts" value={fav.color} onChange={(color) => void update(fav.id, { color })} />
+          <span className="text-xs font-[560] text-ink-2">{t.color}</span>
+          <ColorPicker label={t.colorLabel} value={fav.color} onChange={(color) => void update(fav.id, { color })} />
         </div>
         <Button variant="ghost" size="sm" icon={Trash2} onClick={() => void onDelete()} className="mt-1 -ml-2.5 self-start text-danger-ink hover:bg-danger-soft hover:text-danger-ink">
-          Projekt entfernen
+          {t.remove}
         </Button>
       </section>
     </div>

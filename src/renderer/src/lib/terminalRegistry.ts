@@ -3,12 +3,15 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal, type ITheme } from '@xterm/xterm'
 import type { TerminalInfo } from '@shared/types'
 import { api } from '@renderer/api/client'
-import { attempt } from '@renderer/api/call'
-import { shouldPasteImage } from './pasteImage'
+import { attempt, reportError } from '@renderer/api/call'
+import { notify } from '@renderer/stores/toastStore'
+import { currentT } from '@renderer/i18n/useT'
+import { pasteExtensionOf, shouldPasteImage } from './pasteImage'
 import { isNewlineCombo, isPasteCombo, mapTerminalKey } from './terminalKeys'
 
 const SCROLLBACK_LINES = 8000
 const FONT_SIZE = 13
+const MAX_PENDING_CHUNKS = 200
 const FONT_FAMILY = "'JetBrains Mono Variable', 'Cascadia Mono', Consolas, monospace"
 
 /** Terminal-Farben passend zum Farbsystem „Glut“. */
@@ -44,6 +47,8 @@ interface Session {
   readonly term: Terminal
   readonly fit: FitAddon
   readonly element: HTMLDivElement
+  /** Nur zum Mitlesen (Hintergrundläufe): keine Eingabe, kein Fokus. */
+  readonly readOnly: boolean
   opened: boolean
   opening: boolean
   cols: number
@@ -65,19 +70,45 @@ class TerminalRegistry {
     api.on('terminal:data', ({ id, data }) => {
       const session = this.sessions.get(id)
       if (session) session.term.write(data)
-      else this.pending.set(id, [...(this.pending.get(id) ?? []), data])
+      else this.buffer(id, data)
     })
+  }
+
+  /** Daten ohne Sitzung (z. B. Hintergrundläufe) nur begrenzt vorhalten. */
+  private buffer(id: string, data: string): void {
+    const chunks = [...(this.pending.get(id) ?? []), data]
+    this.pending.set(id, chunks.slice(-MAX_PENDING_CHUNKS))
   }
 
   ensure(info: TerminalInfo, initial = ''): void {
     if (this.sessions.has(info.id)) return
+    const term = this.create(info, false)
+    if (initial) term.write(initial)
+    for (const chunk of this.pending.get(info.id) ?? []) term.write(chunk)
+    this.pending.delete(info.id)
+  }
+
+  /**
+   * Hintergrundlauf nur zum Mitlesen. Der Snapshot enthält alles, was vor seiner Antwort
+   * gepuffert wurde; der Puffer wird deshalb verworfen statt doppelt eingespielt.
+   * Synchron direkt nach dem Snapshot aufrufen, damit dazwischen keine Daten ankommen.
+   */
+  ensureReadOnly(info: TerminalInfo, snapshot: string): void {
+    if (this.sessions.has(info.id)) return
+    this.pending.delete(info.id)
+    const term = this.create(info, true)
+    if (snapshot) term.write(snapshot)
+  }
+
+  private create(info: TerminalInfo, readOnly: boolean): Terminal {
     const term = new Terminal({
       theme: THEME,
       fontFamily: FONT_FAMILY,
       fontSize: FONT_SIZE,
       lineHeight: 1.25,
-      cursorBlink: true,
+      cursorBlink: !readOnly,
       cursorStyle: 'bar',
+      disableStdin: readOnly,
       scrollback: SCROLLBACK_LINES,
       allowProposedApi: false,
       macOptionIsMeta: true
@@ -85,16 +116,22 @@ class TerminalRegistry {
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.loadAddon(new WebLinksAddon())
-    term.onData((data) => api.terminalInput.write(info.id, data))
-    term.attachCustomKeyEventHandler((event) => {
-      const sequence = mapTerminalKey(event)
-      if (sequence !== null) api.terminalInput.write(info.id, sequence)
-      // Alle Ereignistypen der Kombination blockieren, sonst sendet xterm zusätzlich ein Enter.
-      return !isNewlineCombo(event) && !isPasteCombo(event)
-    })
     const element = document.createElement('div')
     element.style.width = '100%'
     element.style.height = '100%'
+    this.sessions.set(info.id, { term, fit, element, readOnly, opened: false, opening: false, cols: 0, rows: 0 })
+    if (!readOnly) this.wireInput(info.id, term, element)
+    return term
+  }
+
+  private wireInput(id: string, term: Terminal, element: HTMLDivElement): void {
+    term.onData((data) => api.terminalInput.write(id, data))
+    term.attachCustomKeyEventHandler((event) => {
+      const sequence = mapTerminalKey(event)
+      if (sequence !== null) api.terminalInput.write(id, sequence)
+      // Alle Ereignistypen der Kombination blockieren, sonst sendet xterm zusätzlich ein Enter.
+      return !isNewlineCombo(event) && !isPasteCombo(event)
+    })
     // Capture-Phase: vor xterm entscheiden, ob ein Bild statt Text eingefügt wird.
     element.addEventListener(
       'paste',
@@ -102,14 +139,10 @@ class TerminalRegistry {
         if (!event.clipboardData || !shouldPasteImage([...event.clipboardData.types])) return
         event.preventDefault()
         event.stopPropagation()
-        void attempt(api.terminal.pasteImage(info.id))
+        void attempt(api.terminal.pasteImage(id))
       },
       true
     )
-    this.sessions.set(info.id, { term, fit, element, opened: false, opening: false, cols: 0, rows: 0 })
-    if (initial) term.write(initial)
-    for (const chunk of this.pending.get(info.id) ?? []) term.write(chunk)
-    this.pending.delete(info.id)
   }
 
   /** Hängt das Terminal in den Container (einmalig öffnen, danach nur verschieben). */
@@ -128,7 +161,7 @@ class TerminalRegistry {
         session.term.open(session.element)
         session.opened = true
         this.fit(id)
-        if (container.offsetParent !== null) session.term.focus()
+        if (!session.readOnly && container.offsetParent !== null) session.term.focus()
       })
   }
 
@@ -158,17 +191,36 @@ class TerminalRegistry {
     return true
   }
 
+  /** Legt hereingezogene Bilder im Terminal ab; andere Dateien werden gemeldet und übersprungen. */
+  dropFiles(id: string, files: readonly File[]): void {
+    const images = files.flatMap((file) => {
+      const extension = pasteExtensionOf(file.name)
+      return extension ? [{ file, extension }] : []
+    })
+    if (images.length < files.length) {
+      const t = currentT().terminal
+      notify.error(t.notImage, t.imageTypes)
+    }
+    if (!images.length) return
+    void Promise.all(images.map(async ({ file, extension }) => ({ data: new Uint8Array(await file.arrayBuffer()), extension })))
+      .then(async (dropped) => {
+        await attempt(api.terminal.dropImages(id, dropped))
+        this.focus(id)
+      })
+      .catch(reportError)
+  }
+
   writeNotice(id: string, text: string): void {
     this.sessions.get(id)?.term.write(`\r\n\x1b[2m${text}\x1b[0m\r\n`)
   }
 
   dispose(id: string): void {
+    this.pending.delete(id)
     const session = this.sessions.get(id)
     if (!session) return
     session.term.dispose()
     session.element.remove()
     this.sessions.delete(id)
-    this.pending.delete(id)
   }
 }
 

@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { createSdkMcpServer, type HookJSONOutput, query, tool } from '@anthropic-ai/claude-agent-sdk'
 import { ClaudeCliError } from '../errors'
 import { terminalEnv } from '../terminal/launchCommand'
@@ -24,7 +25,7 @@ async function blockSecrets(input: unknown): Promise<HookJSONOutput> {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
-      permissionDecisionReason: 'Schlüssel-, Anmelde- und .env-Dateien sind für den Assistenten gesperrt.'
+      permissionDecisionReason: 'Schlüssel-, Anmelde- und .env-Dateien sind für den Assistenten gesperrt.' // i18n-ignore: Rückmeldung an das Modell
     }
   }
 }
@@ -48,7 +49,7 @@ export function createSdkRunner(config: SdkRunnerConfig): (prompt: string, optio
   const readOnlyTools = config.tools.filter((t) => !t.mutating).map((t) => `mcp__${TOOL_SERVER}__${t.name}`)
   return async function* run(prompt: string, options: RunOptions): AsyncGenerator<AgentMessage> {
     const executable = config.claudePath()
-    if (!executable) throw new ClaudeCliError('Claude Code wurde nicht gefunden')
+    if (!executable) throw new ClaudeCliError(mainT().errors.assistant.claudeNotFound)
     const stream = query({
       prompt,
       options: {

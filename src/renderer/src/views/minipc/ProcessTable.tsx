@@ -1,5 +1,6 @@
 import type { SystemStats, TopProcess } from '@shared/types'
 import { Section } from '@renderer/components/Section'
+import { useT } from '@renderer/i18n/useT'
 import { formatBytes, formatInteger } from '@renderer/lib/format'
 import { formatPercentFine } from '@renderer/lib/miniPcFormat'
 import { TABLE_CELL, TABLE_HEAD } from './parts'
@@ -23,19 +24,20 @@ function ProcessRow({ process }: { readonly process: TopProcess }): React.JSX.El
 
 /** Die Prozesse mit dem höchsten CPU-Anteil und die Gesamtzahl. */
 export function ProcessTable({ system }: { readonly system: SystemStats }): React.JSX.Element {
+  const t = useT().device
   const top = system.processes.slice(0, TOP_COUNT)
   return (
-    <Section id="minipc-processes" title="Prozesse" description={`Die ${top.length} mit dem höchsten CPU-Anteil von ${formatInteger(system.processCount)} Prozessen`}>
+    <Section id="minipc-processes" title={t.sectionProcesses} description={t.processesDesc(top.length, formatInteger(system.processCount))}>
       {top.length > 0 ? (
         <div className="space-y-2.5">
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[26rem] border-separate border-spacing-0 text-[0.8125rem]">
               <thead>
                 <tr className="text-left text-xs text-ink-3">
-                  <th className={TABLE_HEAD}>Prozess</th>
-                  <th className={`${TABLE_HEAD} text-right`}>PID</th>
-                  <th className={`${TABLE_HEAD} text-right`}>CPU Ø seit Start</th>
-                  <th className={`${TABLE_HEAD} text-right`}>RAM</th>
+                  <th className={TABLE_HEAD}>{t.processesColProcess}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.processesColPid}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.processesColCpu}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.processesColRam}</th>
                 </tr>
               </thead>
               <tbody>
@@ -46,11 +48,11 @@ export function ProcessTable({ system }: { readonly system: SystemStats }): Reac
             </table>
           </div>
           <p className="max-w-[70ch] text-2xs leading-relaxed text-ink-3">
-            CPU ist der Schnitt über die gesamte Laufzeit des Prozesses (wie bei ps), nicht die Last in diesem Moment. 100 % entsprechen einem voll ausgelasteten Kern.
+            {t.processesNote}
           </p>
         </div>
       ) : (
-        <p className="text-[0.8125rem] text-ink-3">Keine Prozesse gelesen.</p>
+        <p className="text-[0.8125rem] text-ink-3">{t.processesNone}</p>
       )}
     </Section>
   )

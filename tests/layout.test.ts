@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_NAVIGATION, deviceIdFrom, moveItem, resolveNavigation, resolveSections, visibleNavigation } from '@shared/layout'
+import { de } from '@shared/i18n/de'
+import { en } from '@shared/i18n/en'
+import { DEFAULT_NAVIGATION, deviceIdFrom, moveItem, navGroupLabel, resolveNavigation, resolveSections, visibleNavigation } from '@shared/layout'
 
-const VIEWS = ['overview', 'projects', 'terminal', 'runs', 'todos', 'protocols', 'gallery', 'models', 'skills', 'howto', 'settings']
+const VIEWS = ['overview', 'projects', 'terminal', 'runs', 'todos', 'protocols', 'knowledge', 'gallery', 'models', 'skills', 'howto', 'settings']
 
 describe('Navigation', () => {
   it('ordnet Geräte in „Geräte“ ein und blendet leere Gruppen aus', () => {
@@ -37,6 +39,25 @@ describe('Navigation', () => {
     expect(groups.find((g) => g.id === 'mein')?.items).toEqual(['device:mini-pc', 'link:ha', 'link:mc', 'overview'])
     expect(groups.find((g) => g.id === 'devices')?.items).toEqual(['device:nas', 'link:router'])
   })
+
+  it('setzt Webseiten ohne Gerät unter „Verknüpfungen“, nicht hinter den letzten Bereich', () => {
+    const groups = resolveNavigation(DEFAULT_NAVIGATION, [...VIEWS, 'link:smarthome'])
+    expect(groups.find((g) => g.id === 'devices')?.items).toEqual(['link:smarthome'])
+    expect(groups.find((g) => g.id === 'app')?.items).toEqual(['howto', 'settings'])
+  })
+})
+
+describe('Projektwissen in der Navigation', () => {
+  it('layout: knowledge sits in notes after protocols', () => {
+    const notes = resolveNavigation(DEFAULT_NAVIGATION, VIEWS).find((g) => g.id === 'notes')
+    expect(notes?.items).toEqual(['todos', 'protocols', 'knowledge', 'gallery'])
+  })
+
+  it('layout: saved navigation without knowledge gets it in notes', () => {
+    const saved = { groups: [{ id: 'notes', label: 'Notizen', items: ['gallery', 'todos', 'protocols'] }], hidden: [], collapsed: [] }
+    const notes = resolveNavigation(saved, VIEWS).find((g) => g.id === 'notes')
+    expect(notes?.items).toEqual(['gallery', 'todos', 'protocols', 'knowledge'])
+  })
 })
 
 describe('Abschnitte', () => {
@@ -62,5 +83,18 @@ describe('deviceIdFrom', () => {
     expect(deviceIdFrom('Größe', [])).toBe('groesse')
     expect(deviceIdFrom('!!', [])).toBe('geraet')
     expect(deviceIdFrom('local', [])).toBe('local-2')
+  })
+})
+
+describe('navGroupLabel', () => {
+  it('übersetzt eingebaute Gruppen mit Standardnamen', () => {
+    expect(navGroupLabel({ id: 'work', label: 'Arbeiten' }, en)).toBe('Work')
+    expect(navGroupLabel({ id: 'devices', label: 'Geräte' }, en)).toBe('Shortcuts')
+    expect(navGroupLabel({ id: 'work', label: 'Arbeiten' }, de)).toBe('Arbeiten')
+  })
+
+  it('lässt selbst vergebene Namen und eigene Gruppen unverändert', () => {
+    expect(navGroupLabel({ id: 'work', label: 'Meine Arbeit' }, en)).toBe('Meine Arbeit')
+    expect(navGroupLabel({ id: 'eigen', label: 'Arbeiten' }, en)).toBe('Arbeiten')
   })
 })

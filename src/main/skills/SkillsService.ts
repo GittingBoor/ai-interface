@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { homedir } from 'node:os'
 import type Database from 'better-sqlite3'
 import type { Favorite, HostId, SkillCatalogResult, SkillEntry } from '@shared/types'
@@ -40,7 +41,7 @@ export class SkillsService {
     const inputs = []
     for (const id of ids) {
       const entry = this.known.get(id)
-      if (!entry) throw new NotFoundError(`Eintrag ${id}`, 'Katalog neu laden und erneut versuchen.')
+      if (!entry) throw new NotFoundError(mainT().errors.what.entry(id), mainT().errors.hints.reloadCatalog)
       const content = (await this.hosts(entry.host).readFile(entry.path)).toString('utf8')
       inputs.push({ hash: entry.hash, name: entry.name, content })
     }
@@ -49,7 +50,7 @@ export class SkillsService {
 
   private async runClaude(prompt: string, input: string): Promise<string> {
     const executable = resolveClaudeExecutable(this.claudeCommand(), process.platform, isFile, process.env['PATH'] ?? '', homedir())
-    if (!executable) throw new ClaudeCliError(`„${this.claudeCommand()}“ nicht gefunden`)
+    if (!executable) throw new ClaudeCliError(mainT().errors.assistant.commandNotFound(this.claudeCommand()))
     // Prompt über stdin statt als Argument: keine Quoting-/Codepage-Probleme mit .cmd-Wrappern.
     return runProcess(executable, ['-p', '--model', SUMMARY_MODEL, '--output-format', 'text'], `${prompt}\n\n---\n\n${input}`, {
       timeoutMs: SUMMARY_TIMEOUT_MS,

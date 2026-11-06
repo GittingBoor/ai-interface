@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type Database from 'better-sqlite3'
 import type { Favorite, FavoriteInput, FavoritePatch } from '@shared/types'
 import { NotFoundError, ValidationError } from '../errors'
@@ -38,11 +39,11 @@ export class FavoritesRepo {
   }
 
   add(input: FavoriteInput): Favorite {
-    if (!input.path.trim() || !input.name.trim()) throw new ValidationError('Name und Pfad dürfen nicht leer sein.')
+    if (!input.path.trim() || !input.name.trim()) throw new ValidationError(mainT().errors.favorites.nameAndPathEmpty)
     assertColor(input.color)
     assertIcon(input.icon ?? null)
     const exists = this.db.prepare('SELECT 1 FROM favorites WHERE host = ? AND path = ?').get(input.host, input.path)
-    if (exists) throw new ValidationError(`Der Ordner ${input.path} ist bereits ein Projekt.`)
+    if (exists) throw new ValidationError(mainT().errors.favorites.folderIsProject(input.path))
     const next = (this.db.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM favorites').get() as { n: number }).n
     const info = this.db
       .prepare(
@@ -82,7 +83,7 @@ export class FavoritesRepo {
 
   private get(id: number): Favorite {
     const row = this.db.prepare('SELECT * FROM favorites WHERE id = ?').get(id) as FavoriteRow | undefined
-    if (!row) throw new NotFoundError(`Projekt ${id}`)
+    if (!row) throw new NotFoundError(mainT().errors.what.project(id))
     return toFavorite(row)
   }
 }

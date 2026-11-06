@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 const NEWLINE = '\n'
 const MAX_PROMPT_LENGTH = 200
 const RATE_LIMIT_ERROR = 'rate_limit'
@@ -81,7 +82,7 @@ export function extractRunEvents(chunk: string): RunEvents {
     if (!entry.sessionId || Number.isNaN(timestamp)) continue
     const sessionId = entry.sessionId
     if (entry.type === 'assistant' && isLimitHit(entry)) {
-      interruptions.push({ sessionId, project: entry.cwd ?? '', timestamp, message: textOf(entry.message?.content)?.trim() ?? 'Kontingent erreicht' })
+      interruptions.push({ sessionId, project: entry.cwd ?? '', timestamp, message: textOf(entry.message?.content)?.trim() ?? mainT().main.quotaReached })
     } else if (entry.type === 'assistant' && entry.isApiErrorMessage !== true) {
       answers.set(sessionId, { sessionId, timestamp })
     } else if (entry.type === 'user' && entry.isMeta !== true) {

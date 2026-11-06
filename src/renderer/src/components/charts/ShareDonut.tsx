@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { ProjectMark } from '@renderer/components/ProjectMark'
-import { formatMeasure, measureOf, MEASURE_LABEL, REST_KEY, type ActivityGroup, type ActivityMeasure } from '@renderer/lib/projectActivity'
+import { formatMeasure, measureOf, measureLabel, REST_KEY, type ActivityGroup, type ActivityMeasure } from '@renderer/lib/projectActivity'
 import { ChartTooltip, TooltipRow } from './ChartTooltip'
 import { ringSegmentPath } from './geometry'
+import { formatPercentPoints } from '@renderer/lib/format'
+import { useT } from '@renderer/i18n/useT'
 
 interface ShareDonutProps {
   readonly groups: readonly ActivityGroup[]
@@ -22,7 +24,6 @@ const MIN_VISIBLE_PERCENT = 1
 const TOOLTIP_X = -14
 const TOOLTIP_GAP = 10
 const TOOLTIP_ROOM = 400
-const percentFormat = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 
 interface Segment {
   readonly group: ActivityGroup
@@ -45,10 +46,11 @@ function toSegments(groups: readonly ActivityGroup[], measure: ActivityMeasure):
   })
 }
 
-const formatShare = (share: number): string => (share * 100 < MIN_VISIBLE_PERCENT ? '< 1 %' : `${percentFormat.format(share * 100)} %`)
+const formatShare = (share: number): string => (share * 100 < MIN_VISIBLE_PERCENT ? `< ${formatPercentPoints(MIN_VISIBLE_PERCENT)}` : formatPercentPoints(share * 100))
 
 /** Ringdiagramm: Anteil je Projekt an Arbeitszeit oder Kennzahl, mit Legende. */
 export function ShareDonut({ groups, measure }: ShareDonutProps): React.JSX.Element {
+  const t = useT().usage
   const [hover, setHover] = useState<number | null>(null)
   const segments = toSegments(groups, measure)
   const total = segments.reduce((sum, s) => sum + s.value, 0)
@@ -63,7 +65,7 @@ export function ShareDonut({ groups, measure }: ShareDonutProps): React.JSX.Elem
         style={{ width: SIZE, height: SIZE }}
         tabIndex={0}
         role="group"
-        aria-label={`Anteil je Projekt an ${MEASURE_LABEL[measure]}. Pfeiltasten wählen ein Segment.`}
+        aria-label={t.charts.donut.aria(measureLabel(measure))}
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight' || e.key === 'ArrowDown') setHover((h) => ((h ?? -1) + 1) % segments.length)
           if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') setHover((h) => ((h ?? segments.length) - 1 + segments.length) % segments.length)
@@ -98,13 +100,13 @@ export function ShareDonut({ groups, measure }: ShareDonutProps): React.JSX.Elem
           <span className="num text-[1.0625rem] leading-tight font-[640] tracking-[-0.01em] text-ink [font-stretch:106%]">
             {active ? formatShare(active.share) : formatMeasure(total, measure)}
           </span>
-          <span className="mx-auto mt-0.5 max-w-[6.5rem] truncate text-2xs text-ink-3">{active ? active.group.label : MEASURE_LABEL[measure]}</span>
+          <span className="mx-auto mt-0.5 max-w-[6.5rem] truncate text-2xs text-ink-3">{active ? active.group.label : measureLabel(measure)}</span>
         </div>
         {active ? (
           <ChartTooltip x={TOOLTIP_X} y={SIZE + TOOLTIP_GAP} containerWidth={SIZE + TOOLTIP_ROOM}>
-            <p className="mb-1.5 truncate font-[600] text-ink">{active.group.key === REST_KEY ? `Weitere (${active.group.mergedCount})` : active.group.label}</p>
-            <TooltipRow label={MEASURE_LABEL[measure]} value={formatMeasure(active.value, measure)} swatch={active.group.color} />
-            <TooltipRow label="Anteil" value={formatShare(active.share)} />
+            <p className="mb-1.5 truncate font-[600] text-ink">{active.group.key === REST_KEY ? t.charts.paired.rest(active.group.mergedCount) : active.group.label}</p>
+            <TooltipRow label={measureLabel(measure)} value={formatMeasure(active.value, measure)} swatch={active.group.color} />
+            <TooltipRow label={t.charts.donut.share} value={formatShare(active.share)} />
           </ChartTooltip>
         ) : null}
       </div>

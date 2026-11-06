@@ -5,6 +5,7 @@ import { errorMessage, unwrap } from '@renderer/api/call'
 import { useTaskReview } from '@renderer/stores/taskReviewStore'
 import { useUsage } from '@renderer/stores/usageStore'
 import { notify } from '@renderer/stores/toastStore'
+import { currentT } from '@renderer/i18n/useT'
 
 /** Letzte 7 Tage ohne Aufteilung: Wochenkacheln, Vorwoche, Sparklines. */
 const WEEK_QUERY: AnalyticsQuery = { range: '7d', host: 'all', split: 'none', resolution: 'day', projects: null, excludedProjects: [], models: null }
@@ -82,7 +83,7 @@ export function useOpenTasks(): OpenTasks {
       try {
         await unwrap(api.tasks.uncheck(group.groupId, task.key))
       } catch (cause) {
-        notify.error(`„${task.text}“ konnte nicht wiederhergestellt werden`, errorMessage(cause))
+        notify.error(currentT().usage.home.tasks.restoreFailed(task.text), errorMessage(cause))
       }
       await load()
     },
@@ -93,9 +94,9 @@ export function useOpenTasks(): OpenTasks {
     (group: ProjectTasks, task: OpenTask): void => {
       setGroups((current) => (current ? withoutTask(current, group.groupId, task.key) : current))
       unwrap(api.tasks.check(group.groupId, task.key))
-        .then(() => notify.undoable('Erledigt', task.text, { label: 'Rückgängig', run: () => void undo(group, task) }))
+        .then(() => notify.undoable(currentT().usage.home.tasks.done, task.text, { label: currentT().frame.stores.undo, run: () => void undo(group, task) }))
         .catch((cause: unknown) => {
-          notify.error(`„${task.text}“ konnte nicht abgehakt werden`, errorMessage(cause))
+          notify.error(currentT().usage.home.tasks.checkFailed(task.text), errorMessage(cause))
           void load()
         })
     },

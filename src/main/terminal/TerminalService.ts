@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import * as pty from 'node-pty'
@@ -23,6 +24,7 @@ export interface LaunchExtras {
   readonly initialPrompt?: string
   readonly extraArgs?: readonly string[]
   readonly orchestrator?: boolean
+  readonly background?: 'knowledge'
 }
 
 export interface TerminalEvents {
@@ -61,7 +63,8 @@ export class TerminalService {
       title: request.title,
       running: true,
       startedAt: Date.now(),
-      ...(extras.orchestrator ? { orchestrator: true } : {})
+      ...(extras.orchestrator ? { orchestrator: true } : {}),
+      ...(extras.background ? { background: extras.background } : {})
     }
     const session = request.host === 'local' ? this.openLocal(info, request, extras) : await this.openSsh(info, request, extras)
     this.sessions.set(id, session)
@@ -102,7 +105,7 @@ export class TerminalService {
   }
 
   private openLocal(info: TerminalInfo, request: TerminalOpenRequest, extras: LaunchExtras): Session {
-    if (!existsSync(request.path)) throw new NotFoundError(`Der Ordner ${request.path}`, 'Pfad des Favoriten prüfen.')
+    if (!existsSync(request.path)) throw new NotFoundError(mainT().errors.what.folder(request.path), mainT().errors.hints.checkFavoritePath)
     const spec = buildLaunch({
       platform: process.platform,
       target: 'local',
@@ -116,7 +119,7 @@ export class TerminalService {
       ...(extras.extraArgs ? { extraArgs: extras.extraArgs } : {}),
       ...(this.hooks ? { hookSettingsPath: this.hooks.localSettingsPath() } : {})
     })
-    if (spec.kind !== 'local') throw new Error('Unerwarteter Startbefehl für lokales Terminal')
+    if (spec.kind !== 'local') throw new Error('Unerwarteter Startbefehl für lokales Terminal') // i18n-ignore: Entwicklerfehler
     const proc = pty.spawn(spec.file, [...spec.args], {
       name: TERM_NAME,
       cols: request.cols,
@@ -152,7 +155,7 @@ export class TerminalService {
       ...(extras.extraArgs ? { extraArgs: extras.extraArgs } : {}),
       ...(hookSettingsPath ? { hookSettingsPath } : {})
     })
-    if (spec.kind !== 'ssh') throw new Error('Unerwarteter Startbefehl für SSH-Terminal')
+    if (spec.kind !== 'ssh') throw new Error('Unerwarteter Startbefehl für SSH-Terminal') // i18n-ignore: Entwicklerfehler
     const channel: ClientChannel = await this.ssh(request.host).shell({ term: TERM_NAME, cols: request.cols, rows: request.rows })
     const session: Session = {
       info,
@@ -181,7 +184,7 @@ export class TerminalService {
 
   private get(id: string): Session {
     const session = this.sessions.get(id)
-    if (!session) throw new NotFoundError(`Terminal ${id}`, 'Tab schließen und neu öffnen.')
+    if (!session) throw new NotFoundError(mainT().errors.what.terminalId(id), mainT().errors.hints.reopenTab)
     return session
   }
 }

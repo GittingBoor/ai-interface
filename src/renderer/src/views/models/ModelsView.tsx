@@ -9,33 +9,38 @@ import { HostBadge } from '@renderer/components/Host'
 import { Section, ViewHeader } from '@renderer/components/Section'
 import { ErrorState, SkeletonRows } from '@renderer/components/States'
 import { useUsage } from '@renderer/stores/usageStore'
+import { localized } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
 import { hostIds, hostLabel } from '@renderer/lib/hosts'
 import { formatBytes, formatInteger, formatRelative, formatTokens, formatUsd } from '@renderer/lib/format'
 import { CustomModels } from './CustomModels'
 
+const share = localized((tag) => new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 0 }))
+
 function ClaudeModels(): React.JSX.Element {
+  const t = useT().models
   const models = useUsage((s) => s.overview?.models)
   if (!models) return <SkeletonRows rows={3} />
   const sorted = [...models].sort((a, b) => b.totalTokens - a.totalTokens)
   const total = sorted.reduce((s, m) => s + m.totalTokens, 0) || 1
-  if (!sorted.length) return <p className="text-[0.8125rem] text-ink-3">In den letzten 30 Tagen wurde kein Claude-Modell genutzt.</p>
+  if (!sorted.length) return <p className="text-[0.8125rem] text-ink-3">{t.noClaudeModels}</p>
   return (
     <div className="-mx-2 overflow-x-auto">
       <table className="num w-full min-w-[48rem] border-separate border-spacing-0 text-[0.8125rem]">
         <thead>
           <tr className="text-left text-xs text-ink-3">
-            <th className="px-2 pb-2 font-[520]">Modell</th>
-            <th className="w-[26%] px-2 pb-2 font-[520]">Anteil</th>
-            <th className="px-2 pb-2 text-right font-[520]">Token</th>
-            <th className="px-2 pb-2 text-right font-[520]">Output</th>
-            <th className="px-2 pb-2 text-right font-[520]">Nachrichten</th>
-            <th className="px-2 pb-2 text-right font-[520]">Kosten</th>
-            <th className="px-2 pb-2 text-right font-[520]">Zuletzt</th>
+            <th className="px-2 pb-2 font-[520]">{t.colModel}</th>
+            <th className="w-[26%] px-2 pb-2 font-[520]">{t.colShare}</th>
+            <th className="px-2 pb-2 text-right font-[520]">{t.colTokens}</th>
+            <th className="px-2 pb-2 text-right font-[520]">{t.colOutput}</th>
+            <th className="px-2 pb-2 text-right font-[520]">{t.colMessages}</th>
+            <th className="px-2 pb-2 text-right font-[520]">{t.colCost}</th>
+            <th className="px-2 pb-2 text-right font-[520]">{t.colLast}</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((m, i) => {
-            const share = m.totalTokens / total
+            const shareOfTotal = m.totalTokens / total
             return (
               <tr key={m.model}>
                 <td className="border-t border-line px-2 py-2.5 font-mono text-xs text-ink">{m.model}</td>
@@ -44,20 +49,20 @@ function ClaudeModels(): React.JSX.Element {
                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-raised">
                       <motion.div
                         className="h-full origin-left rounded-full bg-ink-3"
-                        style={{ width: `${Math.max(1, share * 100)}%` }}
+                        style={{ width: `${Math.max(1, shareOfTotal * 100)}%` }}
                         initial={{ scaleX: 0 }}
                         animate={{ scaleX: 1 }}
                         transition={{ duration: 0.6, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
                       />
                     </div>
-                    <span className="w-10 text-right text-xs text-ink-3">{Math.round(share * 100)} %</span>
+                    <span className="w-10 text-right text-xs text-ink-3">{share().format(shareOfTotal)}</span>
                   </div>
                 </td>
                 <td className="border-t border-line px-2 py-2.5 text-right text-ink">{formatTokens(m.totalTokens)}</td>
                 <td className="border-t border-line px-2 py-2.5 text-right text-ink-2">{formatTokens(m.outputTokens)}</td>
                 <td className="border-t border-line px-2 py-2.5 text-right text-ink-2">{formatInteger(m.messages)}</td>
                 <td className="border-t border-line px-2 py-2.5 text-right text-ink-2">
-                  {m.costUsd === null ? <span className="text-warn" title="Kein Preis hinterlegt, in den Einstellungen ergänzen">ohne Preis</span> : formatUsd(m.costUsd)}
+                  {m.costUsd === null ? <span className="text-warn" title={t.noPriceHint}>{t.noPrice}</span> : formatUsd(m.costUsd)}
                 </td>
                 <td className="border-t border-line px-2 py-2.5 text-right text-ink-3">{formatRelative(m.lastUsed)}</td>
               </tr>
@@ -71,25 +76,26 @@ function ClaudeModels(): React.JSX.Element {
 
 /** Ollama-Stand eines Rechners (auch im Gerätebereich genutzt). */
 export function OllamaHost({ status }: { readonly status: OllamaStatus }): React.JSX.Element {
+  const t = useT().models
   const running = status.models.filter((m) => m.running).length
   return (
     <div className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
         <HostBadge host={status.host} />
         <span className="text-xs text-ink-3">
-          {status.installed ? `${status.models.length} Modelle${running ? ` · ${running} geladen` : ''}` : 'nicht installiert'}
+          {status.installed ? t.ollamaCount(status.models.length, running) : t.notInstalled}
         </span>
       </div>
       {!status.installed ? (
         <div className="flex items-start gap-3 rounded-lg border border-dashed border-line-strong/70 px-4 py-4">
           <ServerOff className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden />
           <div className="text-xs leading-relaxed text-ink-3">
-            <p className="text-[0.8125rem] font-[560] text-ink-2">Ollama läuft auf {hostLabel(status.host)} nicht.</p>
-            <p className="mt-1">Nach der Installation erscheinen die Modelle hier automatisch. Die API wird auf Port 11434 abgefragt.</p>
+            <p className="text-[0.8125rem] font-[560] text-ink-2">{t.ollamaOffTitle(hostLabel(status.host))}</p>
+            <p className="mt-1">{t.ollamaOffBody}</p>
           </div>
         </div>
       ) : status.models.length === 0 ? (
-        <p className="text-xs text-ink-3">Ollama ist installiert, aber es ist noch kein Modell geladen. „ollama pull &lt;modell&gt;“ lädt eines.</p>
+        <p className="text-xs text-ink-3">{t.ollamaEmpty}</p>
       ) : (
         <ul className="divide-y divide-line border-y border-line">
           {status.models.map((m) => (
@@ -100,7 +106,7 @@ export function OllamaHost({ status }: { readonly status: OllamaStatus }): React
                   {m.running ? (
                     <span className="inline-flex h-4.5 items-center gap-1 rounded-full bg-accent-soft px-1.5 font-sans text-2xs font-[600] text-accent-text">
                       <span className="size-1.5 animate-pulse-dot rounded-full bg-accent text-accent" aria-hidden />
-                      läuft
+                      {t.running}
                     </span>
                   ) : null}
                 </p>
@@ -140,23 +146,24 @@ function OllamaSection(): React.JSX.Element {
 }
 
 export function ModelsView(): React.JSX.Element {
+  const t = useT().models
   const [creating, setCreating] = useState(false)
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Modelle">Claude-Nutzung, lokale Modelle über Ollama und eigene Modelle</ViewHeader>
+      <ViewHeader title={t.title}>{t.subtitle}</ViewHeader>
       <div className="flex-1 space-y-10 overflow-y-auto px-8 pb-10">
-        <Section title="Claude · 30 Tage" description="Nach Token sortiert, Kosten als API-Gegenwert">
+        <Section title={t.claudeTitle} description={t.claudeDesc}>
           <ClaudeModels />
         </Section>
-        <Section title="Ollama" description="Lokale Modelle je Rechner">
+        <Section title={t.ollamaTitle} description={t.ollamaDesc}>
           <OllamaSection />
         </Section>
         <Section
-          title="Eigene Modelle"
-          description="Selbst trainierte oder angepasste Modelle"
+          title={t.customTitle}
+          description={t.customDesc}
           actions={
             <Button size="sm" icon={Plus} onClick={() => setCreating(true)} disabled={creating}>
-              Modell eintragen
+              {t.addModel}
             </Button>
           }
         >

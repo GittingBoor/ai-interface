@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { setActiveLanguage } from '../../src/renderer/src/i18n/activeLocale'
 import { dockerStateText, dockerStatusText, formatClock, formatRate, linkStateText, shortAddress, sortAddresses } from '../../src/renderer/src/lib/miniPcFormat'
 import { nearestIndex, trendDomain, trendSegments, trendStats } from '../../src/renderer/src/lib/trend'
+
+beforeAll(() => setActiveLanguage('de'))
 
 describe('Formate', () => {
   it('schreibt Raten und Takt deutsch', () => {

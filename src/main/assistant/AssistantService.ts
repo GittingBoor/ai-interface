@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { randomUUID } from 'node:crypto'
 import type { AssistantEvent } from '@shared/types'
 import { ValidationError } from '../errors'
@@ -9,7 +10,6 @@ const TOOL_PREFIX = `mcp__${TOOL_SERVER}__`
 /** Eingebaute Claude-Code-Werkzeuge, die nur lesen. */
 export const BUILTIN_READ_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep']
 const DEFAULT_CONFIRM_TIMEOUT_MS = 600_000
-const ERROR_HINT = 'Prüfen, ob Claude Code angemeldet ist und das Kontingent frei ist (unten links).'
 
 export type PermissionDecision = { behavior: 'allow'; updatedInput: Record<string, unknown> } | { behavior: 'deny'; message: string }
 
@@ -69,7 +69,7 @@ export class AssistantService {
   constructor(private readonly deps: AssistantDepsForService) {}
 
   async send(text: string): Promise<void> {
-    if (this.abort) throw new ValidationError('Der Assistent läuft noch. Warten oder „Stopp“ drücken.')
+    if (this.abort) throw new ValidationError(mainT().errors.assistant.busy)
     const turnId = randomUUID()
     const abort = new AbortController()
     this.abort = abort
@@ -77,7 +77,7 @@ export class AssistantService {
       const stream = this.deps.run(text, { resume: this.sessionId, abortController: abort, canUseTool: (name, input) => this.decide(name, input, abort.signal) })
       for await (const message of stream) this.handle(turnId, message)
     } catch (error) {
-      if (!abort.signal.aborted) this.deps.emit({ type: 'error', message: error instanceof Error ? error.message : String(error), hint: ERROR_HINT })
+      if (!abort.signal.aborted) this.deps.emit({ type: 'error', message: error instanceof Error ? error.message : String(error), hint: mainT().errors.assistant.hint })
     } finally {
       this.abort = null
       for (const [id, confirm] of this.pending) {
@@ -111,21 +111,21 @@ export class AssistantService {
       }
     }
     if (message.type === 'result' && message.is_error) {
-      this.deps.emit({ type: 'error', message: message.result?.trim() || 'Der Assistent hat mit einem Fehler aufgehört.', hint: ERROR_HINT })
+      this.deps.emit({ type: 'error', message: message.result?.trim() || mainT().errors.assistant.failed, hint: mainT().errors.assistant.hint })
     }
   }
 
   private async decide(name: string, input: Record<string, unknown>, signal: AbortSignal): Promise<PermissionDecision> {
     if (BUILTIN_READ_TOOLS.includes(name)) {
       return touchesSecret(input)
-        ? { behavior: 'deny', message: 'Schlüssel-, Anmelde- und .env-Dateien sind für den Assistenten gesperrt.' }
+        ? { behavior: 'deny', message: 'Schlüssel-, Anmelde- und .env-Dateien sind für den Assistenten gesperrt.' } // i18n-ignore: Rückmeldung an das Modell
         : { behavior: 'allow', updatedInput: input }
     }
     const tool = name.startsWith(TOOL_PREFIX) ? this.deps.tools.find((t) => t.name === shortName(name)) : undefined
-    if (!tool) return { behavior: 'deny', message: `Das Werkzeug ${name} ist für den Assistenten nicht freigegeben.` }
+    if (!tool) return { behavior: 'deny', message: `Das Werkzeug ${name} ist für den Assistenten nicht freigegeben.` } // i18n-ignore: Rückmeldung an das Modell
     if (!tool.mutating) return { behavior: 'allow', updatedInput: input }
     const allowed = await this.askUser(tool, input, signal)
-    return allowed ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'Der Nutzer hat die Aktion abgelehnt.' }
+    return allowed ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'Der Nutzer hat die Aktion abgelehnt.' } // i18n-ignore: Rückmeldung an das Modell
   }
 
   private askUser(tool: AssistantTool, input: Record<string, unknown>, signal: AbortSignal): Promise<boolean> {
@@ -134,7 +134,7 @@ export class AssistantService {
     try {
       preview = tool.preview(input)
     } catch (error) {
-      preview = `Eingabe fehlerhaft: ${error instanceof Error ? error.message : String(error)}`
+      preview = mainT().errors.assistant.invalidInput(error instanceof Error ? error.message : String(error))
     }
     return new Promise((resolve) => {
       const finish = (allowed: boolean): void => {

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import type { Category, Favorite, FavoriteInput } from '@shared/types'
+import { setMainLanguage } from '../../src/main/i18n'
 import { type AssistantDeps, buildAssistantTools } from '../../src/main/assistant/tools'
 
 function fakeDeps(): {
@@ -73,6 +74,25 @@ const find = (deps: AssistantDeps, name: string) => {
 }
 
 describe('Assistenten-Werkzeuge', () => {
+  beforeEach(() => setMainLanguage('de'))
+  afterEach(() => setMainLanguage('system'))
+
+  it('baut Bestätigungsvorschauen in der App-Sprache', () => {
+    const { deps } = fakeDeps()
+    const input = { host: 'local', path: 'D:/x', name: 'X', category: 'Programmieren' }
+    expect(find(deps, 'add_project').preview(input)).toContain('Art: Programmieren')
+    setMainLanguage('en')
+    const preview = find(deps, 'add_project').preview(input)
+    expect(preview).toContain('Type: Programmieren')
+    expect(preview).not.toContain('Art:')
+    expect(find(deps, 'add_todo').preview({ section: 'S', text: 'T' })).toBe('TODO in “S”: T')
+  })
+
+  it('meldet bei ungültiger Eingabe nur die Feldpfade in der Vorschau', () => {
+    const { deps } = fakeDeps()
+    expect(() => find(deps, 'add_todo').preview({ section: 'S' })).toThrow(/^text$/)
+  })
+
   it('markiert genau die ändernden Werkzeuge', () => {
     const tools = buildAssistantTools(fakeDeps().deps)
     expect(tools.filter((t) => t.mutating).map((t) => t.name).sort()).toEqual(['add_project', 'add_todo', 'create_category', 'create_project_folder', 'write_obsidian_note'])

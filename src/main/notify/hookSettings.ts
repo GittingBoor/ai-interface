@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { HostId } from '@shared/types'
 import { shellQuote } from '../hosts/shellQuote'
 
@@ -18,12 +19,8 @@ const KINDS: readonly HookEventKind[] = ['permission', 'question', 'done', 'work
 const FIELD_SEPARATOR = '\t'
 const NEWLINE = '\n'
 
-const DEFAULT_MESSAGE: Readonly<Record<HookEventKind, string>> = {
-  permission: 'Claude braucht deine Erlaubnis.',
-  question: 'Claude hat eine Frage.',
-  done: 'Claude ist fertig.',
-  working: '',
-  ended: ''
+function defaultMessage(kind: HookEventKind): string {
+  return kind === 'working' || kind === 'ended' ? '' : mainT().notify.defaultMessages[kind]
 }
 
 /**
@@ -67,19 +64,19 @@ interface HookPayload {
 }
 
 function messageOf(kind: HookEventKind, raw: string): string {
-  if (kind === 'working' || kind === 'ended') return DEFAULT_MESSAGE[kind]
+  if (kind === 'working' || kind === 'ended') return defaultMessage(kind)
   let payload: HookPayload
   try {
     payload = JSON.parse(raw) as HookPayload
   } catch {
-    return DEFAULT_MESSAGE[kind]
+    return defaultMessage(kind)
   }
   const question = payload.tool_input?.questions?.[0]?.question
   if (typeof question === 'string' && question.trim()) return question.trim()
   if (typeof payload.message === 'string' && payload.message.trim()) return payload.message.trim()
   const answer = payload.last_assistant_message
   if (kind === 'done' && typeof answer === 'string' && answer.trim()) return answer.trim()
-  return DEFAULT_MESSAGE[kind]
+  return defaultMessage(kind)
 }
 
 /** `/clear` und `/resume` melden ein `SessionEnd`, beenden Claude aber nicht. */

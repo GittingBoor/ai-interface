@@ -1,6 +1,6 @@
 import { Bot, Braces, CircleOff, Cloud, FolderGit2, Puzzle, Sparkles, SquareSlash, UserRound, type LucideIcon } from 'lucide-react'
 import type { SkillEntry, SkillKind, SkillScope } from '@shared/types'
-import { KIND_LABEL } from '@renderer/lib/skills'
+import { useT } from '@renderer/i18n/useT'
 
 export const KIND_ICON: Readonly<Record<SkillKind, LucideIcon>> = { skill: Sparkles, agent: Bot, command: SquareSlash }
 
@@ -15,17 +15,19 @@ export const SCOPE_ICON: Readonly<Record<SkillScope, LucideIcon>> = {
 export const CODEX_ICON: LucideIcon = Braces
 
 export function KindIcon({ kind, className = 'size-3.5' }: { readonly kind: SkillKind; readonly className?: string }): React.JSX.Element {
+  const t = useT()
   const Icon = KIND_ICON[kind]
-  return <Icon className={`shrink-0 ${className}`} aria-label={KIND_LABEL[kind]} role="img" strokeWidth={1.75} />
+  return <Icon className={`shrink-0 ${className}`} aria-label={t.skills.kindSingular[kind]} role="img" strokeWidth={1.75} />
 }
 
 /** Kleine Kennzeichen hinter dem Namen: Codex und deaktiviert. */
 export function EntryTags({ entry }: { readonly entry: SkillEntry }): React.JSX.Element | null {
+  const t = useT()
   if (entry.ai !== 'codex' && entry.scope !== 'disabled') return null
   return (
     <>
       {entry.ai === 'codex' ? <Tag>Codex</Tag> : null}
-      {entry.scope === 'disabled' ? <Tag muted>aus</Tag> : null}
+      {entry.scope === 'disabled' ? <Tag muted>{t.skills.tagOff}</Tag> : null}
     </>
   )
 }

@@ -1,4 +1,5 @@
 /** Beispielkatalog für den Browser-Modus: Skills, Agents, Befehle aus allen Herkünften. */
+import { currentT } from '@renderer/i18n/useT'
 import type { HostId, SkillCatalogResult, SkillEntry, SkillRelation } from '@shared/types'
 
 interface MockSkillSpec {
@@ -13,6 +14,7 @@ interface MockSkillSpec {
   readonly tools?: readonly string[]
   readonly model?: string
   readonly skills?: readonly string[]
+  readonly color?: string
   /** Skill-Namen, die im Text vorkommen. */
   readonly mentions?: readonly string[]
   /** Nur auf diesem Rechner vorhanden. */
@@ -41,6 +43,7 @@ const SPECS: readonly MockSkillSpec[] = [
     description: 'Reviews a completed step against the plan and coding standards.',
     tools: ['Read', 'Grep', 'Glob'],
     model: 'sonnet',
+    color: 'red',
     skills: ['systematic-debugging']
   },
   { name: 'commit', kind: 'command', rel: 'plugins/commit-commands/commands/commit.md', scope: 'plugin', plugin: 'commit-commands', description: 'Create a git commit with a message derived from the staged diff.' },
@@ -52,6 +55,7 @@ const SPECS: readonly MockSkillSpec[] = [
     description: 'Specialist for designing and implementing high-quality websites and frontend interfaces.',
     tools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_take_screenshot'],
     model: 'inherit',
+    color: 'cyan',
     skills: ['impeccable'],
     mentions: ['frontend-design', 'dataviz', 'apple-design', 'responsive-web']
   },
@@ -62,6 +66,7 @@ const SPECS: readonly MockSkillSpec[] = [
     description: 'Finds real, verified job listings and saves every found job to the Obsidian vault.',
     tools: ['WebSearch', 'WebFetch', 'Write', 'Read', 'Bash'],
     model: 'sonnet',
+    color: 'orange',
     mentions: ['pdf'],
     only: 'local'
   },
@@ -76,6 +81,7 @@ const SPECS: readonly MockSkillSpec[] = [
     description: 'Checks that every IPC channel in api.ts has a handler and a preload binding.',
     tools: ['Read', 'Grep', 'Glob'],
     model: 'haiku',
+    color: 'green',
     mentions: ['systematic-debugging']
   },
   { name: 'release', kind: 'command', rel: '../projects/ai-interface/.claude/commands/release.md', scope: 'project', project: 'ai-interface', description: 'Bump version, build the Windows installer and write release notes.' },
@@ -103,8 +109,15 @@ function excerpt(spec: MockSkillSpec): string {
   return lines.join('\n')
 }
 
+/** Im Browser-Modus gespeicherte Agents (Pfad → Eintrag), damit der Builder sichtbar etwas bewirkt. */
+export const MOCK_SAVED_AGENTS = new Map<string, SkillEntry>()
+/** Gelöschte Pfade aus den Beispieldaten. */
+export const MOCK_REMOVED_AGENTS = new Set<string>()
+
+export const mockHome = (host: HostId): string => (host === 'local' ? 'C:/Users/Alex/.claude' : '/home/alex/.claude')
+
 export function mockSkillCatalog(host: HostId): SkillCatalogResult {
-  const home = host === 'local' ? 'C:/Users/Alex/.claude' : '/home/alex/.claude'
+  const home = mockHome(host)
   const specs = SPECS.filter((s) => !s.only || s.only === host)
   const entries: SkillEntry[] = specs.map((s) => ({
     id: `${host}:${home}/${s.rel}`,
@@ -120,6 +133,7 @@ export function mockSkillCatalog(host: HostId): SkillCatalogResult {
     tools: s.tools ?? [],
     model: s.model ?? null,
     skills: s.skills ?? [],
+    color: s.color ?? null,
     hash: `h-${s.name}`,
     bodyExcerpt: excerpt(s)
   }))
@@ -139,6 +153,8 @@ export function mockSkillCatalog(host: HostId): SkillCatalogResult {
       if (to) relations.push({ from: id, to, kind: 'mentions' })
     }
   })
-  const errors = host === 'local' ? ['C:/Users/Alex/.claude/skills/broken/SKILL.md: Frontmatter nicht lesbar'] : []
-  return { host, entries, relations, errors }
+  const errors = host === 'local' ? [currentT().errors.skills.unreadable('C:/Users/Alex/.claude/skills/broken/SKILL.md')] : []
+  const saved = [...MOCK_SAVED_AGENTS.values()].filter((e) => e.host === host)
+  const visible = [...entries.filter((e) => !MOCK_REMOVED_AGENTS.has(e.path) && !MOCK_SAVED_AGENTS.has(e.path)), ...saved]
+  return { host, entries: visible, relations, errors }
 }

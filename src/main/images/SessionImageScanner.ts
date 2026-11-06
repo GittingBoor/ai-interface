@@ -1,6 +1,9 @@
+import { mainT } from '../i18n'
 import type { Favorite, ImageMeta } from '@shared/types'
 import { findProjectFor } from '@shared/projectMatch'
 import { HostUnreachableError } from '../errors'
+import { intlTag } from '@shared/i18n/locales'
+import { mainLocale } from '../i18n'
 import { type Host, joinPath } from '../hosts/Host'
 import { type ExtractedFile, type ExtractedImage, extractImages } from './extractImages'
 import type { AutoImageInput } from './ImageStore'
@@ -19,7 +22,7 @@ const CURRENT_DIR_PREFIX = /^\.[\\/]/
 
 const EXTENSION: Readonly<Record<string, string>> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }
 
-const formatDate = (timestamp: number): string => new Date(timestamp).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
+const formatDate = (timestamp: number): string => new Date(timestamp).toLocaleString(intlTag(mainLocale()), { dateStyle: 'short', timeStyle: 'short' })
 const fileName = (path: string): string => path.split(/[\\/]/).pop() ?? path
 const fileExtension = (path: string): string => (path.split('.').pop() ?? '').toLowerCase().replace('jpeg', 'jpg')
 
@@ -32,9 +35,9 @@ function candidatePaths(host: Host, file: ExtractedFile): string[] {
 
 function titleFor(image: ExtractedImage): string {
   const date = formatDate(image.timestamp)
-  if (image.fromUser) return `Von dir · ${date}`
-  if (!image.tool) return `KI-Bild · ${date}`
-  return `Screenshot · ${image.tool.replace(MCP_PREFIX, '')} · ${date}`
+  if (image.fromUser) return mainT().main.imageTitles.fromUser(date)
+  if (!image.tool) return mainT().main.imageTitles.aiImage(date)
+  return mainT().main.imageTitles.screenshot(image.tool.replace(MCP_PREFIX, ''), date)
 }
 
 /** Übernimmt Bilder aus Claude-Sessions in die Galerie des Projekts, in dem die Session lief. */
@@ -78,7 +81,7 @@ export class SessionImageScanner {
     return this.store.addAuto({
       data,
       extension,
-      title: `Screenshot · ${fileName(file.path)} · ${formatDate(file.timestamp)}`,
+      title: mainT().main.imageTitles.screenshot(fileName(file.path), formatDate(file.timestamp)),
       project: project.path,
       host: host.id,
       source: 'auto',

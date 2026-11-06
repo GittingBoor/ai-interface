@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { posix, win32 } from 'node:path'
 import { ValidationError } from '../errors'
 import { assertInside } from './pathGuard'
@@ -29,7 +30,7 @@ const GITIGNORE: Readonly<Record<GitignoreKind, readonly string[]>> = {
 function validName(name: string): string {
   const trimmed = name.trim()
   if (!trimmed || trimmed === '.' || trimmed === '..' || /[\\/:*?"<>|]/.test(trimmed)) {
-    throw new ValidationError(`Projektname „${name}“ ist ungültig (keine Pfadzeichen wie / \\ : * ? " < > |).`)
+    throw new ValidationError(mainT().errors.assistant.projectNameInvalid(name))
   }
   return trimmed
 }
@@ -38,7 +39,7 @@ function validName(name: string): string {
 export function planScaffold(root: string, input: ScaffoldInput, categories: readonly string[], platform: NodeJS.Platform): ScaffoldPlan {
   const category = input.category.trim()
   if (category && !categories.includes(category)) {
-    throw new ValidationError(`Kategorie „${input.category}“ gibt es in ${root} nicht (vorhanden: ${categories.join(', ')}).`)
+    throw new ValidationError(mainT().errors.assistant.categoryUnknown(input.category, root, categories.join(', ')))
   }
   const path = platform === 'win32' ? win32 : posix
   const dir = assertInside(root, path.join(root, category, validName(input.name)), platform)

@@ -1,3 +1,4 @@
+import type { Messages } from './i18n/messages'
 import type { NavGroup, NavigationSettings, SectionLayout } from './types'
 
 /** Seitenleisten-Eintrag eines Geräts: `device:<id>`. */
@@ -6,10 +7,13 @@ export const DEVICE_NAV_PREFIX = 'device:'
 export const LINK_NAV_PREFIX = 'link:'
 /** Seitenleisten-Eintrag eines Add-ons: `addon:<id>`. */
 export const ADDON_NAV_PREFIX = 'addon:'
+/** Seitenleisten-Eintrag einer Quelle mit Stern: `source:<id>`. */
+export const SOURCE_NAV_PREFIX = 'source:'
+export const WEBSITES_GROUP_ID = 'websites'
 export const DEVICES_GROUP_ID = 'devices'
-const DEVICES_GROUP_LABEL = 'Verknüpfungen'
+const DEVICES_GROUP_LABEL = 'Verknüpfungen' // i18n-ignore: Vergleichswert gespeicherter Anordnungen
 /** Früherer Name der Gruppe; gespeicherte Anordnungen bekommen den neuen Namen. */
-const LEGACY_DEVICES_GROUP_LABEL = 'Geräte'
+const LEGACY_DEVICES_GROUP_LABEL = 'Geräte' // i18n-ignore: Vergleichswert gespeicherter Anordnungen
 /** Einträge, die sich nicht ausblenden lassen (sonst kommt man nicht mehr zurück). */
 export const ALWAYS_VISIBLE: readonly string[] = ['settings']
 /** Neue Bereiche, die in gespeicherten Anordnungen an den Anfang ihrer Gruppe kommen statt ans Ende. */
@@ -19,21 +23,43 @@ export const deviceNavId = (deviceId: string): string => `${DEVICE_NAV_PREFIX}${
 export const deviceIdOf = (navId: string): string | null => (navId.startsWith(DEVICE_NAV_PREFIX) ? navId.slice(DEVICE_NAV_PREFIX.length) : null)
 export const linkNavId = (linkId: string): string => `${LINK_NAV_PREFIX}${linkId}`
 export const linkIdOf = (navId: string): string | null => (navId.startsWith(LINK_NAV_PREFIX) ? navId.slice(LINK_NAV_PREFIX.length) : null)
+export const sourceNavId = (sourceId: number): string => `${SOURCE_NAV_PREFIX}${sourceId}`
+export function sourceIdOf(navId: string): number | null {
+  if (!navId.startsWith(SOURCE_NAV_PREFIX)) return null
+  const id = Number(navId.slice(SOURCE_NAV_PREFIX.length))
+  return Number.isInteger(id) ? id : null
+}
 
 export const DEFAULT_NAVIGATION: NavigationSettings = {
   groups: [
     { id: 'work', label: 'Arbeiten', items: ['home', 'overview', 'projects', 'terminal', 'runs'] },
-    { id: 'notes', label: 'Notizen', items: ['todos', 'protocols', 'gallery'] },
-    { id: 'ai', label: 'KI', items: ['models', 'skills'] },
+    { id: 'notes', label: 'Notizen', items: ['todos', 'protocols', 'knowledge', 'gallery', 'sources'] },
+    { id: 'ai', label: 'KI', items: ['models', 'skills', 'agents', 'automations'] },
     { id: DEVICES_GROUP_ID, label: DEVICES_GROUP_LABEL, items: [] },
+    { id: WEBSITES_GROUP_ID, label: 'Webseiten', items: [] },
     { id: 'app', label: 'App', items: ['howto', 'settings'] }
   ],
   hidden: [],
   collapsed: []
 }
 
+const LEGACY_GROUP_LABELS: Readonly<Record<string, string>> = { [DEVICES_GROUP_ID]: LEGACY_DEVICES_GROUP_LABEL }
+
+/**
+ * Anzeigename einer Gruppe: Eingebaute Gruppen zeigen den Wörterbuchtext, solange das gespeicherte Label noch dem
+ * deutschen Standard (oder dem früheren Namen) entspricht; selbst vergebene Namen bleiben unverändert.
+ */
+export function navGroupLabel(group: { readonly id: string; readonly label: string }, t: Messages): string {
+  const builtIn = DEFAULT_NAVIGATION.groups.find((g) => g.id === group.id)
+  if (!builtIn) return group.label
+  const isDefault = group.label === builtIn.label || group.label === LEGACY_GROUP_LABELS[group.id]
+  const names: Readonly<Record<string, string>> = t.nav.groups
+  return isDefault ? (names[group.id] ?? group.label) : group.label
+}
+
 /** Gruppe, in die ein Eintrag gehört, wenn er in der gespeicherten Anordnung fehlt. */
 function defaultGroupOf(item: string): string {
+  if (item.startsWith(SOURCE_NAV_PREFIX)) return WEBSITES_GROUP_ID
   if (item.startsWith(DEVICE_NAV_PREFIX) || item.startsWith(LINK_NAV_PREFIX) || item.startsWith(ADDON_NAV_PREFIX)) return DEVICES_GROUP_ID
   return DEFAULT_NAVIGATION.groups.find((g) => g.items.includes(item))?.id ?? 'app'
 }
@@ -42,7 +68,8 @@ function defaultGroupOf(item: string): string {
 function insertAfterPredecessor(groups: readonly { items: string[] }[], items: readonly string[], item: string): boolean {
   if (!item.startsWith(LINK_NAV_PREFIX)) return false
   const before = items[items.indexOf(item) - 1]
-  if (before === undefined) return false
+  // Nur hinter ein Gerät oder eine andere Verknüpfung; sonst landete die erste Webseite ohne Gerät hinter „Einstellungen“.
+  if (before === undefined || !(before.startsWith(DEVICE_NAV_PREFIX) || before.startsWith(LINK_NAV_PREFIX))) return false
   const group = groups.find((g) => g.items.includes(before))
   if (!group) return false
   const next = [...group.items]
@@ -129,10 +156,10 @@ export function deviceIdFrom(name: string, taken: readonly string[]): string {
   const base =
     name
       .toLowerCase()
-      .replaceAll('ä', 'ae')
-      .replaceAll('ö', 'oe')
-      .replaceAll('ü', 'ue')
-      .replaceAll('ß', 'ss')
+      .replaceAll('ä', 'ae') // i18n-ignore: Umlaut-Umschrift
+      .replaceAll('ö', 'oe') // i18n-ignore: Umlaut-Umschrift
+      .replaceAll('ü', 'ue') // i18n-ignore: Umlaut-Umschrift
+      .replaceAll('ß', 'ss') // i18n-ignore: Umlaut-Umschrift
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'geraet'
   const reserved = new Set([...taken, 'local', 'all'])

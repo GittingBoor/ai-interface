@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { ClaudeCliError } from '../errors'
 
@@ -40,7 +41,7 @@ export function runProcess(file: string, args: readonly string[], input: string,
     let stderr = ''
     const timer = setTimeout(() => {
       killTree(child)
-      reject(new ClaudeCliError(`Zeitlimit von ${Math.round(options.timeoutMs / 1000)} s überschritten`))
+      reject(new ClaudeCliError(mainT().errors.timeout(Math.round(options.timeoutMs / 1000))))
     }, options.timeoutMs)
     child.stdout?.on('data', (d: Buffer) => (stdout += d.toString('utf8')))
     child.stderr?.on('data', (d: Buffer) => (stderr += d.toString('utf8')))
@@ -51,7 +52,7 @@ export function runProcess(file: string, args: readonly string[], input: string,
     child.on('close', (code) => {
       clearTimeout(timer)
       if (code === 0) resolve(stdout)
-      else reject(new ClaudeCliError(`Exit-Code ${code ?? '?'}: ${(stderr || stdout).trim().slice(0, MAX_ERROR_TEXT)}`))
+      else reject(new ClaudeCliError(`${code === null ? '?' : mainT().errors.update.exitCode(code)}: ${(stderr || stdout).trim().slice(0, MAX_ERROR_TEXT)}`))
     })
     child.stdin?.end(input)
   })

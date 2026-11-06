@@ -1,4 +1,8 @@
 import type { HostId, SkillAi, SkillEntry, SkillKind, SkillRelation, SkillRelationKind, SkillScope } from '@shared/types'
+import { messagesFor, type Messages } from '@shared/i18n/messages'
+import { activeLocale, activeTag } from '../i18n/activeLocale'
+
+const texts = (): Messages['skills'] => messagesFor(activeLocale()).skills
 
 export type HostFilter = 'all' | HostId
 export type AiFilter = 'all' | SkillAi
@@ -15,15 +19,10 @@ export interface SkillFilters {
 
 export const DEFAULT_FILTERS: SkillFilters = { host: 'all', ai: 'all', kind: 'all', scope: 'all', query: '' }
 
-export const KIND_LABEL: Readonly<Record<SkillKind, string>> = { skill: 'Skill', agent: 'Agent', command: 'Befehl' }
+/** Produktnamen, in allen Sprachen gleich. */
 export const AI_LABEL: Readonly<Record<SkillAi, string>> = { claude: 'Claude', codex: 'Codex' }
-export const SCOPE_LABEL: Readonly<Record<SkillScope, string>> = {
-  user: 'Eigene',
-  synced: 'claude.ai',
-  plugin: 'Plugin',
-  project: 'Projekt',
-  disabled: 'Deaktiviert'
-}
+export const kindLabel = (kind: SkillKind): string => texts().kindSingular[kind]
+export const scopeLabel = (scope: SkillScope): string => texts().scope[scope]
 /** Reihenfolge der Herkunftsgruppen in Liste und Grafik. */
 export const SCOPE_ORDER: readonly SkillScope[] = ['user', 'synced', 'plugin', 'project', 'disabled']
 const KIND_ORDER: readonly SkillKind[] = ['agent', 'skill', 'command']
@@ -40,9 +39,9 @@ function matchesFacet(entry: SkillEntry, filters: SkillFilters, skip: FacetKey |
 
 /** Suche über Name, Beschreibung und KI-Zusammenfassung; alle Wörter müssen vorkommen. */
 export function matchesQuery(entry: SkillEntry, query: string, summary: string | undefined): boolean {
-  const words = query.toLocaleLowerCase('de-DE').split(/\s+/).filter(Boolean)
+  const words = query.toLocaleLowerCase(activeTag()).split(/\s+/).filter(Boolean)
   if (!words.length) return true
-  const haystack = `${entry.name} ${entry.description} ${summary ?? ''} ${entry.plugin ?? ''} ${entry.project ?? ''}`.toLocaleLowerCase('de-DE')
+  const haystack = `${entry.name} ${entry.description} ${summary ?? ''} ${entry.plugin ?? ''} ${entry.project ?? ''}`.toLocaleLowerCase(activeTag())
   return words.every((w) => haystack.includes(w))
 }
 
@@ -69,7 +68,7 @@ export function facetCounts<K extends FacetKey>(
 }
 
 export const compareEntries = (a: SkillEntry, b: SkillEntry): number =>
-  KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name, 'de-DE') || a.host.localeCompare(b.host)
+  KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name, activeTag()) || a.host.localeCompare(b.host)
 
 export interface SkillSubgroup {
   /** Plugin- oder Projektname; null = keine Untergruppe. */
@@ -84,8 +83,8 @@ export interface SkillGroup {
 }
 
 function subgroupKey(entry: SkillEntry): string | null {
-  if (entry.scope === 'plugin') return entry.plugin ?? 'Unbekanntes Plugin'
-  if (entry.scope === 'project') return entry.project ?? 'Unbekanntes Projekt'
+  if (entry.scope === 'plugin') return entry.plugin ?? texts().unknownPlugin
+  if (entry.scope === 'project') return entry.project ?? texts().unknownProject
   return null
 }
 
@@ -100,7 +99,7 @@ export function groupEntries(entries: readonly SkillEntry[]): SkillGroup[] {
       bySub.set(key, [...(bySub.get(key) ?? []), e])
     }
     const subgroups = [...bySub.entries()]
-      .sort(([a], [b]) => (a ?? '').localeCompare(b ?? '', 'de-DE'))
+      .sort(([a], [b]) => (a ?? '').localeCompare(b ?? '', activeTag()))
       .map(([label, list]) => ({ label, entries: [...list].sort(compareEntries) }))
     return [{ scope, count: inScope.length, subgroups }]
   })
@@ -133,12 +132,7 @@ export interface RelationItem {
   readonly label: string
 }
 
-export const RELATION_LABEL: Readonly<Record<SkillRelationKind, Readonly<Record<RelationDirection, string>>>> = {
-  contains: { out: 'Enthält', in: 'Enthalten in Plugin' },
-  'uses-tool': { out: 'Nutzt Tool', in: 'Genutzt von' },
-  'uses-skill': { out: 'Nutzt Skill', in: 'Genutzt von Agent' },
-  mentions: { out: 'Erwähnt', in: 'Erwähnt von' }
-}
+export const relationLabel = (kind: SkillRelationKind, direction: RelationDirection): string => texts().relation[kind][direction]
 
 /** Beziehungen eines Eintrags in beide Richtungen, aufgelöst gegen den Katalog. */
 export function relationsFor(entry: SkillEntry, relations: readonly SkillRelation[], byId: ReadonlyMap<string, SkillEntry>): RelationItem[] {

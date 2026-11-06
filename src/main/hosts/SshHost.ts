@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { posix } from 'node:path'
 import type { SFTPWrapper, Stats } from 'ssh2'
 import { HostUnreachableError } from '../errors'
@@ -32,7 +33,7 @@ export class SshHost implements Host {
   async homeDir(): Promise<string> {
     if (this.home) return this.home
     const result = await this.exec('printf %s "$HOME"')
-    if (result.code !== 0 || !result.stdout) throw new HostUnreachableError(this.label(), 'Home-Verzeichnis nicht ermittelbar')
+    if (result.code !== 0 || !result.stdout) throw new HostUnreachableError(this.label(), mainT().errors.ssh.homeUnknown)
     this.home = result.stdout
     return this.home
   }
@@ -88,7 +89,7 @@ export class SshHost implements Host {
 
   private async run(command: string): Promise<void> {
     const result = await this.exec(command)
-    if (result.code !== 0) throw new Error(`Befehl auf „${this.label()}“ fehlgeschlagen (${result.code}): ${result.stderr.trim()}`)
+    if (result.code !== 0) throw new Error(mainT().errors.ssh.commandFailed(this.label(), result.code, result.stderr.trim()))
   }
 
   private readStream(sftp: SFTPWrapper, path: string, start: number, length: number | undefined): Promise<Buffer> {

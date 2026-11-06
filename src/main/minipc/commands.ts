@@ -77,6 +77,24 @@ export function infoScript(): string {
   ].join('; ')
 }
 
+/**
+ * Claude-Anmeldung (Abschnitt `@@AUTH@@` für `parseClaudeAuth`). Liest aus der Anmeldedatei nur, ob ein
+ * Refresh-Token da ist, und dessen festes Ablaufdatum; Token und Konto verlassen das Gerät nicht.
+ */
+export function claudeAuthScript(): string {
+  const file = '"$HOME/.claude/.credentials.json"'
+  return [
+    'export PATH="$HOME/.local/bin:$PATH"',
+    'echo @@AUTH@@',
+    `if command -v claude >/dev/null 2>&1; then echo cli=1; else echo cli=0; fi`,
+    `if [ -r ${file} ]; then echo file=1; else echo file=0; fi`,
+    `if out=$(claude auth status 2>/dev/null) && printf '%s' "$out" | grep -qE '"loggedIn"[[:space:]]*:[[:space:]]*true'; then echo loggedIn=1; else echo loggedIn=0; fi`,
+    `if grep -qE '"refreshToken"[[:space:]]*:[[:space:]]*"[^"]' ${file} 2>/dev/null; then echo refresh=1; else echo refresh=0; fi`,
+    `echo "expires=$(grep -oE '"refreshTokenExpiresAt"[[:space:]]*:[[:space:]]*[0-9]+' ${file} 2>/dev/null | grep -oE '[0-9]+$')"`,
+    'true'
+  ].join('; ')
+}
+
 /** Status je Git-Projekt direkt unter `dir`. */
 export function gitBatchScript(dir: string): string {
   return [

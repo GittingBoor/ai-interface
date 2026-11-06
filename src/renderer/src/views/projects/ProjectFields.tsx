@@ -3,6 +3,7 @@ import { ChevronDown, Star } from 'lucide-react'
 import type { Category } from '@shared/types'
 import { IconPicker } from '@renderer/components/IconPicker'
 import { ProjectMark } from '@renderer/components/ProjectMark'
+import { useT } from '@renderer/i18n/useT'
 
 const NO_CATEGORY = ''
 const NEUTRAL_MARK = 'var(--color-line-strong)'
@@ -16,6 +17,7 @@ interface CategorySelectProps {
 
 /** Auswahl der Art inklusive „Ohne Art“, mit Symbol der gewählten Art im Feld. */
 export function CategorySelect({ id, value, categories, onChange }: CategorySelectProps): React.JSX.Element {
+  const t = useT().projects
   const current = categories.find((c) => c.id === value) ?? null
   return (
     <div className="relative">
@@ -31,7 +33,7 @@ export function CategorySelect({ id, value, categories, onChange }: CategorySele
         onChange={(e) => onChange(e.target.value === NO_CATEGORY ? null : Number(e.target.value))}
         className="field cursor-pointer appearance-none pr-8 pl-8"
       >
-        <option value={NO_CATEGORY}>Ohne Art</option>
+        <option value={NO_CATEGORY}>{t.noCategory}</option>
         {categories.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
@@ -53,6 +55,7 @@ interface IconFieldProps {
 
 /** Knopf mit aktuellem Symbol, öffnet die Symbolauswahl. */
 export function IconField({ id, value, color, subject, onChange }: IconFieldProps): React.JSX.Element {
+  const t = useT().projects.fields
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -64,7 +67,7 @@ export function IconField({ id, value, color, subject, onChange }: IconFieldProp
         aria-haspopup="dialog"
       >
         <ProjectMark color={color} icon={value} size="sm" />
-        <span className={`flex-1 truncate ${value ? 'text-ink' : 'text-ink-3'}`}>{value ? 'Ändern …' : 'Wählen …'}</span>
+        <span className={`flex-1 truncate ${value ? 'text-ink' : 'text-ink-3'}`}>{value ? t.change : t.choose}</span>
       </button>
       <IconPicker open={open} value={value} color={color} subject={subject} onClose={() => setOpen(false)} onSelect={onChange} />
     </>
@@ -93,13 +96,14 @@ export function StarGlyph({ starred }: { readonly starred: boolean }): React.JSX
 
 /** Stern-Knopf: Projekt anpinnen oder lösen. */
 export function StarToggle({ starred, name, size = 'sm', className = '', onToggle }: StarToggleProps): React.JSX.Element {
-  const label = starred ? `${name} lösen` : `${name} anpinnen`
+  const t = useT().projects.fields
+  const label = starred ? t.unpin(name) : t.pin(name)
   return (
     <button
       type="button"
       aria-pressed={starred}
       aria-label={label}
-      title={starred ? 'Angepinnt · klicken zum Lösen' : 'Anpinnen'}
+      title={starred ? t.pinnedTitle : t.pinTitle}
       onClick={(e) => {
         e.stopPropagation()
         onToggle()

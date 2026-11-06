@@ -4,6 +4,7 @@ import type { FolderEntry, HostId } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { ApiError, unwrap } from '@renderer/api/call'
 import { hostLabel } from '@renderer/lib/hosts'
+import { currentT, useT } from '@renderer/i18n/useT'
 import { Button, IconButton } from './Button'
 import { Switch } from './Controls'
 import { SkeletonRows } from './States'
@@ -58,14 +59,16 @@ export function parentPath(path: string): string | null {
 }
 
 function describeError(error: unknown, host: HostId): LoadError {
+  const t = currentT().frame.folders
   const message = error instanceof Error ? error.message : String(error)
-  if (error instanceof ApiError && error.code === 'HOST_UNREACHABLE') return { title: `${hostLabel(host)} nicht erreichbar`, message }
-  if (error instanceof ApiError && error.code === 'NOT_FOUND') return { title: 'Ordner nicht gefunden', message }
-  return { title: 'Ordner konnte nicht geladen werden', message }
+  if (error instanceof ApiError && error.code === 'HOST_UNREACHABLE') return { title: t.hostUnreachable(hostLabel(host)), message }
+  if (error instanceof ApiError && error.code === 'NOT_FOUND') return { title: t.notFound, message }
+  return { title: t.loadFailed, message }
 }
 
 /** Ordnerauswahl auf einem Host: Pfadzeile, Brotkrumen, Liste, versteckte Einträge. */
 export function FolderBrowser({ host, initialPath, selectedPath, onSelect, onOpenTerminal }: FolderBrowserProps): React.JSX.Element {
+  const t = useT()
   const listId = useId()
   const [dir, setDir] = useState<string | null>(null)
   const [draft, setDraft] = useState(initialPath)
@@ -134,9 +137,9 @@ export function FolderBrowser({ host, initialPath, selectedPath, onSelect, onOpe
   return (
     <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-canvas">
       <div className="flex items-center gap-1.5 border-b border-line p-1.5">
-        <IconButton size="sm" icon={ArrowUp} label="Übergeordneter Ordner" disabled={!up || status === 'loading'} onClick={() => up && open(up)} />
+        <IconButton size="sm" icon={ArrowUp} label={t.frame.folders.parent} disabled={!up || status === 'loading'} onClick={() => up && open(up)} />
         <input
-          aria-label={`Pfad auf ${hostLabel(host)}`}
+          aria-label={t.frame.folders.pathOn(hostLabel(host))}
           value={draft}
           spellCheck={false}
           onChange={(e) => setDraft(e.target.value)}
@@ -150,7 +153,7 @@ export function FolderBrowser({ host, initialPath, selectedPath, onSelect, onOpe
         />
       </div>
 
-      <nav aria-label="Pfad" className="flex min-h-8 items-center gap-0.5 overflow-x-auto border-b border-line px-2 py-1">
+      <nav aria-label={t.frame.folders.path} className="flex min-h-8 items-center gap-0.5 overflow-x-auto border-b border-line px-2 py-1">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1
           return (
@@ -183,18 +186,18 @@ export function FolderBrowser({ host, initialPath, selectedPath, onSelect, onOpe
             <p className="text-[0.8125rem] font-[600] text-ink">{error.title}</p>
             <p className="max-w-prose text-xs leading-relaxed text-ink-3">{error.message}</p>
             <Button size="sm" onClick={() => void load(target.current, showHidden)}>
-              Erneut
+              {t.frame.retryShort}
             </Button>
           </div>
         ) : null}
         {status === 'ready' ? (
           entries.length === 0 ? (
-            <p className="px-4 py-6 text-xs text-ink-3">Dieser Ordner ist leer.</p>
+            <p className="px-4 py-6 text-xs text-ink-3">{t.frame.folders.empty}</p>
           ) : (
             <ul
               id={listId}
               role="listbox"
-              aria-label="Ordner"
+              aria-label={t.frame.folders.list}
               tabIndex={0}
               aria-activedescendant={folders[cursor] ? `${listId}-${cursor}` : undefined}
               onKeyDown={onListKey}
@@ -232,7 +235,7 @@ export function FolderBrowser({ host, initialPath, selectedPath, onSelect, onOpe
                       <IconButton
                         size="sm"
                         icon={SquareTerminal}
-                        label={`Terminal in ${entry.name} öffnen`}
+                        label={t.frame.folders.openTerminalIn(entry.name)}
                         tabIndex={-1}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -252,11 +255,11 @@ export function FolderBrowser({ host, initialPath, selectedPath, onSelect, onOpe
 
       <div className="flex items-center justify-between gap-4 border-t border-line px-3 py-2">
         <p className="num text-2xs text-ink-3" aria-live="polite">
-          {status === 'ready' ? `${folders.length} Ordner · Doppelklick öffnet` : ' '}
+          {status === 'ready' ? t.frame.folders.count(folders.length) : ' '}
         </p>
         <Switch
           checked={showHidden}
-          label="Versteckte zeigen"
+          label={t.frame.folders.showHidden}
           onChange={(checked) => {
             setShowHidden(checked)
             if (dir) void load(dir, checked)

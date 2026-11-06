@@ -1,0 +1,52 @@
+import type { Messages } from '../messages'
+
+export const todos: Messages['todos'] = {
+  description: 'Tareas del archivo TODO del vault de Obsidian',
+  reload: 'Recargar',
+  synced: '· sincronizado con Obsidian',
+  syncedModified: (age: string): string => `· sincronizado con Obsidian, modificado ${age}`,
+  missingTitle: 'El archivo TODO aún no existe',
+  createFile: 'Crear archivo TODO',
+  expectedBefore: 'Se espera en ',
+  expectedAfter: (host: string): string => ` en ${host}. La ruta y el vault se pueden cambiar en Ajustes.`,
+  status: 'Estado',
+  statusOpen: 'Abiertas',
+  statusDone: 'Hechas',
+  statusAll: 'Todas',
+  priority: 'Prioridad',
+  priorityAny: 'Cualquiera',
+  high: 'Alta',
+  normal: 'Normal',
+  low: 'Baja',
+  search: 'Buscar',
+  searchLabel: 'Buscar en los TODO',
+  overdue: (n: number): string => (n === 1 ? '1 tarea está vencida.' : `${n} tareas están vencidas.`),
+  noSection: 'Sin sección',
+  deleteTitle: '¿Eliminar el TODO?',
+  deleteMessage: (text: string): string => `«${text}» se quitará del archivo del vault.`,
+  noMatchesTitle: 'Sin resultados',
+  noMatchesBody: 'Ajusta el filtro o la búsqueda.',
+  allDoneTitle: 'Todo hecho',
+  allDoneBody: (shortcut: string): string => `No hay TODO abiertos. Añade tareas arriba o usa ${shortcut} y escribe «todo: …».`,
+  nothingDoneTitle: 'Aún no hay nada hecho',
+  nothingDoneBody: 'Los TODO marcados aparecen aquí.',
+  composer: {
+    aria: 'Nuevo TODO',
+    placeholder: 'Nuevo TODO …',
+    section: 'Sección',
+    sectionNone: 'ninguna',
+    due: 'Vence',
+    add: 'Añadir'
+  },
+  row: {
+    editText: 'Texto del TODO',
+    dueOn: 'Vence el',
+    reopen: (text: string): string => `Reabrir «${text}»`,
+    complete: (text: string): string => `Completar «${text}»`,
+    highPriority: 'Prioridad alta',
+    lowPriority: 'Prioridad baja',
+    doneOn: (date: string): string => `hecha el ${date}`,
+    dueTitle: (date: string): string => `Vence el ${date}`,
+    edit: 'Editar'
+  }
+}

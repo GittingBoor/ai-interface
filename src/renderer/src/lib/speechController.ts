@@ -1,22 +1,46 @@
 import type { Result } from '@shared/result'
 import { SPEECH_SAMPLE_RATE } from '@shared/speech'
+import { messagesFor, type Messages } from '@shared/i18n/messages'
+import { activeLocale } from '../i18n/activeLocale'
 import { encodeWav, isSilent } from './wav'
 import { sameTarget, type SpeechTarget } from './speechText'
+
+/** Wörterbuch der aktuellen Sprache zum Zeitpunkt der Anzeige. */
+const currentMessages = (): Messages => messagesFor(activeLocale())
 
 export type SpeechPhase = 'idle' | 'recording' | 'transcribing'
 
 /** Kürzer als 0,5 s ist fast immer ein versehentlicher Klick. */
 export const MIN_RECORDING_SAMPLES = SPEECH_SAMPLE_RATE / 2
-const NOTHING_RECOGNIZED = 'Nichts erkannt'
 const EMPTY_TRANSCRIPT_CODE = 'EMPTY_TRANSCRIPT'
+
+/** Art des Mikrofon-Fehlers; der Text entsteht erst bei der Anzeige in der aktuellen Sprache. */
+export type MicrophoneFailure = 'denied' | 'notFound' | 'openFailed' | 'startFailed'
 
 export class MicrophoneError extends Error {
   constructor(
-    message: string,
-    readonly hint: string
+    readonly failure: MicrophoneFailure,
+    /** Technische Ursache (nur bei `openFailed` und `startFailed`), sonst leer. */
+    readonly detail: string = ''
   ) {
-    super(message)
+    super(detail || failure)
     this.name = 'MicrophoneError'
+  }
+}
+
+/** Titel und Hinweis für die Anzeige eines Mikrofon-Fehlers. */
+export function describeMicrophoneError(error: MicrophoneError, t: Messages): { readonly title: string; readonly hint: string } {
+  const { recorder } = t.speech
+  const hint = error.detail || recorder.micHint
+  switch (error.failure) {
+    case 'denied':
+      return { title: recorder.denied, hint: recorder.micHint }
+    case 'notFound':
+      return { title: recorder.notFound, hint: recorder.notFoundHint(recorder.micHint) }
+    case 'openFailed':
+      return { title: recorder.openFailed, hint }
+    case 'startFailed':
+      return { title: recorder.startFailed, hint }
   }
 }
 
@@ -85,8 +109,11 @@ export class SpeechController {
       return true
     } catch (error) {
       this.set('idle', null)
-      if (error instanceof MicrophoneError) this.deps.notify.error(error.message, error.hint)
-      else this.deps.notify.error('Aufnahme konnte nicht starten', error instanceof Error ? error.message : String(error))
+      const t = currentMessages()
+      if (error instanceof MicrophoneError) {
+        const { title, hint } = describeMicrophoneError(error, t)
+        this.deps.notify.error(title, hint)
+      } else this.deps.notify.error(t.speech.recorder.startFailed, error instanceof Error ? error.message : String(error))
       return false
     }
   }
@@ -94,22 +121,23 @@ export class SpeechController {
   private async finish(): Promise<void> {
     if (this.phase !== 'recording' || !this.target) return
     const target = this.target
+    const t = currentMessages()
     this.set('transcribing', target)
     try {
       const samples = await this.deps.recorder.stop()
       if (samples.length < MIN_RECORDING_SAMPLES || isSilent(samples)) {
-        this.deps.notify.info(NOTHING_RECOGNIZED)
+        this.deps.notify.info(t.speech.nothingRecognized)
         return
       }
       const result = await this.deps.transcribe(encodeWav(samples, SPEECH_SAMPLE_RATE))
       if (!result.ok) {
-        if (result.error.code === EMPTY_TRANSCRIPT_CODE) this.deps.notify.info(NOTHING_RECOGNIZED)
+        if (result.error.code === EMPTY_TRANSCRIPT_CODE) this.deps.notify.info(t.speech.nothingRecognized)
         else this.deps.notify.error(result.error.message, result.error.hint)
         return
       }
-      if (!this.deps.deliver(target, result.data)) this.deps.notify.info('Terminal ist nicht mehr offen, Text verworfen')
+      if (!this.deps.deliver(target, result.data)) this.deps.notify.info(t.speech.targetClosed)
     } catch (error) {
-      this.deps.notify.error('Aufnahme konnte nicht verarbeitet werden', error instanceof Error ? error.message : String(error))
+      this.deps.notify.error(t.speech.processingFailed, error instanceof Error ? error.message : String(error))
     } finally {
       this.set('idle', null)
     }

@@ -53,7 +53,7 @@ function summarize(sessionId: string, records: UsageRecord[]): SessionSummary {
   }
   const first = records[0]
   const last = records[records.length - 1]
-  if (!first || !last) throw new Error(`Session ${sessionId} ohne Einträge`)
+  if (!first || !last) throw new Error(`Session ${sessionId} ohne Einträge`) // i18n-ignore: Entwicklerfehler
   return {
     sessionId,
     host: last.host,

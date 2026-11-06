@@ -2,9 +2,10 @@ import { useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { hostLabel } from '@renderer/lib/hosts'
 import { formatInteger, formatUsd } from '@renderer/lib/format'
-import { formatMeasure, MEASURE_LABEL, REST_KEY, type ActivityGroup, type ComparisonMetric } from '@renderer/lib/projectActivity'
+import { formatMeasure, measureLabel, REST_KEY, type ActivityGroup, type ComparisonMetric } from '@renderer/lib/projectActivity'
 import { ProjectMark } from '@renderer/components/ProjectMark'
 import { useElementSize } from '@renderer/lib/hooks'
+import { useT } from '@renderer/i18n/useT'
 import { ChartTooltip, TooltipRow } from './ChartTooltip'
 
 interface PairedBarsProps {
@@ -40,16 +41,17 @@ function Bar({ value, max, color, index }: { readonly value: number; readonly ma
 }
 
 export function PairedLegend({ metric }: { readonly metric: ComparisonMetric }): React.JSX.Element {
+  useT()
   const swatch = 'var(--color-ink-3)'
   return (
     <span className="flex items-center gap-4 text-xs text-ink-3">
       <span className="flex items-center gap-1.5">
         <span aria-hidden className="h-1.5 w-3 rounded-r-[2px]" style={{ background: swatch }} />
-        {MEASURE_LABEL.time}
+        {measureLabel('time')}
       </span>
       <span className="flex items-center gap-1.5">
         <span aria-hidden className="h-1.5 w-3 rounded-r-[2px]" style={{ background: tint(swatch) }} />
-        {MEASURE_LABEL[metric]}
+        {measureLabel(metric)}
       </span>
     </span>
   )
@@ -57,6 +59,8 @@ export function PairedLegend({ metric }: { readonly metric: ComparisonMetric }):
 
 /** Je Projekt zwei Balken: Arbeitszeit (voll) und Token bzw. $ (aufgehellt), jede Reihe auf ihr eigenes Maximum skaliert. */
 export function PairedBars({ groups, metric }: PairedBarsProps): React.JSX.Element {
+  const messages = useT()
+  const t = messages.usage
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
   const rows = useRef<(HTMLLIElement | null)[]>([])
@@ -70,7 +74,7 @@ export function PairedBars({ groups, metric }: PairedBarsProps): React.JSX.Eleme
       className="relative outline-none"
       tabIndex={0}
       role="group"
-      aria-label={`Arbeitszeit und ${MEASURE_LABEL[metric]} je Projekt. Pfeiltasten wählen ein Projekt.`}
+      aria-label={t.charts.paired.aria(measureLabel(metric))}
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown') setHover((h) => Math.min((h ?? -1) + 1, groups.length - 1))
         if (e.key === 'ArrowUp') setHover((h) => Math.max((h ?? groups.length) - 1, 0))
@@ -111,13 +115,13 @@ export function PairedBars({ groups, metric }: PairedBarsProps): React.JSX.Eleme
       </ul>
       {active ? (
         <ChartTooltip x={Math.min(TOOLTIP_X_REM * REM_PX, width)} y={(hover !== null ? (rows.current[hover]?.offsetTop ?? 0) : 0) + TOOLTIP_Y_OFFSET} containerWidth={width}>
-          <p className="mb-1.5 truncate font-[600] text-ink">{active.key === REST_KEY ? `Weitere (${active.mergedCount})` : active.label}</p>
-          <TooltipRow label={MEASURE_LABEL.time} value={formatMeasure(active.activeMs, 'time')} />
-          <TooltipRow label="Token" value={formatMeasure(active.totalTokens, 'tokens')} />
-          <TooltipRow label="API-Gegenwert" value={formatUsd(active.costUsd)} />
+          <p className="mb-1.5 truncate font-[600] text-ink">{active.key === REST_KEY ? t.charts.paired.rest(active.mergedCount) : active.label}</p>
+          <TooltipRow label={measureLabel('time')} value={formatMeasure(active.activeMs, 'time')} />
+          <TooltipRow label={t.metrics.tokens} value={formatMeasure(active.totalTokens, 'tokens')} />
+          <TooltipRow label={t.metrics.cost} value={formatUsd(active.costUsd)} />
           <div className="mt-1.5 border-t border-line pt-1.5">
-            <TooltipRow label="Sessions" value={formatInteger(active.sessions)} />
-            <TooltipRow label="Rechner" value={active.hosts.map((h) => hostLabel(h)).join(', ')} />
+            <TooltipRow label={t.metrics.sessions} value={formatInteger(active.sessions)} />
+            <TooltipRow label={messages.frame.sessions.computer} value={active.hosts.map((h) => hostLabel(h)).join(', ')} />
           </div>
         </ChartTooltip>
       ) : null}

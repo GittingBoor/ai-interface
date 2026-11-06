@@ -1,3 +1,6 @@
+import { languageDirective } from '@shared/i18n/directive'
+import type { Locale } from '@shared/i18n/locales'
+import { mainLocale, mainT } from '../i18n'
 import type Database from 'better-sqlite3'
 import { SummaryError } from '../errors'
 
@@ -5,9 +8,14 @@ import { SummaryError } from '../errors'
 export const MAX_INPUT_CHARS = 8000
 export const SUMMARY_MODEL = 'haiku'
 
-export const SUMMARY_PROMPT =
-  'Fasse in höchstens zwei kurzen deutschen Sätzen zusammen, was dieser Skill oder Agent kann und wann man ihn nutzt. ' +
-  'Antworte nur mit der Zusammenfassung, ohne Einleitung.'
+const SUMMARY_PROMPT_BASE =
+  'Fasse in höchstens zwei kurzen Sätzen zusammen, was dieser Skill oder Agent kann und wann man ihn nutzt. ' + // i18n-ignore: Prompt an das Modell
+  'Antworte nur mit der Zusammenfassung, ohne Einleitung.' // i18n-ignore: Prompt an das Modell
+
+/** Zusammenfassungs-Prompt samt Sprachvorgabe (die Zusammenfassung sieht der Nutzer im Skill-Katalog). */
+export function summaryPrompt(locale: Locale): string {
+  return `${SUMMARY_PROMPT_BASE} ${languageDirective(locale)}`
+}
 
 export interface SummaryInput {
   readonly hash: string
@@ -49,11 +57,11 @@ export class SkillSummarizer {
       this.onProgress({ done: index, total: todo.length, current: entry.name })
       let summary: string
       try {
-        summary = (await this.run(SUMMARY_PROMPT, entry.content.slice(0, MAX_INPUT_CHARS))).trim()
+        summary = (await this.run(summaryPrompt(mainLocale()), entry.content.slice(0, MAX_INPUT_CHARS))).trim()
       } catch (error) {
         throw new SummaryError(entry.name, error instanceof Error ? error.message : String(error))
       }
-      if (!summary) throw new SummaryError(entry.name, 'leere Antwort')
+      if (!summary) throw new SummaryError(entry.name, mainT().errors.skills.emptySummary)
       insert.run(entry.hash, summary, SUMMARY_MODEL, Date.now())
     }
     if (todo.length) this.onProgress({ done: todo.length, total: todo.length, current: '' })

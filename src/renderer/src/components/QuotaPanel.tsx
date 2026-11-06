@@ -5,8 +5,9 @@ import { useQuota } from '@renderer/stores/quotaStore'
 import { useUsage } from '@renderer/stores/usageStore'
 import { useNow } from '@renderer/lib/hooks'
 import { hostIds, hostLabel } from '@renderer/lib/hosts'
-import { formatAge, formatCountdown, formatInteger, formatRelative } from '@renderer/lib/format'
-import { orderedWindows, QUOTA_LABEL, QUOTA_STALE_MS, quotaLevel, type QuotaLevel } from '@renderer/lib/quota'
+import { formatAge, formatCountdown, formatInteger, formatPercentPoints, formatRelative } from '@renderer/lib/format'
+import { orderedWindows, QUOTA_STALE_MS, quotaLevel, type QuotaLevel } from '@renderer/lib/quota'
+import { currentT, useT } from '@renderer/i18n/useT'
 import { HostDot } from './Host'
 import { Skeleton } from './States'
 import { Button } from './Button'
@@ -27,25 +28,27 @@ const LEVEL_TEXT: Readonly<Record<QuotaLevel, string>> = {
 }
 
 function resetText(window: QuotaWindow, now: number): string {
-  if (window.resetsAt === null) return 'kein Reset-Zeitpunkt bekannt'
-  if (window.resetsAt <= now) return 'wird zurückgesetzt …'
-  return `Reset in ${formatCountdown(window.resetsAt - now)}`
+  const t = currentT().frame.quota
+  if (window.resetsAt === null) return t.resetUnknown
+  if (window.resetsAt <= now) return t.resetting
+  return t.resetIn(formatCountdown(window.resetsAt - now))
 }
 
 function QuotaBar({ window, now }: { readonly window: QuotaWindow; readonly now: number }): React.JSX.Element {
+  const t = useT()
   const percent = Math.min(MAX_PERCENT, Math.max(0, window.percent))
   const level = quotaLevel(percent)
-  const label = QUOTA_LABEL[window.kind]
+  const label = t.frame.quota.windows[window.kind]
   return (
     <li>
       <div className="flex items-baseline justify-between text-xs">
         <span className="text-ink-2">{label}</span>
-        <span className={`num font-[600] ${LEVEL_TEXT[level]}`}>{formatInteger(percent)} %</span>
+        <span className={`num font-[600] ${LEVEL_TEXT[level]}`}>{formatPercentPoints(percent)}</span>
       </div>
       <div
         className="mt-1 h-1 overflow-hidden rounded-full bg-raised"
         role="meter"
-        aria-label={`Kontingent ${label}`}
+        aria-label={t.frame.quota.meter(label)}
         aria-valuemin={0}
         aria-valuemax={MAX_PERCENT}
         aria-valuenow={percent}
@@ -64,13 +67,14 @@ function QuotaBar({ window, now }: { readonly window: QuotaWindow; readonly now:
 
 /** Kontingentbalken mit Stand und Neu-Abfrage (auch auf der Startseite). */
 export function QuotaBlock({ now }: { readonly now: number }): React.JSX.Element {
+  const t = useT()
   const state = useQuota((s) => s.state)
   const refreshing = useQuota((s) => s.refreshing)
   const refresh = useQuota((s) => s.refresh)
 
   if (state.status === 'loading') {
     return (
-      <div className="space-y-2.5" aria-busy="true" aria-label="Kontingent wird geladen">
+      <div className="space-y-2.5" aria-busy="true" aria-label={t.frame.quota.loadingAria}>
         <Skeleton className="h-7" />
         <Skeleton className="h-7" />
       </div>
@@ -80,12 +84,12 @@ export function QuotaBlock({ now }: { readonly now: number }): React.JSX.Element
   if (state.status !== 'ok') {
     return (
       <div className="space-y-2">
-        <p className="text-xs font-[560] text-ink-2">Kontingent: keine Quelle</p>
+        <p className="text-xs font-[560] text-ink-2">{t.frame.quota.noSource}</p>
         <p className="line-clamp-2 text-2xs text-ink-3" title={`${state.reason}\n${state.hint}`}>
           {state.reason}
         </p>
         <Button size="sm" variant="secondary" icon={RefreshCw} loading={refreshing} onClick={() => void refresh()}>
-          Erneut
+          {t.frame.retryShort}
         </Button>
       </div>
     )
@@ -101,14 +105,14 @@ export function QuotaBlock({ now }: { readonly now: number }): React.JSX.Element
       </ul>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p id="quota-age" className={`num text-2xs ${stale ? 'text-warn' : 'text-ink-3'}`}>
-          {stale ? `Veraltet · Stand ${formatAge(state.fetchedAt, now)}` : `Stand ${formatAge(state.fetchedAt, now)}`}
+          {stale ? t.frame.quota.stale(formatAge(state.fetchedAt, now)) : t.frame.quota.asOf(formatAge(state.fetchedAt, now))}
         </p>
         <button
           type="button"
           onClick={() => void refresh()}
           disabled={refreshing}
-          aria-label="Kontingent neu abfragen"
-          title="Kontingent neu abfragen"
+          aria-label={t.frame.quota.refresh}
+          title={t.frame.quota.refresh}
           className="grid size-5 place-items-center rounded text-ink-3 transition-colors hover:bg-raised-2 hover:text-ink disabled:opacity-50"
         >
           <RefreshCw className={`size-3 ${refreshing ? 'animate-spin' : ''}`} aria-hidden strokeWidth={2} />
@@ -118,33 +122,35 @@ export function QuotaBlock({ now }: { readonly now: number }): React.JSX.Element
   )
 }
 
-type HostState = 'unbekannt' | 'deaktiviert' | 'online' | 'offline'
+type HostState = 'unknown' | 'disabled' | 'online' | 'offline'
 
 function hostState(status: HostStatus | undefined): HostState {
-  return !status ? 'unbekannt' : !status.enabled ? 'deaktiviert' : status.online ? 'online' : 'offline'
+  return !status ? 'unknown' : !status.enabled ? 'disabled' : status.online ? 'online' : 'offline'
 }
 
 function HostLine({ host, status }: { readonly host: HostId; readonly status: HostStatus | undefined }): React.JSX.Element {
+  const t = useT()
   const state = hostState(status)
   const detail = status?.lastCollect ? formatRelative(status.lastCollect.finishedAt) : null
   return (
     <li className="flex items-center gap-2.5 py-0.5" title={status?.error ?? undefined}>
       <HostDot host={host} />
       <span className="flex-1 truncate text-xs text-ink-2">{hostLabel(host)}</span>
-      <span className={`text-2xs font-[560] ${state === 'offline' ? 'text-danger-ink' : 'text-ink-3'}`}>{state === 'online' && detail ? detail : state}</span>
+      <span className={`text-2xs font-[560] ${state === 'offline' ? 'text-danger-ink' : 'text-ink-3'}`}>{state === 'online' && detail ? detail : t.frame.quota.hostStates[state]}</span>
     </li>
   )
 }
 
 /** Unten in der Seitenleiste: Kontingent des Claude-Abos, aktive Sessions, Rechnerstatus. */
 export function QuotaPanel(): React.JSX.Element {
+  const t = useT()
   const now = useNow(TICK_MS)
   const hosts = useUsage((s) => s.hosts)
   const activeSessions = useUsage((s) => s.overview?.activeSessions ?? null)
 
   return (
     <div className="border-t border-line/70 px-4 pt-3 pb-4">
-      <p className="mb-2 text-2xs font-[600] text-ink-3">Kontingent</p>
+      <p className="mb-2 text-2xs font-[600] text-ink-3">{t.frame.quota.title}</p>
       <QuotaBlock now={now} />
       <div className="mt-3 border-t border-line/70 pt-2.5">
         {activeSessions !== null ? (
@@ -154,7 +160,7 @@ export function QuotaPanel(): React.JSX.Element {
               className={`inline-block size-2 shrink-0 rounded-full ${activeSessions > 0 ? 'animate-pulse-dot bg-accent text-accent' : 'bg-line-strong'}`}
             />
             <span className="num">
-              {activeSessions === 0 ? 'Keine aktive Session' : activeSessions === 1 ? '1 aktive Session' : `${formatInteger(activeSessions)} aktive Sessions`}
+              {activeSessions === 0 ? t.frame.quota.noActiveSession : t.frame.quota.activeSessions(activeSessions)}
             </span>
           </p>
         ) : null}
@@ -169,14 +175,15 @@ export function QuotaPanel(): React.JSX.Element {
 }
 
 function RailQuotaBar({ window, now }: { readonly window: QuotaWindow; readonly now: number }): React.JSX.Element {
+  const t = useT()
   const percent = Math.min(MAX_PERCENT, Math.max(0, window.percent))
   const level = quotaLevel(percent)
-  const label = QUOTA_LABEL[window.kind]
+  const label = t.frame.quota.windows[window.kind]
   return (
-    <li title={`${label}: ${formatInteger(percent)} % · ${resetText(window, now)}`} className="flex flex-col items-center gap-1">
+    <li title={`${label}: ${formatPercentPoints(percent)} · ${resetText(window, now)}`} className="flex flex-col items-center gap-1">
       <span className={`num text-2xs font-[600] ${LEVEL_TEXT[level]}`}>
         {formatInteger(percent)}
-        <span className="sr-only"> % Kontingent {label}</span>
+        <span className="sr-only">{t.frame.quota.railSr(label)}</span>
       </span>
       <span aria-hidden className="block h-1 w-7 overflow-hidden rounded-full bg-raised">
         <span className={`block h-full rounded-full ${LEVEL_FILL[level]}`} style={{ width: `${percent}%` }} />
@@ -187,6 +194,7 @@ function RailQuotaBar({ window, now }: { readonly window: QuotaWindow; readonly 
 
 /** Schmale Fassung von {@link QuotaPanel} für die eingeklappte Seitenleiste: Prozentwerte und Rechnerpunkte, Details im Tooltip. */
 export function QuotaRail(): React.JSX.Element {
+  const t = useT()
   const now = useNow(TICK_MS)
   const state = useQuota((s) => s.state)
   const hosts = useUsage((s) => s.hosts)
@@ -195,20 +203,21 @@ export function QuotaRail(): React.JSX.Element {
   return (
     <div className="flex flex-col items-center gap-3 border-t border-line/70 px-1 pt-3 pb-4">
       {state.status === 'ok' ? (
-        <ul aria-label="Kontingent" className={`flex flex-col items-center gap-2 transition-opacity ${stale ? 'opacity-45' : ''}`}>
+        <ul aria-label={t.frame.quota.title} className={`flex flex-col items-center gap-2 transition-opacity ${stale ? 'opacity-45' : ''}`}>
           {orderedWindows(state.windows).map((w) => (
             <RailQuotaBar key={w.kind} window={w} now={now} />
           ))}
         </ul>
       ) : null}
-      <ul aria-label="Rechner" className="flex flex-col items-center gap-1.5">
+      <ul aria-label={t.frame.quota.computers} className="flex flex-col items-center gap-1.5">
         {hostIds().map((id) => {
           const hostStatus = hostState(hosts.find((h) => h.id === id))
+          const statusText = t.frame.quota.hostStates[hostStatus]
           return (
-            <li key={id} title={`${hostLabel(id)}: ${hostStatus}`} className="grid size-4 place-items-center">
+            <li key={id} title={`${hostLabel(id)}: ${statusText}`} className="grid size-4 place-items-center">
               <HostDot host={id} className={hostStatus === 'online' ? '' : 'opacity-35'} />
               <span className="sr-only">
-                {hostLabel(id)}: {hostStatus}
+                {hostLabel(id)}: {statusText}
               </span>
             </li>
           )

@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -57,13 +58,13 @@ export class ImageStore {
   add(data: Uint8Array, input: ImageInput): ImageMeta {
     const extension = input.extension.toLowerCase().replace(/^\./, '')
     if (!(IMAGE_EXTENSIONS as readonly string[]).includes(extension)) {
-      throw new ValidationError(`Dateityp .${extension} wird nicht unterstützt (erlaubt: ${IMAGE_EXTENSIONS.join(', ')}).`)
+      throw new ValidationError(mainT().errors.images.extensionUnsupported(extension, IMAGE_EXTENSIONS.join(', ')))
     }
     const fileName = `${randomUUID()}.${extension}`
     writeFileSync(join(this.dir, fileName), data)
     const info = this.db
       .prepare('INSERT INTO images (file_name, title, project, tags, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(fileName, input.title.trim() || 'Ohne Titel', input.project, JSON.stringify(input.tags), data.byteLength, Date.now())
+      .run(fileName, input.title.trim() || mainT().main.untitled, input.project, JSON.stringify(input.tags), data.byteLength, Date.now())
     return this.get(Number(info.lastInsertRowid))
   }
 
@@ -110,7 +111,7 @@ export class ImageStore {
 
   get(id: number): ImageMeta {
     const row = this.db.prepare('SELECT * FROM images WHERE id = ?').get(id) as Row | undefined
-    if (!row) throw new NotFoundError(`Bild ${id}`)
+    if (!row) throw new NotFoundError(mainT().errors.what.image(id))
     return toMeta(row)
   }
 }

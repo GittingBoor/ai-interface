@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { motion } from 'motion/react'
 import { CircleCheck, CircleSlash, ShieldQuestion } from 'lucide-react'
+import { useT } from '@renderer/i18n/useT'
 import { confirmTitle, type ConfirmMessage } from '@renderer/lib/assistantMessages'
 import { Button } from '../Button'
 
@@ -10,6 +11,7 @@ interface ConfirmCardProps {
 }
 
 function ResolvedStatus({ allowed }: { readonly allowed: boolean }): React.JSX.Element {
+  const t = useT()
   const Icon = allowed ? CircleCheck : CircleSlash
   return (
     <motion.p
@@ -19,13 +21,14 @@ function ResolvedStatus({ allowed }: { readonly allowed: boolean }): React.JSX.E
       className="flex items-center gap-1.5 text-xs font-[560] text-ink-3"
     >
       <Icon className={`size-3.5 ${allowed ? 'text-accent-text' : 'text-ink-3'}`} aria-hidden strokeWidth={2} />
-      {allowed ? 'Freigegeben' : 'Abgelehnt'}
+      {allowed ? t.assistant.confirm.allowed : t.assistant.confirm.denied}
     </motion.p>
   )
 }
 
 /** Vorschau einer schreibenden Aktion. Ausgeführt wird nur per Klick oder Enter auf dem Knopf selbst. */
 export function ConfirmCard({ message, onDecide }: ConfirmCardProps): React.JSX.Element {
+  const t = useT()
   const titleId = useId()
   const waiting = message.status === 'pending' || message.status === 'sending'
   const sending = message.status === 'sending'
@@ -52,13 +55,13 @@ export function ConfirmCard({ message, onDecide }: ConfirmCardProps): React.JSX.
       <header className="flex items-center gap-2 px-3 pt-2.5 pb-2">
         <ShieldQuestion className={`size-3.5 shrink-0 ${waiting ? 'text-accent' : 'text-ink-3'}`} aria-hidden strokeWidth={2} />
         <h3 id={titleId} className="flex-1 truncate text-[0.8125rem] font-[620] text-ink">
-          {confirmTitle(message.tool)}
+          {confirmTitle(message.tool, t)}
         </h3>
-        {waiting ? <span className="text-2xs font-[560] text-accent-text">Wartet auf dich</span> : null}
+        {waiting ? <span className="text-2xs font-[560] text-accent-text">{t.assistant.confirm.waiting}</span> : null}
       </header>
       <pre
         tabIndex={0}
-        aria-label="Vorschau"
+        aria-label={t.assistant.confirm.preview}
         className="mx-3 max-h-52 overflow-auto rounded-md border border-line bg-canvas px-2.5 py-2 font-mono text-2xs leading-[1.6] whitespace-pre-wrap break-words text-ink-2"
       >
         {message.preview}
@@ -67,10 +70,10 @@ export function ConfirmCard({ message, onDecide }: ConfirmCardProps): React.JSX.
         {waiting ? (
           <>
             <Button size="sm" variant="primary" loading={sending} onClick={() => onDecide(message.id, true)}>
-              Ausführen
+              {t.assistant.confirm.run}
             </Button>
             <Button size="sm" variant="ghost" disabled={sending} onClick={() => onDecide(message.id, false)}>
-              Ablehnen
+              {t.assistant.confirm.deny}
             </Button>
           </>
         ) : (

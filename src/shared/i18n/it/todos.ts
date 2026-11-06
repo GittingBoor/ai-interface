@@ -1,0 +1,52 @@
+import type { Messages } from '../messages'
+
+export const todos: Messages['todos'] = {
+  description: 'Attività dal file TODO nel vault di Obsidian',
+  reload: 'Ricarica',
+  synced: '· sincronizzato con Obsidian',
+  syncedModified: (age: string): string => `· sincronizzato con Obsidian, modificato ${age}`,
+  missingTitle: 'Il file TODO non esiste ancora',
+  createFile: 'Crea file TODO',
+  expectedBefore: 'Previsto in ',
+  expectedAfter: (host: string): string => ` su ${host}. Percorso e vault si cambiano nelle Impostazioni.`,
+  status: 'Stato',
+  statusOpen: 'Aperti',
+  statusDone: 'Completati',
+  statusAll: 'Tutti',
+  priority: 'Priorità',
+  priorityAny: 'Qualsiasi',
+  high: 'Alta',
+  normal: 'Normale',
+  low: 'Bassa',
+  search: 'Cerca',
+  searchLabel: 'Cerca nei TODO',
+  overdue: (n: number): string => (n === 1 ? '1 attività è in ritardo.' : `${n} attività sono in ritardo.`),
+  noSection: 'Senza sezione',
+  deleteTitle: 'Eliminare il TODO?',
+  deleteMessage: (text: string): string => `“${text}” verrà rimosso dal file nel vault.`,
+  noMatchesTitle: 'Nessun risultato',
+  noMatchesBody: 'Modifica il filtro o la ricerca.',
+  allDoneTitle: 'Tutto fatto',
+  allDoneBody: (shortcut: string): string => `Nessun TODO aperto. Aggiungi nuove attività qui sopra oppure usa ${shortcut} e scrivi “todo: …”.`,
+  nothingDoneTitle: 'Ancora nulla di completato',
+  nothingDoneBody: 'I TODO spuntati compaiono qui.',
+  composer: {
+    aria: 'Nuovo TODO',
+    placeholder: 'Nuovo TODO …',
+    section: 'Sezione',
+    sectionNone: 'nessuna',
+    due: 'Scadenza',
+    add: 'Aggiungi'
+  },
+  row: {
+    editText: 'Testo del TODO',
+    dueOn: 'Scadenza il',
+    reopen: (text: string): string => `Riapri “${text}”`,
+    complete: (text: string): string => `Completa “${text}”`,
+    highPriority: 'Priorità alta',
+    lowPriority: 'Priorità bassa',
+    doneOn: (date: string): string => `completato il ${date}`,
+    dueTitle: (date: string): string => `Scadenza il ${date}`,
+    edit: 'Modifica'
+  }
+}

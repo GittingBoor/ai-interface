@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { openDatabase } from '../../src/main/db/Database'
 import { SummaryError } from '../../src/main/errors'
-import { MAX_INPUT_CHARS, SkillSummarizer } from '../../src/main/skills/SkillSummarizer'
+import { MAX_INPUT_CHARS, SkillSummarizer, summaryPrompt } from '../../src/main/skills/SkillSummarizer'
 
 const entry = (hash: string, content = `Inhalt ${hash}`): { hash: string; name: string; content: string } => ({ hash, name: `skill-${hash}`, content })
 
@@ -44,5 +44,12 @@ describe('SkillSummarizer', () => {
   it('verwirft leere Antworten', async () => {
     const summarizer = new SkillSummarizer(openDatabase(':memory:'), async () => '   ', () => undefined)
     await expect(summarizer.summarize([entry('a')])).rejects.toThrow(/leere/)
+  })
+})
+
+describe('summaryPrompt', () => {
+  it('verlangt die gewählte Sprache statt fest Deutsch', () => {
+    expect(summaryPrompt('fr')).toContain('French')
+    expect(summaryPrompt('fr')).not.toContain('deutsch')
   })
 })

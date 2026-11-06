@@ -6,6 +6,8 @@ import { formatMetric, stackSeries, type ChartMode, type ChartSeries } from '@re
 import { formatDateMedium, formatDayLong, formatDayShort, parseDay } from '@renderer/lib/format'
 import { ChartTooltip, TooltipRow } from './ChartTooltip'
 import { niceTicks } from './geometry'
+import { localized } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
 
 interface TrendChartProps {
   readonly buckets: readonly string[]
@@ -30,18 +32,18 @@ const PERCENT_TICKS = [0, 0.25, 0.5, 0.75, 1] as const
 const MORPH = { duration: 0.55, ease: [0.16, 1, 0.3, 1] } as const
 const REVEAL = { duration: 0.8, ease: [0.16, 1, 0.3, 1] } as const
 
-const percent = new Intl.NumberFormat('de-DE', { style: 'percent', maximumFractionDigits: 0 })
-const monthShort = new Intl.DateTimeFormat('de-DE', { month: 'short', year: '2-digit' })
-const monthLong = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' })
+const percent = localized((tag) => new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 0 }))
+const monthShort = localized((tag) => new Intl.DateTimeFormat(tag, { month: 'short', year: '2-digit' }))
+const monthLong = localized((tag) => new Intl.DateTimeFormat(tag, { month: 'long', year: 'numeric' }))
 
 function axisLabel(bucket: string, resolution: AnalyticsResolution): string {
-  return resolution === 'month' ? monthShort.format(parseDay(bucket)) : formatDayShort(bucket)
+  return resolution === 'month' ? monthShort().format(parseDay(bucket)) : formatDayShort(bucket)
 }
 
-function bucketTitle(bucket: string, resolution: AnalyticsResolution): string {
+function bucketTitle(bucket: string, resolution: AnalyticsResolution, weekFrom: (date: string) => string): string {
   if (resolution === 'day') return formatDayLong(bucket)
-  if (resolution === 'week') return `Woche ab ${formatDateMedium(parseDay(bucket).getTime())}`
-  return monthLong.format(parseDay(bucket))
+  if (resolution === 'week') return weekFrom(formatDateMedium(parseDay(bucket).getTime()))
+  return monthLong().format(parseDay(bucket))
 }
 
 interface Frame {
@@ -97,21 +99,22 @@ interface HoverProps {
 }
 
 function TooltipBody({ index, buckets, series, mode, metric, resolution }: HoverProps): React.JSX.Element {
+  const t = useT().usage.charts.trend
   const sum = series.reduce((s, x) => s + (x.values[index] ?? 0), 0)
   const ordered = mode === 'lines' ? [...series].sort((a, b) => (b.values[index] ?? 0) - (a.values[index] ?? 0)) : [...series].reverse()
   const rows = ordered.filter((s) => (s.values[index] ?? 0) > 0)
   return (
     <>
-      <p className="mb-1.5 font-[600] text-ink">{bucketTitle(buckets[index] ?? '', resolution)}</p>
+      <p className="mb-1.5 font-[600] text-ink">{bucketTitle(buckets[index] ?? '', resolution, t.weekFrom)}</p>
       {rows.map((s) => {
         const value = s.values[index] ?? 0
-        const text = mode === 'percent' ? `${sum > 0 ? percent.format(value / sum) : '–'} · ${formatMetric(metric, value)}` : formatMetric(metric, value)
+        const text = mode === 'percent' ? `${sum > 0 ? percent().format(value / sum) : '–'} · ${formatMetric(metric, value)}` : formatMetric(metric, value)
         return <TooltipRow key={s.key} label={s.label} value={text} swatch={s.color} />
       })}
-      {rows.length === 0 ? <p className="text-ink-3">keine Aktivität</p> : null}
+      {rows.length === 0 ? <p className="text-ink-3">{t.noActivity}</p> : null}
       {series.length > 1 ? (
         <div className="mt-1.5 border-t border-line pt-1.5">
-          <TooltipRow label="Summe" value={formatMetric(metric, sum)} />
+          <TooltipRow label={t.sum} value={formatMetric(metric, sum)} />
         </div>
       ) : null}
     </>
@@ -138,6 +141,7 @@ function Legend({ series, metric, focus, onFocus }: { readonly series: readonly 
 
 /** Verlauf einer Kennzahl je Zeiteinheit: Linien, gestapelte Flächen oder Anteile (100 %). */
 export function TrendChart({ buckets, series, mode, metric, resolution }: TrendChartProps): React.JSX.Element {
+  const t = useT().usage.charts.trend
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [rawHover, setHover] = useState<number | null>(null)
   const [focus, setFocus] = useState<string | null>(null)
@@ -151,7 +155,7 @@ export function TrendChart({ buckets, series, mode, metric, resolution }: TrendC
   const labels = labelIndexes(buckets.length, frame.plotWidth)
   const structure = `${buckets[0] ?? ''}-${buckets.length}`
   const clipId = `trend-clip-${structure}`
-  const tickText = (t: number): string => (mode === 'percent' ? percent.format(t) : t === 0 ? '0' : formatMetric(metric, t))
+  const tickText = (t: number): string => (mode === 'percent' ? percent().format(t) : t === 0 ? '0' : formatMetric(metric, t))
   const move = (dir: 1 | -1): void => setHover((h) => Math.min(buckets.length - 1, Math.max(0, (h ?? (dir > 0 ? -1 : buckets.length)) + dir)))
 
   const pick = (clientX: number, rect: DOMRect): void => {
@@ -167,7 +171,7 @@ export function TrendChart({ buckets, series, mode, metric, resolution }: TrendC
         className="relative rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-4 focus-visible:ring-offset-base"
         tabIndex={0}
         role="group"
-        aria-label={`Verlauf mit ${series.length} ${series.length === 1 ? 'Serie' : 'Serien'} über ${buckets.length} Zeiteinheiten. Pfeiltasten wählen eine Zeiteinheit.`}
+        aria-label={t.aria(series.length, buckets.length)}
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight') move(1)
           if (e.key === 'ArrowLeft') move(-1)

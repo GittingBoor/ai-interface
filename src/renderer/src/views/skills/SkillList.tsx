@@ -1,7 +1,8 @@
 import { useMemo, type KeyboardEvent } from 'react'
 import type { SkillEntry } from '@shared/types'
 import { HostBadge } from '@renderer/components/Host'
-import { groupEntries, SCOPE_LABEL, type SkillGroup, type SkillSubgroup } from '@renderer/lib/skills'
+import { useLocale, useT } from '@renderer/i18n/useT'
+import { groupEntries, type SkillGroup, type SkillSubgroup } from '@renderer/lib/skills'
 import { EntryTags, KindIcon, SCOPE_ICON } from './skillMarks'
 
 const ROW_SELECTOR = '[data-skill-row]'
@@ -26,7 +27,8 @@ function moveFocus(e: KeyboardEvent<HTMLDivElement>): void {
 }
 
 export function SkillList({ entries, summaries, selectedId, showHost, onSelect }: SkillListProps): React.JSX.Element {
-  const groups = useMemo(() => groupEntries(entries), [entries])
+  const locale = useLocale()
+  const groups = useMemo(() => groupEntries(entries), [entries, locale])
   return (
     <div className="space-y-5" onKeyDown={moveFocus}>
       {groups.map((g) => (
@@ -41,12 +43,13 @@ interface GroupProps extends Omit<SkillListProps, 'entries'> {
 }
 
 function Group({ group, ...rest }: GroupProps): React.JSX.Element {
+  const t = useT()
   const Icon = SCOPE_ICON[group.scope]
   return (
-    <section aria-label={SCOPE_LABEL[group.scope]}>
+    <section aria-label={t.skills.scope[group.scope]}>
       <h2 className="flex items-center gap-2 border-t border-line pt-3.5 pb-1.5 pl-1.5">
         <Icon className="size-4 text-ink-3" aria-hidden strokeWidth={1.75} />
-        <span className="text-[0.8125rem] font-[620] text-ink">{SCOPE_LABEL[group.scope]}</span>
+        <span className="text-[0.8125rem] font-[620] text-ink">{t.skills.scope[group.scope]}</span>
         <span className="num text-xs text-ink-3">{group.count}</span>
       </h2>
       <div className="space-y-2">
@@ -85,6 +88,7 @@ interface SkillRowProps {
 }
 
 function SkillRow({ entry, summary, selected, showHost, onSelect }: SkillRowProps): React.JSX.Element {
+  const t = useT()
   const disabled = entry.scope === 'disabled'
   return (
     <li>
@@ -103,7 +107,7 @@ function SkillRow({ entry, summary, selected, showHost, onSelect }: SkillRowProp
           <EntryTags entry={entry} />
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-ink-3" title={summary ?? entry.description}>
-          {summary ?? (entry.description || 'Ohne Beschreibung')}
+          {summary ?? (entry.description || t.skills.noDescription)}
         </span>
         {showHost ? <HostBadge host={entry.host} subtle /> : null}
       </button>

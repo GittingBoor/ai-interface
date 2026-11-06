@@ -4,6 +4,9 @@ import type { MeterTone } from '@renderer/lib/miniPc'
 import { NO_VALUE } from '@renderer/lib/miniPcFormat'
 import { nearestIndex, trendDomain, trendSegments, trendStats, type TrendDomainOptions, type TrendStats, type TrendValue } from '@renderer/lib/trend'
 import { TONE_TEXT } from './parts'
+import { localized } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
+import type { Messages } from '@shared/i18n/messages'
 
 const PLOT_HEIGHT = 52
 /** Platz für die Achsenwerte über und unter der Zeichenfläche. */
@@ -19,7 +22,7 @@ const DASH = '4 3'
 /** Ab zwei Messwerten lässt sich eine Linie zeichnen. */
 const MIN_POINTS = 2
 
-const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const clock = localized((tag) => new Intl.DateTimeFormat(tag, { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
 
 export interface TrendSeries {
   readonly key: string
@@ -89,24 +92,26 @@ function SeriesMarks({ series, scale, filled }: SeriesMarksProps): React.JSX.Ele
 }
 
 function Collecting(): React.JSX.Element {
+  const t = useT().device
   return (
     <div className="flex items-center border-b border-dashed border-line" style={{ height: CHART_HEIGHT - LABEL_BAND, marginBottom: LABEL_BAND }}>
-      <p className="text-2xs text-ink-3">Sammelt Werte …</p>
+      <p className="text-2xs text-ink-3">{t.chartCollecting}</p>
     </div>
   )
 }
 
-function rangeText(series: readonly TrendSeries[], format: (value: number) => string): string {
+function rangeText(series: readonly TrendSeries[], format: (value: number) => string, t: Messages['device']): string {
   const parts = series.map((s) => {
     const stats = trendStats(s.values)
     if (!stats) return null
-    return series.length > 1 ? `${s.label} bis ${format(stats.max)}` : `Min. ${format(stats.min)} · Max. ${format(stats.max)}`
+    return series.length > 1 ? t.chartRangeUpTo(s.label, format(stats.max)) : t.chartMinMax(format(stats.min), format(stats.max))
   })
   return parts.filter((p): p is string => p !== null).join(' · ')
 }
 
 /** Eine schlanke Verlaufslinie mit aktuellem Wert, Spanne und wählbarem Messpunkt. */
 export function TrendChart({ title, times, series, format, domain, tone = 'normal', hover, onHover }: TrendChartProps): React.JSX.Element {
+  const t = useT().device
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   /** Nur die Linie mit Tastaturfokus sagt den gewählten Messpunkt an, sonst spräche jede Linie gleichzeitig. */
   const [focused, setFocused] = useState(false)
@@ -125,7 +130,7 @@ export function TrendChart({ title, times, series, format, domain, tone = 'norma
     x: (index) => (span > 0 ? (((times[index] ?? start) - start) / span) * width : width),
     y: (value) => LABEL_BAND + PLOT_HEIGHT - ((value - low) / (high - low)) * PLOT_HEIGHT
   }
-  const range = rangeText(series, format)
+  const range = rangeText(series, format, t)
   const current = series.map((s) => `${series.length > 1 ? `${s.label} ` : ''}${valueAt(s)}`).join(', ')
 
   return (
@@ -133,7 +138,7 @@ export function TrendChart({ title, times, series, format, domain, tone = 'norma
       ref={ref}
       role="group"
       tabIndex={drawable ? 0 : undefined}
-      aria-label={drawable ? `${title}, Verlauf: aktuell ${current}. ${range}. Pfeiltasten wählen einen Messpunkt.` : `${title}: ${current}. Der Verlauf sammelt noch Werte.`}
+      aria-label={drawable ? t.chartAria(title, current, range) : t.chartAriaPending(title, current)}
       className="min-w-0 rounded-sm"
       onKeyDown={(e) => {
         if (!drawable) return
@@ -206,11 +211,11 @@ export function TrendChart({ title, times, series, format, domain, tone = 'norma
         </div>
       )}
       <p className="num -mt-2.5 flex min-h-4 justify-between gap-3 pr-16 text-2xs text-ink-3">
-        <span className="truncate">{!drawable ? 'Linie ab der zweiten Messung' : hover !== null && hover <= lastIndex ? `${clock.format(times[hover] ?? start)} Uhr` : range}</span>
+        <span className="truncate" title={drawable ? range : undefined}>{!drawable ? t.chartFromSecond : hover !== null && hover <= lastIndex ? t.chartAtTime(clock().format(times[hover] ?? start)) : range}</span>
       </p>
       {focused && hover !== null && hover <= lastIndex ? (
         <span role="status" className="sr-only">
-          {clock.format(times[hover] ?? start)} Uhr: {current}
+          {t.chartAtTime(clock().format(times[hover] ?? start))}: {current}
         </span>
       ) : null}
     </div>

@@ -1,5 +1,7 @@
 import type { CoolingDevice, Favorite, GitState, HostId, SystemStats, TempReading } from '@shared/types'
 import { findProjectFor, isInside } from '@shared/projectMatch'
+import { messagesFor, type Messages } from '@shared/i18n/messages'
+import { activeLocale } from '../i18n/activeLocale'
 
 const SECONDS_PER_MINUTE = 60
 const SECONDS_PER_HOUR = 3_600
@@ -18,12 +20,15 @@ export const DEFAULT_CRIT_CELSIUS = 100
 const COOLING_FAN_TYPE = 'Fan'
 const PACKAGE_LABEL = /^Package id \d+$/i
 const CORE_LABEL = /^Core (\d+)$/i
-const CHIP_LABELS: readonly (readonly [RegExp, string])[] = [
-  [/^pch_/, 'Chipsatz'],
-  [/^acpitz$/, 'Gehäuse'],
-  [/^drivetemp$/, 'SSD'],
-  [/^nvme/, 'SSD']
+type ChipKey = 'tempChipset' | 'tempCase' | 'tempSsd'
+const CHIP_LABELS: readonly (readonly [RegExp, ChipKey])[] = [
+  [/^pch_/, 'tempChipset'],
+  [/^acpitz$/, 'tempCase'],
+  [/^drivetemp$/, 'tempSsd'],
+  [/^nvme/, 'tempSsd']
 ]
+
+const texts = (): Messages['device'] => messagesFor(activeLocale()).device
 /** Eine Stunde Verlauf bei einem Abruf alle 10 Sekunden. */
 export const HISTORY_LIMIT = 360
 
@@ -56,13 +61,14 @@ export function tempTone(temp: Pick<TempReading, 'celsius' | 'critCelsius'>): Me
 
 /** Verständlicher Name eines Fühlers: „CPU gesamt“, „Kern 1“, „Chipsatz“, „Gehäuse“, „SSD“, sonst der Chipname. */
 export function tempLabel(temp: Pick<TempReading, 'chip' | 'label'>): string {
+  const t = texts()
   if (temp.chip === 'coretemp') {
-    if (PACKAGE_LABEL.test(temp.label)) return 'CPU gesamt'
+    if (PACKAGE_LABEL.test(temp.label)) return t.tempCpuTotal
     const core = CORE_LABEL.exec(temp.label)
-    if (core) return `Kern ${Number(core[1]) + 1}`
+    if (core) return t.tempCore(Number(core[1]) + 1)
   }
   const known = CHIP_LABELS.find(([pattern]) => pattern.test(temp.chip))
-  if (known) return known[1]
+  if (known) return t[known[1]]
   return temp.label ? `${temp.chip} · ${temp.label}` : temp.chip
 }
 
@@ -80,14 +86,14 @@ export function fanStages(cooling: readonly CoolingDevice[]): FanStages | null {
 }
 
 export function fanStagesText(stages: FanStages): string {
-  if (stages.active === 0) return 'Lüfter aus'
-  return `Lüfter läuft (${stages.active} von ${stages.total} ${stages.total === 1 ? 'Stufe' : 'Stufen'})`
+  if (stages.active === 0) return texts().fanOff
+  return texts().fanRunning(stages.active, stages.total)
 }
 
 /** „nie“ bzw. „3-mal seit dem Start“; `null` = das Gerät zählt nicht mit. */
 export function throttleText(count: number | null): string {
-  if (count === null) return 'nicht gemeldet'
-  return count === 0 ? 'nie' : `${count}-mal seit dem Start`
+  if (count === null) return texts().fanNotReported
+  return count === 0 ? texts().throttleNever : texts().throttleCount(count)
 }
 
 /** Summe der Raten; `null`, solange noch keine Schnittstelle eine Rate hat. */
@@ -118,9 +124,7 @@ export function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / SECONDS_PER_DAY)
   const hours = Math.floor((seconds % SECONDS_PER_DAY) / SECONDS_PER_HOUR)
   const minutes = Math.floor((seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE)
-  if (days > 0) return hours > 0 ? `${days} T ${hours} Std.` : `${days} T`
-  if (hours > 0) return minutes > 0 ? `${hours} Std. ${minutes} Min.` : `${hours} Std.`
-  return `${minutes} Min.`
+  return texts().uptime(days, hours, minutes)
 }
 
 /** Anteil in Prozent (0–100), sicher gegen Division durch null. */
@@ -138,9 +142,10 @@ export function meterTone(percent: number): MeterTone {
 /** Lokale Änderungen kurz: „1 vorgemerkt · 42 geändert · 3 neu“, leer = sauber. */
 export function changeParts(state: Pick<GitState, 'staged' | 'unstaged' | 'untracked'>): string[] {
   const parts: string[] = []
-  if (state.staged > 0) parts.push(`${state.staged} vorgemerkt`)
-  if (state.unstaged > 0) parts.push(`${state.unstaged} geändert`)
-  if (state.untracked > 0) parts.push(`${state.untracked} neu`)
+  const t = texts()
+  if (state.staged > 0) parts.push(t.gitStaged(state.staged))
+  if (state.unstaged > 0) parts.push(t.gitModified(state.unstaged))
+  if (state.untracked > 0) parts.push(t.gitUntracked(state.untracked))
   return parts
 }
 

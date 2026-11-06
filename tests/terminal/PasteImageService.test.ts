@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TerminalInfo } from '@shared/types'
+import { ValidationError } from '../../src/main/errors'
 import { bracketedPath, PasteImageService } from '../../src/main/terminal/PasteImageService'
 import { FakeHost } from '../helpers/FakeHost'
 
@@ -24,6 +25,28 @@ describe('PasteImageService', () => {
     expect([...(mini.files.get(path)?.data ?? [])]).toEqual([...PNG])
     expect(local.files.size).toBe(0)
     expect(written).toEqual([bracketedPath(path)])
+  })
+
+  it('legt hereingezogene Bilder ab und fügt die Pfade in Reihenfolge ein', async () => {
+    const host = new FakeHost('local', '/home/l')
+    const written: string[] = []
+    const service = new PasteImageService(() => host, { info: () => terminal('local'), write: (_id, data) => written.push(data) })
+    const paths = await service.pasteMany('t1', [
+      { data: PNG, extension: 'jpg' },
+      { data: PNG, extension: 'webp' }
+    ])
+    expect(paths[0]?.endsWith('.jpg')).toBe(true)
+    expect(paths[1]?.endsWith('.webp')).toBe(true)
+    expect(host.files.size).toBe(2)
+    expect(written).toEqual(paths.map(bracketedPath))
+  })
+
+  it('lehnt fremde Endungen ab, ohne etwas einzufügen', async () => {
+    const host = new FakeHost('local', '/home/l')
+    const written: string[] = []
+    const service = new PasteImageService(() => host, { info: () => terminal('local'), write: (_id, data) => written.push(data) })
+    await expect(service.pasteMany('t1', [{ data: PNG, extension: 'png' }, { data: PNG, extension: '/../x' }])).rejects.toBeInstanceOf(ValidationError)
+    expect(written).toEqual([])
   })
 
   it('räumt nur Dateien auf, die älter als die Frist sind', async () => {

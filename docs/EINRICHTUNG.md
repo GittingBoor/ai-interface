@@ -168,7 +168,7 @@ unverändert. Format (Obsidian Tasks):
 ```
 
 **Offene Aufgaben auf der Startseite:** Die App liest im neuesten Protokoll eines Projekts den letzten
-`## `-Abschnitt und darin das Feld `**Offen:**` mit einer Liste darunter. Abhaken in der App merkt sie sich, die
+`## `-Abschnitt und darin das Feld `**Offen:**` mit einer Liste darunter (erkannt werden auch die Entsprechungen der anderen App-Sprachen, z. B. `**Open:**`, `**Pendiente:**`, `**À faire:**`). Abhaken in der App merkt sie sich, die
 Datei bleibt unverändert. Damit Claude solche Protokolle schreibt, nimm eine Anweisung in die `CLAUDE.md` des
 Projekts (oder in `~/.claude/CLAUDE.md`) auf, z. B.:
 

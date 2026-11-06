@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { PIN_PATTERN, type PrivacyStatus, type PrivateProject, type PrivateProjectInput } from '@shared/privacy'
 import type { HostId } from '@shared/types'
 import { isInside, normalize, type ProjectLocation } from '@shared/projectMatch'
@@ -116,10 +117,10 @@ export class PrivacyService {
 
   private validate(input: PrivateProjectInput): void {
     const hosts = this.deps.knownHosts?.() ?? ['local']
-    if (!hosts.includes(input.host)) throw new ValidationError(`Unbekannter Rechner „${input.host}“, erwartet: ${hosts.join(', ')}.`)
+    if (!hosts.includes(input.host)) throw new ValidationError(mainT().errors.privacy.unknownHost(input.host, hosts.join(', ')))
     const path = normalize(input.path.trim())
-    if (ROOT_PATH.test(path)) throw new ValidationError('Bitte einen Projektordner wählen, keine Laufwerks- oder Dateisystemwurzel.')
-    if (this.cache.some((p) => p.host === input.host && normalize(p.path) === path)) throw new ValidationError('Dieser Ordner ist bereits privat.')
+    if (ROOT_PATH.test(path)) throw new ValidationError(mainT().errors.privacy.pickProjectFolder)
+    if (this.cache.some((p) => p.host === input.host && normalize(p.path) === path)) throw new ValidationError(mainT().errors.privacy.alreadyPrivate)
   }
 
   private checkPin(pin: string, stored: string): void {

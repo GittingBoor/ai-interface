@@ -7,38 +7,52 @@ import { hostOptions, useDevices } from '@renderer/lib/hosts'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { useAnalytics } from '@renderer/stores/analyticsStore'
 import { SERIES_STYLE } from './seriesStyle'
+import { useLocale, useT } from '@renderer/i18n/useT'
+import type { Messages } from '@shared/i18n/messages'
 
 interface Choice<T extends string> {
   readonly value: T
   readonly label: string
 }
 
-const RANGE_CHOICES: readonly Choice<AnalyticsRange>[] = [
-  { value: '7d', label: '7 Tage' },
-  { value: '30d', label: '30 Tage' },
-  { value: '90d', label: 'Quartal' },
-  { value: '365d', label: 'Jahr' },
-  { value: 'all', label: 'Gesamt' }
-]
-const SPLIT_CHOICES: readonly Choice<AnalyticsSplit>[] = [
-  { value: 'project', label: 'Projekt' },
-  { value: 'host', label: 'Rechner' },
-  { value: 'model', label: 'Modell' },
-  { value: 'none', label: 'Nichts' }
-]
-const MODE_CHOICES: readonly Choice<ChartMode>[] = [
-  { value: 'lines', label: 'Linien' },
-  { value: 'stacked', label: 'Gestapelt' },
-  { value: 'percent', label: '100 %' }
-]
 type ResolutionChoice = AnalyticsResolution | 'auto'
-const RESOLUTION_CHOICES: readonly Choice<ResolutionChoice>[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'day', label: 'Tag' },
-  { value: 'week', label: 'Woche' },
-  { value: 'month', label: 'Monat' }
-]
-const RESOLUTION_NAME: Readonly<Record<AnalyticsResolution, string>> = { day: 'Tag', week: 'Woche', month: 'Monat' }
+
+function rangeChoices(t: Messages['usage']['analytics']): readonly Choice<AnalyticsRange>[] {
+  const names = t.ranges
+  return [
+    { value: '7d', label: names['7d'] },
+    { value: '30d', label: names['30d'] },
+    { value: '90d', label: names['90d'] },
+    { value: '365d', label: names['365d'] },
+    { value: 'all', label: names.all }
+  ]
+}
+
+function splitChoices(t: Messages['usage']['analytics']): readonly Choice<AnalyticsSplit>[] {
+  return [
+    { value: 'project', label: t.splits.project },
+    { value: 'host', label: t.splits.host },
+    { value: 'model', label: t.splits.model },
+    { value: 'none', label: t.splits.none }
+  ]
+}
+
+function modeChoices(t: Messages['usage']['analytics']): readonly Choice<ChartMode>[] {
+  return [
+    { value: 'lines', label: t.modes.lines },
+    { value: 'stacked', label: t.modes.stacked },
+    { value: 'percent', label: t.modes.percent }
+  ]
+}
+
+function resolutionChoices(t: Messages['usage']['analytics']): readonly Choice<ResolutionChoice>[] {
+  return [
+    { value: 'auto', label: t.resolutionAuto },
+    { value: 'day', label: t.resolutions.day },
+    { value: 'week', label: t.resolutions.week },
+    { value: 'month', label: t.resolutions.month }
+  ]
+}
 
 function Group({ label, id, action, children }: { readonly label: string; readonly id: string; readonly action?: ReactNode; readonly children: ReactNode }): React.JSX.Element {
   return (
@@ -122,11 +136,13 @@ function toggled(group: ChartSeries, state: CheckState, excluded: readonly strin
 }
 
 function ProjectPicker({ universe, metric }: { readonly universe: AnalyticsResult | null; readonly metric: AnalyticsMetric }): React.JSX.Element {
+  const t = useT().usage.analytics.filter
+  const locale = useLocale()
   const id = useId()
   const favorites = useFavorites((s) => s.favorites)
   const excluded = useAnalytics((s) => s.query.excludedProjects)
   const setExcluded = useAnalytics((s) => s.setExcluded)
-  const groups = useMemo(() => (universe ? groupSeries(universe, 'project', metric, favorites, SERIES_STYLE) : []), [universe, metric, favorites])
+  const groups = useMemo(() => (universe ? groupSeries(universe, 'project', metric, favorites, SERIES_STYLE) : []), [universe, metric, favorites, locale])
   const all = useMemo(() => groups.flatMap((g) => g.memberKeys), [groups])
   const excludedSet = useMemo(() => new Set(excluded), [excluded])
   const chosen = groups.filter((g) => stateOf(g, excludedSet) !== 'off').length
@@ -134,16 +150,16 @@ function ProjectPicker({ universe, metric }: { readonly universe: AnalyticsResul
   const quick = (
     <span className="flex items-center gap-0.5 text-2xs">
       <button type="button" className="rounded px-1.5 py-0.5 font-[560] text-ink-3 transition-colors hover:bg-raised-2 hover:text-ink disabled:pointer-events-none disabled:opacity-40" disabled={excluded.length === 0} onClick={() => setExcluded([])}>
-        Alle
+        {t.all}
       </button>
       <button type="button" className="rounded px-1.5 py-0.5 font-[560] text-ink-3 transition-colors hover:bg-raised-2 hover:text-ink disabled:pointer-events-none disabled:opacity-40" disabled={chosen === 0} onClick={() => setExcluded(all)}>
-        Keine
+        {t.none}
       </button>
     </span>
   )
 
   return (
-    <Group label={groups.length ? `Projekte · ${chosen} von ${groups.length}` : 'Projekte'} id={`${id}-label`} action={groups.length ? quick : null}>
+    <Group label={groups.length ? t.projectsCount(chosen, groups.length) : t.projects} id={`${id}-label`} action={groups.length ? quick : null}>
       {groups.length ? (
         <ul aria-labelledby={`${id}-label`} className="-mx-1.5 max-h-64 space-y-px overflow-y-auto pr-1 [scrollbar-gutter:stable] @max-[64rem]/analytics:max-h-44">
           {groups.map((g) => {
@@ -172,7 +188,7 @@ function ProjectPicker({ universe, metric }: { readonly universe: AnalyticsResul
           })}
         </ul>
       ) : (
-        <p className="text-xs text-ink-3">{universe ? 'Keine Projekte mit Daten in diesem Zeitraum.' : 'Wird geladen …'}</p>
+        <p className="text-xs text-ink-3">{universe ? t.noProjects : t.loading}</p>
       )}
     </Group>
   )
@@ -180,6 +196,7 @@ function ProjectPicker({ universe, metric }: { readonly universe: AnalyticsResul
 
 /** Filter der Auswertung; gelten für alle Kacheln und Diagramme rechts davon. */
 export function FilterPanel(): React.JSX.Element {
+  const t = useT().usage.analytics
   const devices = useDevices()
   const query = useAnalytics((s) => s.query)
   const chartMode = useAnalytics((s) => s.chartMode)
@@ -187,23 +204,23 @@ export function FilterPanel(): React.JSX.Element {
   const metric = useAnalytics((s) => s.metric)
   const universe = useAnalytics((s) => s.universe)
   const { setRange, setHost, setSplit, setChartMode, setResolution } = useAnalytics.getState()
-  const hostChoices: readonly Choice<HostFilter>[] = [{ value: 'all', label: 'Alle' }, ...hostOptions(devices)]
+  const hostChoices: readonly Choice<HostFilter>[] = [{ value: 'all', label: t.filter.all }, ...hostOptions(devices)]
 
   return (
     <aside
-      aria-label="Filter"
+      aria-label={t.filter.aria}
       className="flex shrink-0 flex-wrap gap-x-8 gap-y-5 border-b border-line px-8 pt-1 pb-6 @min-[64rem]/analytics:w-64 @min-[64rem]/analytics:flex-col @min-[64rem]/analytics:flex-nowrap @min-[64rem]/analytics:overflow-y-auto @min-[64rem]/analytics:border-r @min-[64rem]/analytics:border-b-0 @min-[64rem]/analytics:pr-5 @min-[64rem]/analytics:pb-8 *:@max-[64rem]/analytics:w-[15rem]"
     >
-      <Choices<AnalyticsRange> label="Zeitraum" value={query.range} choices={RANGE_CHOICES} onChange={setRange} />
-      <Choices<HostFilter> label="Rechner" value={query.host} choices={hostChoices} onChange={setHost} />
-      <Choices<AnalyticsSplit> label="Aufteilen nach" value={query.split} choices={SPLIT_CHOICES} onChange={setSplit} />
-      <Choices<ChartMode> label="Darstellung" value={chartMode} choices={MODE_CHOICES} onChange={setChartMode} />
+      <Choices<AnalyticsRange> label={t.filter.range} value={query.range} choices={rangeChoices(t)} onChange={setRange} />
+      <Choices<HostFilter> label={t.filter.host} value={query.host} choices={hostChoices} onChange={setHost} />
+      <Choices<AnalyticsSplit> label={t.filter.split} value={query.split} choices={splitChoices(t)} onChange={setSplit} />
+      <Choices<ChartMode> label={t.filter.mode} value={chartMode} choices={modeChoices(t)} onChange={setChartMode} />
       <Choices<ResolutionChoice>
-        label="Auflösung"
+        label={t.filter.resolution}
         value={resolutionAuto ? 'auto' : query.resolution}
-        choices={RESOLUTION_CHOICES}
+        choices={resolutionChoices(t)}
         onChange={setResolution}
-        hint={resolutionAuto ? `Automatisch: ${RESOLUTION_NAME[query.resolution]}` : undefined}
+        hint={resolutionAuto ? t.filter.autoHint(t.resolutions[query.resolution]) : undefined}
       />
       <ProjectPicker universe={universe} metric={metric} />
     </aside>

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Pipette } from 'lucide-react'
 import { isHexColor } from '@shared/projectIcon'
 import { FAVORITE_COLORS } from '@renderer/lib/hosts'
+import { useT } from '@renderer/i18n/useT'
 
 interface ColorPickerProps {
   readonly value: string
@@ -37,6 +38,7 @@ interface CustomColorProps {
 }
 
 function CustomColor({ value, label, isCustom, onChange }: CustomColorProps): React.JSX.Element {
+  const t = useT()
   const errorId = useId()
   const [text, setText] = useState(value)
   const [touched, setTouched] = useState(false)
@@ -71,13 +73,13 @@ function CustomColor({ value, label, isCustom, onChange }: CustomColorProps): Re
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <label
-          title="Eigene Farbe wählen"
+          title={t.frame.colorPicker.customTitle}
           className={`relative grid size-6 shrink-0 cursor-pointer place-items-center rounded-md transition-transform duration-150 focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-raised hover:scale-110 ${isCustom ? 'ring-2 ring-ink ring-offset-2 ring-offset-raised' : ''}`}
           style={{ background: isCustom ? preview : RAINBOW }}
         >
           <input
             type="color"
-            aria-label={`${label}: eigene Farbe`}
+            aria-label={t.frame.colorPicker.customAria(label)}
             value={toLongHex(preview)}
             onChange={(e) => onNative(e.target.value)}
             className="absolute inset-0 size-full cursor-pointer opacity-0"
@@ -89,7 +91,7 @@ function CustomColor({ value, label, isCustom, onChange }: CustomColorProps): Re
           )}
         </label>
         <input
-          aria-label={`${label}: Hex-Wert`}
+          aria-label={t.frame.colorPicker.hexAria(label)}
           aria-invalid={showError}
           aria-describedby={showError ? errorId : undefined}
           value={text}
@@ -112,7 +114,7 @@ function CustomColor({ value, label, isCustom, onChange }: CustomColorProps): Re
       </div>
       {showError ? (
         <p id={errorId} className="text-2xs text-danger-ink">
-          Hex-Farbe erwartet, z. B. #e08a4f oder #fa0.
+          {t.frame.colorPicker.hexError}
         </p>
       ) : null}
     </div>
@@ -120,6 +122,7 @@ function CustomColor({ value, label, isCustom, onChange }: CustomColorProps): Re
 }
 
 export function ColorPicker({ value, label, allowCustom = true, onChange }: ColorPickerProps): React.JSX.Element {
+  const t = useT()
   const isCustom = !FAVORITE_COLORS.some((c) => sameColor(c, value))
   return (
     <div className="flex flex-col items-start gap-2.5">
@@ -132,7 +135,7 @@ export function ColorPicker({ value, label, allowCustom = true, onChange }: Colo
               type="button"
               role="radio"
               aria-checked={selected}
-              aria-label={`Farbe ${color}`}
+              aria-label={t.frame.colorPicker.colorAria(color)}
               onClick={() => onChange(color)}
               className={`grid size-6 place-items-center rounded-md transition-transform duration-150 hover:scale-110 ${selected ? 'ring-2 ring-ink ring-offset-2 ring-offset-raised' : ''}`}
               style={{ background: color }}

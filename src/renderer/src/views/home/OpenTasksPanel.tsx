@@ -6,6 +6,7 @@ import { ProjectMark } from '@renderer/components/ProjectMark'
 import { EmptyState, ErrorState, SkeletonRows } from '@renderer/components/States'
 import { formatRelative } from '@renderer/lib/format'
 import { useNav } from '@renderer/stores/navStore'
+import { useT } from '@renderer/i18n/useT'
 import type { OpenTasks } from './useHomeData'
 
 /** Ab so vielen Aufgaben wird die Liste eingeklappt. */
@@ -41,6 +42,7 @@ function useClamped(ref: React.RefObject<HTMLElement | null>, open: boolean): bo
 }
 
 function TaskRow({ task, onCheck }: { readonly task: OpenTask; readonly onCheck: () => void }): React.JSX.Element {
+  const t = useT().usage.home.tasks
   const [open, setOpen] = useState(false)
   const textRef = useRef<HTMLParagraphElement>(null)
   const clamped = useClamped(textRef, open)
@@ -58,7 +60,7 @@ function TaskRow({ task, onCheck }: { readonly task: OpenTask; readonly onCheck:
           type="button"
           role="checkbox"
           aria-checked={false}
-          aria-label={`Erledigt: ${task.text}`}
+          aria-label={t.doneAria(task.text)}
           onClick={onCheck}
           className="group/check grid size-6 shrink-0 place-items-center rounded-md"
         >
@@ -82,8 +84,8 @@ function TaskRow({ task, onCheck }: { readonly task: OpenTask; readonly onCheck:
             type="button"
             onClick={toggle}
             aria-expanded={open}
-            aria-label={open ? 'Aufgabe einklappen' : 'Ganze Aufgabe anzeigen'}
-            title={open ? 'Einklappen' : 'Ganzen Text anzeigen'}
+            aria-label={open ? t.collapseAria : t.expandAria}
+            title={open ? t.collapseTitle : t.expandTitle}
             className="grid size-6 shrink-0 place-items-center rounded-md text-ink-3 transition-colors duration-150 hover:bg-raised-2 hover:text-ink"
           >
             <ChevronDown className={`size-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden />
@@ -95,6 +97,7 @@ function TaskRow({ task, onCheck }: { readonly task: OpenTask; readonly onCheck:
 }
 
 function GroupBlock({ group, now, onCheck }: { readonly group: ProjectTasks; readonly now: number; readonly onCheck: (task: OpenTask) => void }): React.JSX.Element {
+  const t = useT().usage.home.tasks
   return (
     <motion.li layout="position" exit={{ opacity: 0, transition: { duration: 0.18 } }} className="py-3 first:pt-0 @min-[60rem]/main:pt-0 @min-[60rem]/main:pb-5">
       <div className="mb-1 flex min-w-0 items-center gap-2 px-2">
@@ -108,7 +111,7 @@ function GroupBlock({ group, now, onCheck }: { readonly group: ProjectTasks; rea
           title={group.protocolPath}
         >
           <NotebookText className="size-3" aria-hidden strokeWidth={2} />
-          Protokoll
+          {t.protocol}
         </button>
       </div>
       <ul>
@@ -124,14 +127,15 @@ function GroupBlock({ group, now, onCheck }: { readonly group: ProjectTasks; rea
 
 /** Offene Punkte aus dem neuesten Protokoll je Projekt, neuestes Protokoll zuerst. */
 export function OpenTasksPanel({ tasks, now }: { readonly tasks: OpenTasks; readonly now: number }): React.JSX.Element {
+  const t = useT().usage.home.tasks
   const [expanded, setExpanded] = useState(false)
   const { groups, error, retry, check } = tasks
   if (!groups) return error ? <ErrorState message={error} onRetry={retry} /> : <SkeletonRows rows={4} />
   const total = groups.reduce((sum, g) => sum + g.tasks.length, 0)
   if (total === 0) {
     return (
-      <EmptyState icon={ListChecks} title="Keine offenen Aufgaben" compact>
-        Hier erscheinen die Punkte unter „Offen:“ aus dem neuesten Protokoll jedes Projekts.
+      <EmptyState icon={ListChecks} title={t.emptyTitle} compact>
+        {t.emptyBody}
       </EmptyState>
     )
   }
@@ -139,7 +143,7 @@ export function OpenTasksPanel({ tasks, now }: { readonly tasks: OpenTasks; read
   const shown = collapsible && !expanded ? limitTasks(groups, COLLAPSED_TASKS) : groups
   return (
     <div>
-      {error ? <p role="alert" className="mb-2 text-xs text-danger-ink">Neu laden fehlgeschlagen: {error}</p> : null}
+      {error ? <p role="alert" className="mb-2 text-xs text-danger-ink">{t.reloadFailed(error)}</p> : null}
       <ul className="-mx-2 grid grid-cols-1 divide-y divide-line/70 @min-[60rem]/main:grid-cols-2 @min-[60rem]/main:gap-x-10 @min-[60rem]/main:divide-y-0">
         <AnimatePresence initial={false}>
           {shown.map((g) => (
@@ -155,7 +159,7 @@ export function OpenTasksPanel({ tasks, now }: { readonly tasks: OpenTasks; read
           className="mt-2 inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs font-[560] text-ink-3 transition-colors hover:bg-raised-2 hover:text-ink"
         >
           <ChevronDown className={`size-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} aria-hidden />
-          {expanded ? 'Weniger anzeigen' : `Alle ${total} Aufgaben anzeigen`}
+          {expanded ? t.showLess : t.showAll(total)}
         </button>
       ) : null}
     </div>

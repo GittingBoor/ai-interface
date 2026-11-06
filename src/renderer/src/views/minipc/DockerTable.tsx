@@ -1,4 +1,6 @@
 import type { DockerContainer } from '@shared/types'
+import type { Messages } from '@shared/i18n/messages'
+import { useT } from '@renderer/i18n/useT'
 import { Section } from '@renderer/components/Section'
 import { SkeletonRows } from '@renderer/components/States'
 import { useMiniPc } from '@renderer/stores/miniPcStore'
@@ -21,6 +23,7 @@ function containerTone(container: DockerContainer): StateTone {
 }
 
 function ContainerRow({ container }: { readonly container: DockerContainer }): React.JSX.Element {
+  const t = useT().device
   return (
     <tr>
       <td className={`${TABLE_CELL} max-w-[16rem]`}>
@@ -40,22 +43,23 @@ function ContainerRow({ container }: { readonly container: DockerContainer }): R
       <td className={`${TABLE_CELL} num text-right whitespace-nowrap text-ink-2`}>{container.cpuPercent === null ? NO_VALUE : formatPercentFine(container.cpuPercent)}</td>
       <td className={`${TABLE_CELL} num text-right whitespace-nowrap text-ink-2`}>
         {container.memBytes === null ? NO_VALUE : formatBytes(container.memBytes)}
-        {container.memLimitBytes !== null ? <p className="mt-0.5 text-2xs text-ink-3">von {formatBytes(container.memLimitBytes)}</p> : null}
+        {container.memLimitBytes !== null ? <p className="mt-0.5 text-2xs text-ink-3">{t.dockerOfLimit(formatBytes(container.memLimitBytes))}</p> : null}
       </td>
     </tr>
   )
 }
 
 function ContainerTable({ containers }: { readonly containers: readonly DockerContainer[] }): React.JSX.Element {
+  const t = useT().device
   return (
     <div className="-mx-2 overflow-x-auto">
       <table className="w-full min-w-[32rem] border-separate border-spacing-0 text-[0.8125rem]">
         <thead>
           <tr className="text-left text-xs text-ink-3">
-            <th className={TABLE_HEAD}>Container</th>
-            <th className={TABLE_HEAD}>Status</th>
-            <th className={`${TABLE_HEAD} text-right`}>CPU</th>
-            <th className={`${TABLE_HEAD} text-right`}>RAM belegt</th>
+            <th className={TABLE_HEAD}>{t.dockerColContainer}</th>
+            <th className={TABLE_HEAD}>{t.dockerColStatus}</th>
+            <th className={`${TABLE_HEAD} text-right`}>{t.dockerColCpu}</th>
+            <th className={`${TABLE_HEAD} text-right`}>{t.dockerColRam}</th>
           </tr>
         </thead>
         <tbody>
@@ -68,29 +72,30 @@ function ContainerTable({ containers }: { readonly containers: readonly DockerCo
   )
 }
 
-function describe(containers: readonly DockerContainer[] | null | undefined, fetchedAt: number | undefined): string {
-  const stamp = fetchedAt ? `Stand ${formatTime(fetchedAt)} Uhr, alle 5 Minuten` : 'Wird alle 5 Minuten abgefragt'
+function describe(containers: readonly DockerContainer[] | null | undefined, fetchedAt: number | undefined, t: Messages['device']): string {
+  const stamp = fetchedAt ? t.dockerStamp(formatTime(fetchedAt)) : t.dockerPolling
   if (!containers || containers.length === 0) return stamp
   const running = containers.filter((c) => c.state === RUNNING).length
-  return `${running} von ${containers.length} laufen · ${stamp}`
+  return `${t.dockerRunning(running, containers.length)} · ${stamp}`
 }
 
 /** Docker-Container mit Status, CPU und Arbeitsspeicher. */
 export function DockerTable(): React.JSX.Element {
+  const t = useT().device
   const info = useMiniPc((s) => s.info)
   const infoError = useMiniPc((s) => s.infoError)
   return (
-    <Section id="minipc-docker" title="Docker" description={describe(info?.docker, info?.fetchedAt)}>
+    <Section id="minipc-docker" title={t.sectionDocker} description={describe(info?.docker, info?.fetchedAt, t)}>
       {!info ? (
         infoError ? (
-          <p className="text-[0.8125rem] text-ink-3">Gerätedaten fehlen.</p>
+          <p className="text-[0.8125rem] text-ink-3">{t.infoMissing}</p>
         ) : (
           <SkeletonRows rows={SKELETON_ROWS} />
         )
       ) : info.docker === null ? (
-        <p className="text-[0.8125rem] text-ink-3">Docker nicht verfügbar: nicht installiert oder für diesen Nutzer nicht lesbar.</p>
+        <p className="text-[0.8125rem] text-ink-3">{t.dockerUnavailable}</p>
       ) : info.docker.length === 0 ? (
-        <p className="text-[0.8125rem] text-ink-3">Es gibt keine Container.</p>
+        <p className="text-[0.8125rem] text-ink-3">{t.dockerNone}</p>
       ) : (
         <ContainerTable containers={info.docker} />
       )}

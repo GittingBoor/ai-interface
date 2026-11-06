@@ -4,6 +4,7 @@ import type { DailyUsage, HostId } from '@shared/types'
 import { useElementSize } from '@renderer/lib/hooks'
 import { hostColor, hostLabel, useHostIds } from '@renderer/lib/hosts'
 import { formatDayLong, formatDayShort, formatTokens, formatUsd, parseDay } from '@renderer/lib/format'
+import { useT } from '@renderer/i18n/useT'
 import { ChartTooltip, TooltipRow } from './ChartTooltip'
 import { niceTicks, roundedTopPath } from './geometry'
 
@@ -43,6 +44,7 @@ const valueOf = (column: DayColumn, host: HostId): number => column.values[host]
 
 /** Tagesverbrauch der letzten 30 Tage, gestapelt nach Rechner. */
 export function DailyChart({ daily }: { readonly daily: readonly DailyUsage[] }): React.JSX.Element {
+  const t = useT().usage
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
   const columns = useMemo(() => toColumns(daily), [daily])
@@ -62,7 +64,7 @@ export function DailyChart({ daily }: { readonly daily: readonly DailyUsage[] })
       className="relative outline-none"
       tabIndex={0}
       role="group"
-      aria-label="Tagesverbrauch der letzten 30 Tage. Pfeiltasten wählen einen Tag."
+      aria-label={t.charts.daily.aria}
       onKeyDown={(e) => {
         if (e.key === 'ArrowRight') setHover((h) => Math.min((h ?? -1) + 1, columns.length - 1))
         if (e.key === 'ArrowLeft') setHover((h) => Math.max((h ?? columns.length) - 1, 0))
@@ -103,7 +105,7 @@ export function DailyChart({ daily }: { readonly daily: readonly DailyUsage[] })
                 </motion.g>
                 {(columns.length - 1 - i) % LABEL_EVERY_DAYS === 0 ? (
                   <text x={x + bar / 2} y={PLOT_HEIGHT + 17} textAnchor="middle" className="num fill-ink-3 text-[10.5px]">
-                    {i === columns.length - 1 ? 'heute' : formatDayShort(c.day)}
+                    {i === columns.length - 1 ? t.charts.daily.axisToday : formatDayShort(c.day)}
                   </text>
                 ) : null}
                 <rect
@@ -124,13 +126,13 @@ export function DailyChart({ daily }: { readonly daily: readonly DailyUsage[] })
       )}
       {active && hover !== null ? (
         <ChartTooltip x={Y_LABEL_WIDTH + hover * slot + slot / 2} y={8} containerWidth={width}>
-          <p className="mb-1.5 font-[600] text-ink">{isToday(active.day) ? 'Heute' : formatDayLong(active.day)}</p>
+          <p className="mb-1.5 font-[600] text-ink">{isToday(active.day) ? t.charts.daily.today : formatDayLong(active.day)}</p>
           {hosts.map((h) => (
             <TooltipRow key={h} label={hostLabel(h)} value={formatTokens(valueOf(active, h))} swatch={hostColor(h)} />
           ))}
           <div className="mt-1.5 border-t border-line pt-1.5">
-            <TooltipRow label="Gesamt" value={formatTokens(active.total)} />
-            <TooltipRow label="API-Gegenwert" value={formatUsd(active.cost)} />
+            <TooltipRow label={t.total} value={formatTokens(active.total)} />
+            <TooltipRow label={t.metrics.cost} value={formatUsd(active.cost)} />
           </div>
         </ChartTooltip>
       ) : null}
@@ -146,6 +148,7 @@ function isToday(day: string): boolean {
 
 /** Tabellenansicht als zugängliche Alternative zum Diagramm. */
 export function DailyTable({ daily }: { readonly daily: readonly DailyUsage[] }): React.JSX.Element {
+  const t = useT().usage
   const columns = useMemo(() => toColumns(daily).reverse(), [daily])
   const hosts = useChartHosts(daily)
   return (
@@ -153,14 +156,14 @@ export function DailyTable({ daily }: { readonly daily: readonly DailyUsage[] })
       <table className="num w-full text-xs">
         <thead className="sticky top-0 bg-base text-ink-3">
           <tr>
-            <th className="py-1.5 text-left font-[560]">Tag</th>
+            <th className="py-1.5 text-left font-[560]">{t.charts.daily.day}</th>
             {hosts.map((h) => (
               <th key={h} className="py-1.5 text-right font-[560]">
                 {hostLabel(h)}
               </th>
             ))}
-            <th className="py-1.5 text-right font-[560]">Gesamt</th>
-            <th className="py-1.5 text-right font-[560]">USD</th>
+            <th className="py-1.5 text-right font-[560]">{t.total}</th>
+            <th className="py-1.5 text-right font-[560]">{t.charts.daily.usd}</th>
           </tr>
         </thead>
         <tbody className="text-ink-2">

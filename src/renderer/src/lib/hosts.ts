@@ -1,8 +1,8 @@
 import { useShallow } from 'zustand/react/shallow'
 import type { DeviceSettings, HostId } from '@shared/types'
 import { useSettings } from '@renderer/stores/settingsStore'
+import { currentT } from '@renderer/i18n/useT'
 
-export const LOCAL_LABEL = 'Dieser PC'
 const LOCAL_COLOR = 'var(--color-local)'
 /** Farbe für Einträge eines Geräts, das es nicht mehr gibt. */
 const UNKNOWN_COLOR = 'var(--color-ink-3)'
@@ -29,7 +29,7 @@ export function findDevice(id: HostId): DeviceSettings | undefined {
 }
 
 export function hostLabel(id: HostId): string {
-  if (id === 'local') return LOCAL_LABEL
+  if (id === 'local') return currentT().main.thisPc
   return findDevice(id)?.name ?? id
 }
 
@@ -59,5 +59,5 @@ export const FAVORITE_COLORS: readonly string[] = [
 
 /** Auswahl für Segmented/Select: dieser PC und alle eingeschalteten Geräte. */
 export function hostOptions(list: readonly DeviceSettings[] = devices()): { value: HostId; label: string }[] {
-  return hostIds(list).map((id) => ({ value: id, label: id === 'local' ? LOCAL_LABEL : (list.find((d) => d.id === id)?.name ?? id) }))
+  return hostIds(list).map((id) => ({ value: id, label: id === 'local' ? currentT().main.thisPc : (list.find((d) => d.id === id)?.name ?? id) }))
 }

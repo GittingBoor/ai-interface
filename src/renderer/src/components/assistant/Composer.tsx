@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
+import { useT } from '@renderer/i18n/useT'
 import { registerAssistantInserter } from '@renderer/lib/speechTargets'
 import { insertAtCursor } from '@renderer/lib/speechText'
 import { MicButton } from '../speech/MicButton'
@@ -15,6 +16,7 @@ interface ComposerProps {
 
 /** Eingabe: Enter sendet, Shift+Enter bricht um. Während der Antwort ersetzt Stopp den Senden-Knopf. */
 export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function Composer({ running, onSend, onStop }, ref) {
+  const t = useT()
   const [text, setText] = useState('')
   const local = useRef<HTMLTextAreaElement | null>(null)
   const canSend = text.trim().length > 0 && !running
@@ -77,8 +79,8 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          aria-label="Nachricht an den Assistenten"
-          placeholder={running ? 'Antwort läuft …' : 'Nachricht an den Assistenten'}
+          aria-label={t.assistant.composer.aria}
+          placeholder={running ? t.assistant.composer.running : t.assistant.composer.placeholder}
           className="min-h-7 flex-1 resize-none self-center bg-transparent py-1 text-[0.8125rem] leading-relaxed text-ink outline-none focus-visible:outline-none"
         />
         <MicButton target={{ kind: 'assistant' }} />
@@ -86,8 +88,8 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
           <button
             type="button"
             onClick={onStop}
-            aria-label="Antwort stoppen"
-            title="Antwort stoppen"
+            aria-label={t.assistant.composer.stop}
+            title={t.assistant.composer.stop}
             className="grid size-7 shrink-0 place-items-center rounded-md bg-raised-2 text-ink transition-colors hover:bg-line-strong"
           >
             <Square className="size-3" aria-hidden fill="currentColor" strokeWidth={0} />
@@ -96,15 +98,15 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
           <button
             type="submit"
             disabled={!canSend}
-            aria-label="Senden (Enter)"
-            title="Senden (Enter)"
+            aria-label={t.assistant.composer.send}
+            title={t.assistant.composer.send}
             className="grid size-7 shrink-0 place-items-center rounded-md bg-accent text-accent-ink transition-[background-color,color,transform] duration-150 hover:bg-accent-hover active:translate-y-px disabled:bg-raised-2 disabled:text-ink-3"
           >
             <ArrowUp className="size-4" aria-hidden strokeWidth={2.25} />
           </button>
         )}
       </div>
-      <p className="mt-1.5 px-1 text-2xs text-ink-3">Enter senden · Shift+Enter neue Zeile · Mikrofon diktiert</p>
+      <p className="mt-1.5 px-1 text-2xs text-ink-3">{t.assistant.composer.hint}</p>
     </form>
   )
 })

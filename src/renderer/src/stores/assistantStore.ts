@@ -3,6 +3,7 @@ import type { AssistantEvent } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { ApiError, unwrap } from '@renderer/api/call'
 import { confirmAction } from '@renderer/stores/confirmStore'
+import { currentT } from '@renderer/i18n/useT'
 import {
   ASSISTANT_DEFAULT_WIDTH,
   applyAssistantEvent,
@@ -13,7 +14,6 @@ import {
 
 const OPEN_KEY = 'assistant.open'
 const WIDTH_KEY = 'assistant.width'
-const FALLBACK_HINT = 'Details stehen im Log (Einstellungen → Log öffnen).'
 
 function readStorage(key: string): string | null {
   try {
@@ -28,7 +28,7 @@ function writeStorage(key: string, value: string): void {
   try {
     localStorage.setItem(key, value)
   } catch (error) {
-    console.warn(`Assistent: ${key} konnte nicht gespeichert werden`, error)
+    console.warn(`Assistent: ${key} konnte nicht gespeichert werden`, error) // i18n-ignore: Entwicklerprotokoll
   }
 }
 
@@ -44,7 +44,7 @@ const errorEntry = (error: unknown): ChatMessage => ({
   kind: 'error',
   id: nextId(),
   message: error instanceof Error ? error.message : String(error),
-  hint: error instanceof ApiError ? (error.hint ?? '') : FALLBACK_HINT
+  hint: error instanceof ApiError ? (error.hint ?? '') : currentT().errors.unexpectedHint
 })
 
 interface AssistantStore {
@@ -110,10 +110,11 @@ export const useAssistant = create<AssistantStore>((set, get) => ({
 
   newChat: async () => {
     if (get().running) {
+      const t = currentT().frame.stores
       const ok = await confirmAction({
-        title: 'Neuen Chat beginnen?',
-        message: 'Der Assistent arbeitet noch. Der laufende Auftrag wird abgebrochen und der Verlauf geleert.',
-        confirmLabel: 'Abbrechen und neu',
+        title: t.newChatTitle,
+        message: t.newChatMessage,
+        confirmLabel: t.newChatConfirm,
         danger: true
       })
       if (!ok) return

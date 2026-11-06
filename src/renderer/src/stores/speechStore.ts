@@ -7,6 +7,7 @@ import { SpeechController, type SpeechPhase } from '@renderer/lib/speechControll
 import { deliverTranscript } from '@renderer/lib/speechTargets'
 import type { SpeechTarget } from '@renderer/lib/speechText'
 import { notify } from './toastStore'
+import { currentT } from '@renderer/i18n/useT'
 import { useSettings } from './settingsStore'
 
 interface SpeechStore {
@@ -55,7 +56,7 @@ export const useSpeech = create<SpeechStore>((set, get) => {
         const status = get().status
         if (!status) return
         if (!status.supported) {
-          notify.info('Spracheingabe nur unter Windows eingerichtet', 'Win+H oder /voice in Claude Code nutzen.')
+          notify.info(currentT().frame.stores.speechUnsupported, currentT().frame.stores.speechUnsupportedHint)
           return
         }
         if (!speechReady(status)) {
@@ -76,7 +77,7 @@ export const useSpeech = create<SpeechStore>((set, get) => {
       if (status) {
         set({ status })
         await get().selectModel(model)
-        notify.success('Spracheingabe bereit.')
+        notify.success(currentT().frame.stores.speechReady)
         set({ setupModel: null })
       } else {
         await get().loadStatus()

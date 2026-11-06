@@ -1,5 +1,6 @@
+import { de } from '@shared/i18n/de'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SPEECH_MODEL, isSpeechModelId, SPEECH_MODEL_IDS, speechModelInfo } from '@shared/speech'
+import { DEFAULT_SPEECH_MODEL, isSpeechModelId, SPEECH_MODEL_IDS, speechModelInfo, speechModelText } from '@shared/speech'
 import { defaultSettings } from '../../src/main/settings/SettingsService'
 import { EmptyTranscriptError, WhisperNotInstalledError } from '../../src/main/errors'
 
@@ -7,7 +8,7 @@ describe('Sprachmodelle', () => {
   it('kennt genau drei Modelle, Standard ist turbo', () => {
     expect(SPEECH_MODEL_IDS).toEqual(['small-q5_1', 'large-v3-turbo-q5_0', 'large-v3-q5_0'])
     expect(DEFAULT_SPEECH_MODEL).toBe('large-v3-turbo-q5_0')
-    expect(speechModelInfo('small-q5_1').label).toBe('Schnell')
+    expect(speechModelText('small-q5_1', de).label).toBe('Schnell')
   })
 
   it('prüft Modell-IDs', () => {

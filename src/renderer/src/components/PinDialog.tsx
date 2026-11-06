@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { PIN_PATTERN } from '@shared/privacy'
 import { errorMessage } from '@renderer/api/call'
+import { useT } from '@renderer/i18n/useT'
 import { Button } from './Button'
 import { Modal } from './Modal'
 
@@ -13,18 +14,6 @@ interface PinDialogProps {
   onClose(): void
   /** Wirft bei falscher PIN; die Meldung erscheint im Dialog. */
   onSubmit(pin: string, next: string | null): Promise<void>
-}
-
-const TITLE: Readonly<Record<PinDialogMode, string>> = {
-  unlock: 'Privatmodus entsperren',
-  create: 'PIN festlegen',
-  change: 'PIN ändern'
-}
-
-const TEXT: Readonly<Record<PinDialogMode, string>> = {
-  unlock: 'Mit der PIN werden private Projekte wieder angezeigt.',
-  create: 'Noch keine PIN vorhanden. Die neue PIN (4–12 Ziffern) entsperrt den Privatmodus.',
-  change: 'Aktuelle PIN und neue PIN (4–12 Ziffern) eingeben.'
 }
 
 interface PinFieldProps {
@@ -58,6 +47,7 @@ function PinField({ label, value, onChange, autoFocus, errorId }: PinFieldProps)
 }
 
 export function PinDialog({ mode, onClose, onSubmit }: PinDialogProps): React.JSX.Element {
+  const t = useT()
   const [pin, setPin] = useState('')
   const [next, setNext] = useState('')
   const [repeat, setRepeat] = useState('')
@@ -78,8 +68,8 @@ export function PinDialog({ mode, onClose, onSubmit }: PinDialogProps): React.JS
 
   const submit = async (): Promise<void> => {
     if (!mode || busy) return
-    if (needsNew && !PIN_PATTERN.test(next)) return setError('Die PIN muss aus 4 bis 12 Ziffern bestehen.')
-    if (needsNew && next !== repeat) return setError('Die beiden neuen PINs stimmen nicht überein.')
+    if (needsNew && !PIN_PATTERN.test(next)) return setError(t.errors.invalidPin.message)
+    if (needsNew && next !== repeat) return setError(t.frame.pin.mismatch)
     setBusy(true)
     try {
       await onSubmit(needsCurrent ? pin : '', needsNew ? next : null)
@@ -95,7 +85,7 @@ export function PinDialog({ mode, onClose, onSubmit }: PinDialogProps): React.JS
   return (
     <Modal
       open={mode !== null}
-      label={mode ? TITLE[mode] : 'PIN'}
+      label={mode ? t.frame.pin.titles[mode] : t.frame.pin.dialog}
       onClose={onClose}
       className="w-full max-w-sm rounded-xl border border-line-strong/70 bg-raised p-5 shadow-[0_24px_60px_-12px_oklch(0_0_0/0.7)]"
     >
@@ -108,13 +98,13 @@ export function PinDialog({ mode, onClose, onSubmit }: PinDialogProps): React.JS
         >
           <div className="flex items-center gap-2.5">
             <KeyRound className="size-4 text-accent" aria-hidden />
-            <h2 className="text-[0.9375rem] font-[640] text-ink">{TITLE[mode]}</h2>
+            <h2 className="text-[0.9375rem] font-[640] text-ink">{t.frame.pin.titles[mode]}</h2>
           </div>
-          <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-2">{TEXT[mode]}</p>
+          <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-2">{t.frame.pin.texts[mode]}</p>
           <div className="mt-4 grid gap-3">
-            {needsCurrent ? <PinField label={mode === 'change' ? 'Aktuelle PIN' : 'PIN'} value={pin} onChange={setPin} autoFocus errorId={describedBy} /> : null}
-            {needsNew ? <PinField label="Neue PIN" value={next} onChange={setNext} autoFocus={!needsCurrent} errorId={describedBy} /> : null}
-            {needsNew ? <PinField label="Neue PIN wiederholen" value={repeat} onChange={setRepeat} errorId={describedBy} /> : null}
+            {needsCurrent ? <PinField label={mode === 'change' ? t.frame.pin.current : t.frame.pin.dialog} value={pin} onChange={setPin} autoFocus errorId={describedBy} /> : null}
+            {needsNew ? <PinField label={t.frame.pin.newPin} value={next} onChange={setNext} autoFocus={!needsCurrent} errorId={describedBy} /> : null}
+            {needsNew ? <PinField label={t.frame.pin.repeat} value={repeat} onChange={setRepeat} errorId={describedBy} /> : null}
           </div>
           {error ? (
             <p id={errorId} role="alert" className="mt-3 text-xs text-danger-ink">
@@ -123,10 +113,10 @@ export function PinDialog({ mode, onClose, onSubmit }: PinDialogProps): React.JS
           ) : null}
           <div className="mt-5 flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Abbrechen
+              {t.common.cancel}
             </Button>
             <Button type="submit" variant="primary" loading={busy}>
-              {mode === 'unlock' ? 'Entsperren' : 'Speichern'}
+              {mode === 'unlock' ? t.frame.pin.unlock : t.common.save}
             </Button>
           </div>
         </form>

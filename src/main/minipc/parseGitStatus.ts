@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { GitState } from '@shared/types'
 
 /** Blockanfang je Projekt in der Ausgabe von `gitBatchScript`. */
@@ -46,7 +47,7 @@ export function parseGitStatusBatch(stdout: string): GitState[] {
       const rest = line.slice(GIT_ERROR.length + 1)
       const space = rest.indexOf(' ')
       const errorState: Mutable<GitState> = emptyState(space === -1 ? rest : rest.slice(0, space))
-      errorState.error = space === -1 ? 'Fehler' : rest.slice(space + 1)
+      errorState.error = space === -1 ? mainT().errors.minipc.gitError : rest.slice(space + 1)
       states.push(errorState)
       current = null
     } else if (current && line) {

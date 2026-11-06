@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { ProjectTasks, ReviewedTask, TaskReviewResult, TerminalInfo } from '@shared/types'
 import type { ExecResult } from '../../src/main/hosts/Host'
 import { createTaskReviewTools, type ReviewProject } from '../../src/main/tasks/taskReviewTools'
-import { CLOSE_DELAY_MS, TaskReviewService } from '../../src/main/tasks/TaskReviewService'
+import { languageDirective } from '../../src/shared/i18n/directive'
+import { CLOSE_DELAY_MS, TaskReviewService, taskReviewPrompt } from '../../src/main/tasks/TaskReviewService'
 
 const GROUPS: ProjectTasks[] = [
   {
@@ -125,6 +126,7 @@ describe('TaskReviewService', () => {
     expect(a.id).toBe(b.id)
     expect(opened()?.args).toEqual(['--mcp-config', join(dir, 'mcp.json'), '--allowedTools', 'mcp__aufgaben__list_open_tasks,mcp__aufgaben__finish'])
     expect(opened()?.prompt).toContain('mark_done')
+    expect(opened()?.prompt).toContain(languageDirective('de'))
     expect(JSON.parse(await readFile(join(dir, 'mcp.json'), 'utf8'))).toMatchObject({ mcpServers: { aufgaben: { type: 'http' } } })
   })
 
@@ -152,5 +154,12 @@ describe('TaskReviewService', () => {
     expect(calls.results).toHaveLength(0)
     await service.handleClosed(info.id)
     expect(calls.results).toEqual([{ checked: [task], summary: null, finished: false }])
+  })
+})
+
+describe('taskReviewPrompt', () => {
+  it('hängt die Sprachvorgabe der Sprache an und verlangt kein Deutsch', () => {
+    expect(taskReviewPrompt('es')).toContain(languageDirective('es'))
+    expect(taskReviewPrompt('es')).not.toContain('Antworte auf Deutsch')
   })
 })

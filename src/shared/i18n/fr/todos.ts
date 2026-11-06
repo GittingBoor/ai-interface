@@ -1,0 +1,52 @@
+import type { Messages } from '../messages'
+
+export const todos: Messages['todos'] = {
+  description: 'Tâches du fichier TODO dans le coffre Obsidian',
+  reload: 'Recharger',
+  synced: '· synchronisé avec Obsidian',
+  syncedModified: (age: string): string => `· synchronisé avec Obsidian, modifié ${age}`,
+  missingTitle: 'Le fichier TODO n’existe pas encore',
+  createFile: 'Créer le fichier TODO',
+  expectedBefore: 'Attendu à l’emplacement ',
+  expectedAfter: (host: string): string => ` sur ${host}. Le chemin et le coffre se modifient dans les Paramètres.`,
+  status: 'Statut',
+  statusOpen: 'Ouvertes',
+  statusDone: 'Terminées',
+  statusAll: 'Toutes',
+  priority: 'Priorité',
+  priorityAny: 'Toutes',
+  high: 'Haute',
+  normal: 'Normale',
+  low: 'Basse',
+  search: 'Rechercher',
+  searchLabel: 'Rechercher dans les TODO',
+  overdue: (n: number): string => (n < 2 ? `${n} tâche est en retard.` : `${n} tâches sont en retard.`),
+  noSection: 'Sans section',
+  deleteTitle: 'Supprimer le TODO ?',
+  deleteMessage: (text: string): string => `« ${text} » sera retiré du fichier dans le coffre.`,
+  noMatchesTitle: 'Aucun résultat',
+  noMatchesBody: 'Modifiez le filtre ou la recherche.',
+  allDoneTitle: 'Tout est fait',
+  allDoneBody: (shortcut: string): string => `Aucun TODO ouvert. Ajoutez des tâches ci-dessus ou utilisez ${shortcut} puis « todo: … ».`,
+  nothingDoneTitle: 'Rien de terminé pour l’instant',
+  nothingDoneBody: 'Les TODO cochés apparaissent ici.',
+  composer: {
+    aria: 'Nouveau TODO',
+    placeholder: 'Nouveau TODO …',
+    section: 'Section',
+    sectionNone: 'aucune',
+    due: 'Échéance',
+    add: 'Ajouter'
+  },
+  row: {
+    editText: 'Texte du TODO',
+    dueOn: 'Échéance le',
+    reopen: (text: string): string => `Rouvrir « ${text} »`,
+    complete: (text: string): string => `Terminer « ${text} »`,
+    highPriority: 'Priorité haute',
+    lowPriority: 'Priorité basse',
+    doneOn: (date: string): string => `terminé le ${date}`,
+    dueTitle: (date: string): string => `Échéance le ${date}`,
+    edit: 'Modifier'
+  }
+}

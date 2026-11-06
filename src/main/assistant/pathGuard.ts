@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { posix, win32 } from 'node:path'
 import { ValidationError } from '../errors'
 
@@ -12,7 +13,7 @@ export function assertInside(root: string, target: string, platform: NodeJS.Plat
   const resolved = fold(path.resolve(target))
   const relative = path.relative(base, resolved)
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new ValidationError(`Der Pfad ${target} liegt nicht innerhalb von ${root}.`)
+    throw new ValidationError(mainT().errors.assistant.pathOutside(target, root))
   }
   return target
 }

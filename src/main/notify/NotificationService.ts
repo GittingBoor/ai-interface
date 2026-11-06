@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { NotificationSettings, TerminalInfo } from '@shared/types'
 import type { HookEvent, HookEventKind } from './hookSettings'
 
@@ -6,12 +7,6 @@ const MAX_BODY_LENGTH = 140
 const DEDUPE_WINDOW_MS = 3_000
 
 type NotifiedKind = Exclude<HookEventKind, 'working' | 'ended'>
-
-const TITLE: Readonly<Record<NotifiedKind, string>> = {
-  permission: 'Erlaubnis nötig',
-  question: 'Frage von Claude',
-  done: 'Claude ist fertig'
-}
 
 export interface ShownNotification {
   readonly title: string
@@ -60,7 +55,7 @@ export class NotificationService {
     if (last !== undefined && now - last < DEDUPE_WINDOW_MS) return
     this.lastShown.set(key, now)
     this.deps.show({
-      title: `${TITLE[kind]} · ${terminal.title}`,
+      title: `${mainT().notify.titles[kind]} · ${terminal.title}`,
       body: shorten(event.message),
       onClick: () => this.deps.focusTerminal(terminal.id)
     })

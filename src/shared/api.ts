@@ -1,14 +1,19 @@
 import type { Result } from './result'
+import type { AgentAssistRequest, AgentAssistResult, AgentDocument, AgentSaveInput, AgentSaveResult } from './agents'
+import type { Automation, AutomationInput, AutomationRun } from './automations'
+import type { KnowledgePlan, KnowledgeProgress, KnowledgeProject } from './knowledge'
 import type { PrivacyStatus, PrivateProject, PrivateProjectInput } from './privacy'
 import type { SpeechModelId, SpeechProgress, SpeechStatus } from './speech'
 import type {
   AnalyticsQuery,
+  ClaudeAuth,
   AnalyticsResult,
   AppInfo,
   BreakdownRange,
   DetectedProject,
   DeviceSettings,
   DeviceTestResult,
+  DroppedImage,
   PrerequisiteStatus,
   SetupDetection,
   SetupInput,
@@ -27,6 +32,9 @@ import type {
   HostStatus,
   ImageInput,
   ImageMeta,
+  Source,
+  SourceInput,
+  SourcePatch,
   OllamaStatus,
   ProjectUsage,
   ProtocolDocument,
@@ -91,6 +99,7 @@ export interface AiApiCalls {
     close(id: string): Promise<Result<void>>
     /** Bild aus der Zwischenablage ablegen und den Pfad einfügen; `null`, wenn kein Bild vorhanden ist. */
     pasteImage(id: string): Promise<Result<string | null>>
+    dropImages(id: string, images: readonly DroppedImage[]): Promise<Result<string[]>>
     /** Welche Terminals gerade sichtbar sind (unterdrückt Benachrichtigungen für diese). */
     setViewing(ids: string[], windowFocused: boolean): Promise<Result<void>>
     /** Aktueller Status je Terminal (danach Ereignis `terminal:status`). */
@@ -113,6 +122,12 @@ export interface AiApiCalls {
     update(id: number, patch: Partial<Pick<ImageMeta, 'title' | 'project' | 'tags'>>): Promise<Result<ImageMeta>>
     remove(id: number): Promise<Result<void>>
   }
+  readonly sources: {
+    list(): Promise<Result<Source[]>>
+    add(input: SourceInput): Promise<Result<Source>>
+    update(id: number, patch: SourcePatch): Promise<Result<Source>>
+    remove(id: number): Promise<Result<void>>
+  }
   readonly tasks: {
     /** Offene Aufgaben je Projekt aus dem neuesten Protokoll. */
     list(): Promise<Result<ProjectTasks[]>>
@@ -120,6 +135,18 @@ export interface AiApiCalls {
     uncheck(groupId: string, key: string): Promise<Result<void>>
     /** Startet die Aufgaben-Prüfung mit Claude oder liefert ihr offenes Terminal. */
     review(): Promise<Result<TerminalInfo>>
+  }
+  readonly knowledge: {
+    list(): Promise<Result<KnowledgeProject[]>>
+    /** Was ein Durchgang aufbereiten würde, mit Schätzung; startet nichts. */
+    plan(): Promise<Result<KnowledgePlan>>
+    /** Startet einen Durchgang nur für diese Projekte und liefert sofort den Fortschritt. */
+    refresh(favoriteIds: readonly number[]): Promise<Result<KnowledgeProgress>>
+    progress(): Promise<Result<KnowledgeProgress>>
+    /** Hintergrund-Terminals der laufenden Läufe. */
+    runs(): Promise<Result<TerminalInfo[]>>
+    /** Öffnet eine Datei des Projekts im Standardprogramm; nur bei Projekten auf diesem PC. */
+    openFile(favoriteId: number, relative: string): Promise<Result<void>>
   }
   readonly vault: {
     list(): Promise<Result<ProtocolGroup[]>>
@@ -161,6 +188,24 @@ export interface AiApiCalls {
     /** Erzeugt fehlende Zusammenfassungen (Fortschritt über `skills:progress`); liefert die Anzahl neuer. */
     summarize(ids: string[]): Promise<Result<number>>
   }
+  /** Claude-Code-Agents (`.claude/agents/*.md`) lesen, schreiben und mit KI entwerfen. */
+  readonly agents: {
+    read(host: HostId, path: string): Promise<Result<AgentDocument>>
+    save(input: AgentSaveInput): Promise<Result<AgentSaveResult>>
+    remove(host: HostId, path: string): Promise<Result<void>>
+    /** Entwurf oder Verbesserung durch Claude (`claude -p`, dauert einige Sekunden). */
+    assist(request: AgentAssistRequest): Promise<Result<AgentAssistResult>>
+  }
+  /** Agent-Läufe nach Zeitplan; Änderungen kommen über `automations:changed`. */
+  readonly automations: {
+    list(): Promise<Result<Automation[]>>
+    runs(id: number): Promise<Result<AutomationRun[]>>
+    create(input: AutomationInput): Promise<Result<Automation>>
+    update(id: number, input: AutomationInput): Promise<Result<Automation>>
+    remove(id: number): Promise<Result<void>>
+    /** Startet sofort; kehrt zurück, sobald der Lauf läuft. */
+    runNow(id: number): Promise<Result<void>>
+  }
   /** Zustand der angebundenen Geräte (früher nur der Mini-PC). */
   readonly minipc: {
     snapshot(host: HostId): Promise<Result<MiniPcSnapshot>>
@@ -169,6 +214,8 @@ export interface AiApiCalls {
     git(host: HostId, projectsDir: string): Promise<Result<GitState[]>>
     /** `git fetch` (ändert nur Remote-Referenzen), danach der neue Stand. */
     fetch(host: HostId, path: string): Promise<Result<GitState>>
+    /** Restlaufzeit der Claude-Anmeldung; ein nicht erreichbares Gerät ergibt `unknown`, keinen Fehler. */
+    claudeAuth(host: HostId): Promise<Result<ClaudeAuth>>
   }
   readonly runs: {
     list(): Promise<Result<InterruptedRun[]>>
@@ -232,6 +279,10 @@ export interface ApiEvents {
   readonly 'terminal:closed': { readonly id: string }
   /** Die Aufgaben-Prüfung ist beendet. */
   readonly 'tasks:reviewed': TaskReviewResult
+  /** Fortschritt des Projektwissen-Durchgangs hat sich geändert. */
+  readonly 'knowledge:progress': KnowledgeProgress
+  /** Das Projektwissen eines Projekts wurde gespeichert. */
+  readonly 'knowledge:updated': { readonly favoriteId: number }
   readonly 'todos:changed': TodoState
   readonly 'usage:updated': readonly HostStatus[]
   /** Eine andere Verbindung (z. B. ein Skript) hat die Datenbank geändert. */
@@ -243,6 +294,10 @@ export interface ApiEvents {
   readonly 'runs:show': { readonly at: number }
   readonly 'assistant:event': AssistantEvent
   readonly 'skills:progress': { readonly done: number; readonly total: number; readonly current: string }
+  /** Automatisierung angelegt, geändert, gestartet oder fertig. */
+  readonly 'automations:changed': { readonly at: number }
+  /** Klick auf die Benachrichtigung eines Laufs. */
+  readonly 'automations:show': { readonly id: number }
   /** Klick auf eine Benachrichtigung: dieses Terminal zeigen. */
   readonly 'terminal:focus': { readonly id: string }
   /** Neue KI-Bilder aus Claude-Sessions (Projektpfade). */
@@ -250,6 +305,8 @@ export interface ApiEvents {
   /** Privatmodus gesperrt/entsperrt oder Liste geändert: Daten neu laden. */
   readonly 'privacy:changed': PrivacyStatus
   readonly 'images:added': { readonly count: number; readonly projects: readonly string[] }
+  /** Neue KI-Quellen aus Claude-Sessions: Liste neu laden. */
+  readonly 'sources:changed': { readonly at: number }
   readonly 'update:state': UpdateState
 }
 
@@ -279,18 +336,22 @@ export const API_CHANNELS = {
   hosts: ['status'],
   favorites: ['list', 'add', 'update', 'remove', 'reorder', 'pickFolder', 'checkPath'],
   categories: ['list', 'add', 'update', 'remove', 'reorder'],
-  terminal: ['open', 'list', 'snapshot', 'close', 'pasteImage', 'setViewing', 'statuses'],
+  terminal: ['open', 'list', 'snapshot', 'close', 'pasteImage', 'dropImages', 'setViewing', 'statuses'],
   orchestrator: ['open', 'openClaudeMd'],
   todos: ['load', 'apply', 'create'],
   images: ['list', 'add', 'update', 'remove'],
+  sources: ['list', 'add', 'update', 'remove'],
   tasks: ['list', 'check', 'uncheck', 'review'],
+  knowledge: ['list', 'plan', 'refresh', 'progress', 'runs', 'openFile'],
   vault: ['list', 'read'],
   models: ['ollama', 'listCustom', 'upsertCustom', 'removeCustom'],
   settings: ['get', 'update', 'resetFingerprint'],
   setup: ['detect', 'scanProjects', 'scanVault', 'testDevice', 'finish', 'prerequisites'],
   assistant: ['send', 'stop', 'reset', 'confirm'],
   skills: ['catalog', 'summaries', 'summarize'],
-  minipc: ['snapshot', 'info', 'git', 'fetch'],
+  agents: ['read', 'save', 'remove', 'assist'],
+  automations: ['list', 'runs', 'create', 'update', 'remove', 'runNow'],
+  minipc: ['snapshot', 'info', 'git', 'fetch', 'claudeAuth'],
   runs: ['list', 'dismiss'],
   quota: ['get', 'refresh'],
   speech: ['status', 'install', 'cancelInstall', 'removeModel', 'setModel', 'transcribe'],

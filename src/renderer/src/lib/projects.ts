@@ -27,7 +27,7 @@ export function statsFor(fav: Favorite, projects: readonly ProjectUsage[]): Favo
   }
 }
 
-const normalize = (text: string): string => text.trim().toLocaleLowerCase('de-DE')
+const normalize = (text: string): string => text.trim().toLocaleLowerCase('de-DE') // i18n-ignore: Vergleichsschlüssel wie im Backend
 
 /** Offene TODOs, deren Abschnitt dem Favoritennamen entspricht. */
 export function openTodosFor(fav: Favorite, items: readonly TodoItem[]): number {

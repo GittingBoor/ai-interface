@@ -5,6 +5,7 @@ import { type ApiEvents, EVENT_CHANNEL_PREFIX } from '@shared/api'
 import { TITLE_BAR_HEIGHT } from '@shared/titleBar'
 import { applyAutostart } from './autostart'
 import { Container } from './container'
+import { setSystemLocaleProvider } from './i18n'
 import { handleImageProtocol, registerImageScheme, registerIpc } from './ipc'
 import { AUTOSTART_FLAG, createUpdateService } from './update/startupUpdate'
 import type { UpdateService } from './update/UpdateService'
@@ -102,6 +103,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     app.setAppUserModelId(APP_USER_MODEL_ID)
+    setSystemLocaleProvider(() => app.getLocale())
     // Bisher erlaubte Electron alles; nur Kamera/Mikrofon wird eingeschränkt: Audio für das eigene Fenster.
     session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
       if (permission !== 'media') return callback(true)

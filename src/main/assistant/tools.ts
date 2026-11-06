@@ -4,9 +4,9 @@ import type { Category, CategoryInput, Favorite, FavoriteInput } from '@shared/t
 import { NotFoundError, ValidationError } from '../errors'
 import { assertInside } from './pathGuard'
 import { planScaffold } from './projectScaffold'
+import { previewAddProject, previewAddTodo, previewCreateCategory, previewCreateFolder, previewNote } from './toolPreviews'
 
 const DEFAULT_PROJECT_COLOR = '#e08a4f'
-const PREVIEW_CONTENT_CHARS = 600
 
 /** Was die Werkzeuge aus der App brauchen (vom Container bereitgestellt, in Tests gefälscht). */
 export interface AssistantDeps {
@@ -64,9 +64,12 @@ interface ToolDef<S extends z.ZodRawShape> {
 }
 
 function defineTool<S extends z.ZodRawShape>(def: ToolDef<S>): AssistantTool {
-  const parse = (input: unknown): z.infer<z.ZodObject<S>> => {
+  const parse = (input: unknown, forModel: boolean): z.infer<z.ZodObject<S>> => {
     const result = z.object(def.schema).safeParse(input)
-    if (!result.success) throw new ValidationError(`Ungültige Eingabe für ${def.name}: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`)
+    if (!result.success) {
+      const fields = result.error.issues.map((i) => i.path.join('.')).join(', ')
+      throw new ValidationError(forModel ? `Ungültige Eingabe für ${def.name}: ${fields}` : fields)
+    }
     return result.data
   }
   return {
@@ -74,13 +77,12 @@ function defineTool<S extends z.ZodRawShape>(def: ToolDef<S>): AssistantTool {
     description: def.description,
     schema: def.schema,
     mutating: def.mutating,
-    preview: (input) => (def.preview ? def.preview(parse(input)) : JSON.stringify(input, null, 2)),
-    run: async (input) => def.run(parse(input))
+    preview: (input) => (def.preview ? def.preview(parse(input, false)) : JSON.stringify(input, null, 2)),
+    run: async (input) => def.run(parse(input, true))
   }
 }
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2)
-const excerpt = (text: string): string => (text.length > PREVIEW_CONTENT_CHARS ? `${text.slice(0, PREVIEW_CONTENT_CHARS)}\n…` : text)
 
 function readTools(deps: AssistantDeps): AssistantTool[] {
   const simple = (name: string, description: string, load: () => Promise<unknown>): AssistantTool =>
@@ -132,7 +134,7 @@ function writeTools(deps: AssistantDeps): AssistantTool[] {
       mutating: true,
       preview: (input) => {
         const plan = planScaffold(deps.projectsRoot(), input, [input.category], deps.platform)
-        return [`Ordner: ${plan.dir}`, 'Dateien:', ...plan.files.map((f) => `- ${f.path}`), 'Danach: git init -b main', '', excerpt(input.plan)].join('\n')
+        return previewCreateFolder(plan.dir, plan.files.map((f) => f.path), input.plan)
       },
       run: async (input) => {
         const plan = await scaffold(input)
@@ -147,7 +149,7 @@ function writeTools(deps: AssistantDeps): AssistantTool[] {
       description: 'Schreibt eine NEUE Notiz in den Obsidian-Vault (Pfad relativ zum Vault, z. B. Programmieren/<Projekt>/<Projekt>.md). Vorhandene Notizen werden nie geändert.',
       schema: { path: z.string(), content: z.string() },
       mutating: true,
-      preview: ({ path: relative, content }) => `Notiz: ${notePath(relative)}\n\n${excerpt(content)}`,
+      preview: ({ path: relative, content }) => previewNote(notePath(relative), content),
       run: async ({ path: relative, content }) => {
         const target = notePath(relative)
         if (await deps.vault.exists(target)) throw new ValidationError(`Die Notiz ${target} existiert bereits und wird nicht überschrieben.`)
@@ -168,7 +170,7 @@ function writeTools(deps: AssistantDeps): AssistantTool[] {
         starred: z.boolean().optional().describe('angepinnt, Standard true')
       },
       mutating: true,
-      preview: (input) => `Projekt „${input.name}“ (${input.host}) → ${input.path}\nArt: ${input.category ?? 'ohne'} · Farbe ${input.color ?? DEFAULT_PROJECT_COLOR}${input.icon ? ` · Symbol ${input.icon}` : ''}`,
+      preview: (input) => previewAddProject(input.name, input.host, input.path, input.category, input.color ?? DEFAULT_PROJECT_COLOR, input.icon),
       run: async (input) => {
         if (!deps.hostIds().includes(input.host)) throw new ValidationError(`Unbekannter Rechner „${input.host}“, vorhanden: ${deps.hostIds().join(', ')}.`)
         const category = input.category === undefined ? null : deps.categories().find((c) => c.name.toLowerCase() === input.category?.toLowerCase())
@@ -183,7 +185,7 @@ function writeTools(deps: AssistantDeps): AssistantTool[] {
       description: 'Legt eine neue Projektart an.',
       schema: { name: z.string(), color: z.string().optional().describe('#rrggbb, Standard #e08a4f'), icon: z.string().optional() },
       mutating: true,
-      preview: (input) => `Neue Art „${input.name}“ · Farbe ${input.color ?? DEFAULT_PROJECT_COLOR}${input.icon ? ` · Symbol ${input.icon}` : ''}`,
+      preview: (input) => previewCreateCategory(input.name, input.color ?? DEFAULT_PROJECT_COLOR, input.icon),
       run: async (input) => {
         const category = deps.addCategory({ name: input.name, color: input.color ?? DEFAULT_PROJECT_COLOR, icon: input.icon ?? null })
         deps.onChanged()
@@ -195,7 +197,7 @@ function writeTools(deps: AssistantDeps): AssistantTool[] {
       description: 'Fügt einen Eintrag zur TODO-Datei im Vault hinzu (Abschnitt = Projekt/Gruppe).',
       schema: { section: z.string(), text: z.string() },
       mutating: true,
-      preview: ({ section, text }) => `TODO in „${section}“: ${text}`,
+      preview: ({ section, text }) => previewAddTodo(section, text),
       run: async ({ section, text }) => {
         await deps.addTodo(section, text)
         return `TODO angelegt in „${section}“.`

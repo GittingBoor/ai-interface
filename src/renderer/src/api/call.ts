@@ -1,4 +1,5 @@
 import type { AppErrorInfo, Result } from '@shared/result'
+import { currentT } from '@renderer/i18n/useT'
 import { notify } from '@renderer/stores/toastStore'
 
 /** Fehler mit Code, damit Aufrufer gezielt reagieren können (z. B. TODO_NOT_FOUND). */
@@ -21,7 +22,8 @@ export async function unwrap<T>(pending: Promise<Result<T>>): Promise<T> {
     result = await pending
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause)
-    throw new ApiError({ code: 'IPC', message: `Verbindung zum Hintergrundprozess fehlgeschlagen: ${message}`, hint: 'App neu starten; Details stehen im Log.' })
+    const { ipc } = currentT().errors
+    throw new ApiError({ code: 'IPC', message: ipc.message(message), hint: ipc.hint })
   }
   if (!result.ok) throw new ApiError(result.error)
   return result.data
@@ -39,7 +41,7 @@ export async function attempt<T>(pending: Promise<Result<T>>): Promise<T | null>
 
 export function reportError(error: unknown): void {
   if (error instanceof ApiError) notify.error(error.message, error.hint)
-  else notify.error(error instanceof Error ? error.message : 'Unbekannter Fehler', 'Details stehen im Log (Einstellungen → Log öffnen).')
+  else notify.error(error instanceof Error ? error.message : currentT().errors.unknown, currentT().errors.unexpectedHint)
 }
 
 export const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))

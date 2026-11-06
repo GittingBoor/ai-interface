@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { mainT } from '../i18n'
 
 /** Nur anhängen, nie ändern: installierte Apps haben echte Daten. */
 export const MIGRATIONS: readonly string[] = [
@@ -68,13 +69,13 @@ export const MIGRATIONS: readonly string[] = [
     created_at INTEGER NOT NULL
   );
   INSERT INTO categories (name, color, icon, sort_order, created_at) VALUES
-    ('Programmieren', '#e08a4f', 'lucide:code', 0, CAST(strftime('%s', 'now') AS INTEGER) * 1000),
-    ('Arbeit', '#5fb3a8', 'lucide:briefcase', 1, CAST(strftime('%s', 'now') AS INTEGER) * 1000),
-    ('Lernen', '#6f9bd8', 'lucide:graduation-cap', 2, CAST(strftime('%s', 'now') AS INTEGER) * 1000);
+    ('@@CATEGORY_CODING@@', '#e08a4f', 'lucide:code', 0, CAST(strftime('%s', 'now') AS INTEGER) * 1000),
+    ('@@CATEGORY_WORK@@', '#5fb3a8', 'lucide:briefcase', 1, CAST(strftime('%s', 'now') AS INTEGER) * 1000),
+    ('@@CATEGORY_LEARNING@@', '#6f9bd8', 'lucide:graduation-cap', 2, CAST(strftime('%s', 'now') AS INTEGER) * 1000);
   ALTER TABLE favorites ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;
   ALTER TABLE favorites ADD COLUMN starred INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE favorites ADD COLUMN icon TEXT;
-  UPDATE favorites SET category_id = (SELECT id FROM categories WHERE name = 'Programmieren');
+  UPDATE favorites SET category_id = (SELECT id FROM categories WHERE name = '@@CATEGORY_CODING@@');
   `,
   // 3: KI-Bilder aus Claude-Sessions (Herkunft, Host, Dubletten über den Inhalt, eigener Leseoffset).
   `
@@ -163,8 +164,74 @@ export const MIGRATIONS: readonly string[] = [
   );
   `,
   // 10: Reserviert für optionale Erweiterungen (hält die Versionsnummern gleich).
-  `SELECT 1;`
+  `SELECT 1;`,
+  // 11: Quellen (gemerkte Webseiten je Projekt, von dir oder aus Claude-Sessions), eigener Leseoffset.
+  `
+  CREATE TABLE sources (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    host TEXT,
+    project TEXT,
+    origin TEXT NOT NULL,
+    starred INTEGER NOT NULL DEFAULT 0,
+    session_id TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX idx_sources_folder_url ON sources(coalesce(host, ''), coalesce(project, ''), url);
+  CREATE TABLE source_offsets (
+    host TEXT NOT NULL,
+    path TEXT NOT NULL,
+    offset INTEGER NOT NULL,
+    PRIMARY KEY (host, path)
+  );
+  `,
+  // 12: Automatisierungen (Agent-Läufe nach Zeitplan) und ihr Verlauf.
+  `
+  CREATE TABLE automations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    agent TEXT,
+    host TEXT NOT NULL,
+    cwd TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    permission TEXT NOT NULL,
+    model TEXT,
+    timeout_minutes INTEGER NOT NULL,
+    notify INTEGER NOT NULL,
+    enabled INTEGER NOT NULL,
+    next_run_at INTEGER,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE automation_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    automation_id INTEGER NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+    trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    finished_at INTEGER,
+    result TEXT NOT NULL DEFAULT '',
+    error TEXT,
+    session_id TEXT,
+    cost_usd REAL,
+    turns INTEGER
+  );
+  CREATE INDEX automation_runs_by_automation ON automation_runs(automation_id, started_at DESC);
+  `
 ]
+
+const sqlText = (value: string): string => value.replaceAll("'", "''")
+
+/** Setzt die Namen der Startarten (Platzhalter `@@CATEGORY_…@@`) in der aktuellen Sprache ein; läuft nur beim ersten Einspielen. */
+export function renderMigration(sql: string): string {
+  const { coding, work, learning } = mainT().main.defaults.categories
+  return sql
+    .replaceAll('@@CATEGORY_CODING@@', sqlText(coding))
+    .replaceAll('@@CATEGORY_WORK@@', sqlText(work))
+    .replaceAll('@@CATEGORY_LEARNING@@', sqlText(learning))
+}
 
 /** Öffnet die App-Datenbank und spielt fehlende Migrationen ein (Version in `user_version`). */
 export function openDatabase(file: string): Database.Database {
@@ -174,7 +241,7 @@ export function openDatabase(file: string): Database.Database {
   const current = db.pragma('user_version', { simple: true }) as number
   MIGRATIONS.slice(current).forEach((sql, index) => {
     db.transaction(() => {
-      db.exec(sql)
+      db.exec(renderMigration(sql))
       db.pragma(`user_version = ${current + index + 1}`)
     })()
   })

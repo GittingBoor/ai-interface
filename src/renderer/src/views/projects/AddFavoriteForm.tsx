@@ -6,12 +6,14 @@ import { attempt } from '@renderer/api/call'
 import { Button } from '@renderer/components/Button'
 import { BrandSpinner } from '@renderer/components/BrandSpinner'
 import { ColorPicker } from '@renderer/components/ColorPicker'
-import { Field, Segmented } from '@renderer/components/Controls'
+import { Field, Segmented, Switch } from '@renderer/components/Controls'
+import { useKnowledge } from '@renderer/stores/knowledgeStore'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { useCategories } from '@renderer/stores/categoriesStore'
 import { notify } from '@renderer/stores/toastStore'
 import { FAVORITE_COLORS, findDevice, hostLabel, hostOptions } from '@renderer/lib/hosts'
 import { baseName } from '@renderer/lib/format'
+import { currentT, useT } from '@renderer/i18n/useT'
 import { CategorySelect, IconField, StarGlyph } from './ProjectFields'
 
 type PathCheck = 'idle' | 'checking' | 'ok' | 'missing'
@@ -30,6 +32,8 @@ interface AddFavoriteFormProps {
 }
 
 export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: AddFavoriteFormProps): React.JSX.Element {
+  const { projects, common, frame, knowledge: k } = useT()
+  const t = projects.add
   const add = useFavorites((s) => s.add)
   const count = useFavorites((s) => s.favorites.length)
   const categories = useCategories((s) => s.categories)
@@ -41,6 +45,7 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
   const [categoryId, setCategoryId] = useState<number | null>(initialCategoryId)
   const [icon, setIcon] = useState<string | null>(null)
   const [starred, setStarred] = useState(false)
+  const [knowledge, setKnowledge] = useState(false)
   const [check, setCheck] = useState<PathCheck>(initial ? 'ok' : 'idle')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,25 +79,27 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
   }
 
   const submit = async (): Promise<void> => {
+    const msg = currentT().projects.add
     setError(null)
     if (!path.trim()) {
-      setError(host === 'local' ? 'Bitte einen Ordner wählen.' : `Bitte einen Pfad auf ${hostLabel(host)} eingeben.`)
+      setError(host === 'local' ? msg.pickFolderError : msg.enterPathError(hostLabel(host)))
       return
     }
     if (!name.trim()) {
-      setError('Bitte einen Namen vergeben.')
+      setError(msg.nameError)
       return
     }
     setSaving(true)
     try {
       if (check !== 'ok' && !(await verify())) {
-        setError(`Der Ordner existiert auf ${hostLabel(host)} nicht oder ist nicht erreichbar.`)
+        setError(msg.missingError(hostLabel(host)))
         return
       }
       const input: FavoriteInput = { host, path: path.trim(), name: name.trim(), color, categoryId, icon, starred }
       const fav = await add(input)
       if (fav) {
-        notify.success(`„${fav.name}“ ist jetzt ein Projekt.`)
+        if (knowledge) await useKnowledge.getState().setEnabled(fav.id, true)
+        notify.success(currentT().projects.view.promoted(fav.name))
         onDone(fav.id)
       }
     } finally {
@@ -112,9 +119,9 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[0.875rem] font-[620] text-ink">Projekt hinzufügen</h2>
+        <h2 className="text-[0.875rem] font-[620] text-ink">{projects.view.add}</h2>
         <Segmented
-          label="Rechner"
+          label={t.computer}
           value={host}
           onChange={switchHost}
           options={hostOptions()}
@@ -123,16 +130,16 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
 
       <div className="mt-4 grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4">
         <Field
-          label="Ordner"
+          label={t.folder}
           error={error}
-          hint={host === 'local' ? 'Ordner auf diesem Rechner' : `Absoluter Pfad auf ${hostLabel(host)}, z. B. ${findDevice(host)?.projectsDir ?? '~'}/…`}
+          hint={host === 'local' ? t.localHint : t.remoteHint(hostLabel(host), findDevice(host)?.projectsDir ?? '~')}
         >
           {(id, describedBy) =>
             host === 'local' ? (
               <div className="flex gap-2">
-                <input id={id} aria-describedby={describedBy} readOnly value={path} placeholder="Noch kein Ordner gewählt" className="field font-mono text-xs" onClick={() => void pick()} />
+                <input id={id} aria-describedby={describedBy} readOnly value={path} placeholder={t.noFolder} className="field font-mono text-xs" onClick={() => void pick()} />
                 <Button icon={FolderOpen} onClick={() => void pick()}>
-                  Wählen
+                  {t.choose}
                 </Button>
               </div>
             ) : (
@@ -153,15 +160,15 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
                   className="field pr-9 font-mono text-xs"
                 />
                 <span className="absolute top-1/2 right-2.5 -translate-y-1/2" aria-live="polite">
-                  {check === 'checking' ? <BrandSpinner className="size-4 text-ink-3" label="Wird geprüft" /> : null}
-                  {check === 'ok' ? <CircleCheck className="size-4 text-mini-ink" aria-label="Ordner gefunden" /> : null}
-                  {check === 'missing' ? <CircleX className="size-4 text-danger-ink" aria-label="Ordner nicht gefunden" /> : null}
+                  {check === 'checking' ? <BrandSpinner className="size-4 text-ink-3" label={t.checking} /> : null}
+                  {check === 'ok' ? <CircleCheck className="size-4 text-mini-ink" aria-label={t.found} /> : null}
+                  {check === 'missing' ? <CircleX className="size-4 text-danger-ink" aria-label={t.notFound} /> : null}
                 </span>
               </div>
             )
           }
         </Field>
-        <Field label="Name">
+        <Field label={frame.fields.name}>
           {(id) => (
             <input
               id={id}
@@ -170,7 +177,7 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
                 setName(e.target.value)
                 setNameTouched(true)
               }}
-              placeholder="Anzeigename"
+              placeholder={t.displayName}
               className="field"
             />
           )}
@@ -178,8 +185,8 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
       </div>
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-4">
-        <Field label="Art">{(id) => <CategorySelect id={id} value={categoryId} categories={categories} onChange={setCategoryId} />}</Field>
-        <Field label="Symbol">{(id) => <IconField id={id} value={icon} color={color} subject={name.trim() || 'Neues Projekt'} onChange={setIcon} />}</Field>
+        <Field label={t.category}>{(id) => <CategorySelect id={id} value={categoryId} categories={categories} onChange={setCategoryId} />}</Field>
+        <Field label={t.icon}>{(id) => <IconField id={id} value={icon} color={color} subject={name.trim() || t.newProject} onChange={setIcon} />}</Field>
         <button
           type="button"
           aria-pressed={starred}
@@ -187,21 +194,25 @@ export function AddFavoriteForm({ initial, initialCategoryId = null, onDone }: A
           className="group/star inline-flex h-8 items-center gap-2 rounded-md px-2.5 text-xs font-[540] text-ink-2 transition-colors hover:bg-raised-2 hover:text-ink"
         >
           <StarGlyph starred={starred} />
-          {starred ? 'Angepinnt' : 'Anpinnen'}
+          {starred ? t.pinned : t.pin}
         </button>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-line px-3 py-2.5">
+        <Switch checked={knowledge} label={k.enabledLabel} description={k.enabledHint} onChange={setKnowledge} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-[560] text-ink-2">Farbe</span>
-          <ColorPicker label="Farbe des Projekts" value={color} onChange={setColor} />
+          <span className="text-xs font-[560] text-ink-2">{frame.fields.color}</span>
+          <ColorPicker label={t.colorLabel} value={color} onChange={setColor} />
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => onDone(null)}>
-            Abbrechen
+            {common.cancel}
           </Button>
           <Button type="submit" variant="primary" loading={saving}>
-            Hinzufügen
+            {t.submit}
           </Button>
         </div>
       </div>

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Result } from '@shared/result'
+import { setActiveLanguage } from '../../src/renderer/src/i18n/activeLocale'
 import { MicrophoneError, SpeechController, type RecorderLike, type SpeechPhase } from '../../src/renderer/src/lib/speechController'
 import type { SpeechTarget } from '../../src/renderer/src/lib/speechText'
+
+setActiveLanguage('de')
 
 const VOICE = Float32Array.from({ length: 16_000 }, (_, i) => 0.2 * Math.sin(i / 10))
 
@@ -121,7 +124,7 @@ describe('SpeechController', () => {
   })
 
   it('Mikrofonfehler → Fehlermeldung, zurück auf idle', async () => {
-    const s = setup({ startError: new MicrophoneError('Kein Mikrofon gefunden', 'Windows: Datenschutz > Mikrofon prüfen.') })
+    const s = setup({ startError: new MicrophoneError('notFound') })
     await s.controller.toggle(T1)
     expect(s.errors).toEqual(['Kein Mikrofon gefunden'])
     expect(s.controller.phase).toBe('idle')

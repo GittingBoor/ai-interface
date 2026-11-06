@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import type { NavGroup, NavigationSettings, Settings } from '@shared/types'
-import { ALWAYS_VISIBLE, DEFAULT_NAVIGATION, moveItem, resolveNavigation } from '@shared/layout'
+import { ALWAYS_VISIBLE, DEFAULT_NAVIGATION, moveItem, navGroupLabel, resolveNavigation } from '@shared/layout'
 import { Button, IconButton } from '@renderer/components/Button'
 import { ProjectMark } from '@renderer/components/ProjectMark'
 import { useSettings } from '@renderer/stores/settingsStore'
+import { useSources } from '@renderer/stores/sourcesStore'
 import { navEntries, type NavEntry } from '@renderer/lib/views'
+import { currentT, useT } from '@renderer/i18n/useT'
 
-const NEW_GROUP_LABEL = 'Neue Gruppe'
 const DRAG_TYPE = 'application/x-aii-nav'
 
 function EntryIcon({ entry }: { readonly entry: NavEntry }): React.JSX.Element {
@@ -18,6 +19,7 @@ function EntryIcon({ entry }: { readonly entry: NavEntry }): React.JSX.Element {
 
 /** Name einer Gruppe; gespeichert wird beim Verlassen des Felds oder mit Enter. */
 function GroupLabel({ value, onCommit }: { readonly value: string; onCommit(label: string): void }): React.JSX.Element {
+  const t = useT()
   const [draft, setDraft] = useState(value)
   const [source, setSource] = useState(value)
   if (value !== source) {
@@ -31,7 +33,7 @@ function GroupLabel({ value, onCommit }: { readonly value: string; onCommit(labe
   }
   return (
     <input
-      aria-label="Name der Gruppe"
+      aria-label={t.settings.navigation.groupName}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -54,9 +56,12 @@ function placeItem(groups: readonly NavGroup[], item: string, groupId: string, i
 
 /** Seitenleiste anpassen: Gruppen benennen und ordnen, Einträge verschieben und ausblenden. */
 export function NavigationSection({ settings }: { readonly settings: Settings }): React.JSX.Element {
+  const t = useT()
+  const n = t.settings.navigation
   const update = useSettings((s) => s.update)
   const nav = settings.navigation
-  const entries = navEntries(settings.devices, settings.links)
+  const sources = useSources((s) => s.sources)
+  const entries = navEntries(settings.devices, settings.links, sources, t)
   const byId = new Map(entries.map((e) => [e.id, e]))
   const groups = resolveNavigation(nav, entries.map((e) => e.id))
   const [dragging, setDragging] = useState<string | null>(null)
@@ -67,7 +72,7 @@ export function NavigationSection({ settings }: { readonly settings: Settings })
   const rename = (id: string, label: string): void => setGroups(groups.map((g) => (g.id === id ? { ...g, label } : g)))
   const moveGroup = (group: NavGroup, delta: number): void => setGroups(moveItem(groups, group, delta))
   const moveEntry = (group: NavGroup, item: string, delta: number): void => setGroups(groups.map((g) => (g.id === group.id ? { ...g, items: moveItem(g.items, item, delta) } : g)))
-  const addGroup = (): void => setGroups([...groups, { id: `gruppe-${Date.now().toString(36)}`, label: NEW_GROUP_LABEL, items: [] }])
+  const addGroup = (): void => setGroups([...groups, { id: `gruppe-${Date.now().toString(36)}`, label: currentT().settings.navigation.newGroup, items: [] }])
   const removeGroup = (id: string): void => setGroups(groups.filter((g) => g.id !== id))
 
   const drop = (groupId: string, index: number | null) => (e: React.DragEvent): void => {
@@ -85,31 +90,31 @@ export function NavigationSection({ settings }: { readonly settings: Settings })
   return (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed text-ink-3">
-        Einträge per Ziehen oder mit den Pfeilen verschieben, über das Auge aus- und einblenden. Gruppen lassen sich in der Seitenleiste auch per Klick auf die Überschrift einklappen.
+        {n.hint}
       </p>
       {groups.map((group, gi) => (
         <section
           key={group.id}
-          aria-label={`Gruppe ${group.label}`}
+          aria-label={n.group(navGroupLabel(group, t))}
           onDragOver={allowDrop}
           onDrop={drop(group.id, null)}
           className={`rounded-lg border bg-canvas/60 transition-colors ${dragging ? 'border-dashed border-line-strong' : 'border-line'}`}
         >
           <header className="flex items-center gap-1 border-b border-line px-3 py-2">
-            <GroupLabel value={group.label} onCommit={(label) => rename(group.id, label)} />
-            <IconButton size="sm" icon={ArrowUp} label={`Gruppe ${group.label} nach oben`} disabled={gi === 0} onClick={() => moveGroup(group, -1)} />
-            <IconButton size="sm" icon={ArrowDown} label={`Gruppe ${group.label} nach unten`} disabled={gi === groups.length - 1} onClick={() => moveGroup(group, 1)} />
+            <GroupLabel value={navGroupLabel(group, t)} onCommit={(label) => rename(group.id, label)} />
+            <IconButton size="sm" icon={ArrowUp} label={n.groupUp(navGroupLabel(group, t))} disabled={gi === 0} onClick={() => moveGroup(group, -1)} />
+            <IconButton size="sm" icon={ArrowDown} label={n.groupDown(navGroupLabel(group, t))} disabled={gi === groups.length - 1} onClick={() => moveGroup(group, 1)} />
             <IconButton
               size="sm"
               icon={Trash2}
               tone="danger"
-              label={group.items.length ? 'Nur leere Gruppen lassen sich löschen' : `Gruppe ${group.label} löschen`}
+              label={group.items.length ? n.onlyEmptyDeletable : n.groupDelete(navGroupLabel(group, t))}
               disabled={group.items.length > 0}
               onClick={() => removeGroup(group.id)}
             />
           </header>
           <ul className="px-1.5 py-1.5">
-            {group.items.length === 0 ? <li className="px-2 py-2 text-xs text-ink-3">Leer. Einträge hierher ziehen.</li> : null}
+            {group.items.length === 0 ? <li className="px-2 py-2 text-xs text-ink-3">{n.empty}</li> : null}
             {group.items.map((item, ii) => {
               const entry = byId.get(item)
               if (!entry) return null
@@ -132,23 +137,23 @@ export function NavigationSection({ settings }: { readonly settings: Settings })
                   <EntryIcon entry={entry} />
                   <span className={`min-w-0 flex-1 truncate text-[0.8125rem] ${hidden ? 'text-ink-3 line-through decoration-ink-3/50' : 'text-ink-2'}`}>{entry.label}</span>
                   <select
-                    aria-label={`${entry.label} in Gruppe verschieben`}
+                    aria-label={n.moveToGroup(entry.label)}
                     value={group.id}
                     onChange={(e) => setGroups(placeItem(groups, item, e.target.value, null))}
                     className="field h-7 w-auto max-w-[9rem] py-0 text-2xs"
                   >
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>
-                        {g.label}
+                        {navGroupLabel(g, t)}
                       </option>
                     ))}
                   </select>
-                  <IconButton size="sm" icon={ArrowUp} label={`${entry.label} nach oben`} disabled={ii === 0} onClick={() => moveEntry(group, item, -1)} />
-                  <IconButton size="sm" icon={ArrowDown} label={`${entry.label} nach unten`} disabled={ii === group.items.length - 1} onClick={() => moveEntry(group, item, 1)} />
+                  <IconButton size="sm" icon={ArrowUp} label={n.up(entry.label)} disabled={ii === 0} onClick={() => moveEntry(group, item, -1)} />
+                  <IconButton size="sm" icon={ArrowDown} label={n.down(entry.label)} disabled={ii === group.items.length - 1} onClick={() => moveEntry(group, item, 1)} />
                   <IconButton
                     size="sm"
                     icon={hidden ? EyeOff : Eye}
-                    label={ALWAYS_VISIBLE.includes(item) ? 'Einstellungen bleiben immer sichtbar' : hidden ? `${entry.label} einblenden` : `${entry.label} ausblenden`}
+                    label={ALWAYS_VISIBLE.includes(item) ? n.settingsAlwaysVisible : hidden ? n.show(entry.label) : n.hide(entry.label)}
                     disabled={ALWAYS_VISIBLE.includes(item)}
                     onClick={() => toggleHidden(item)}
                   />
@@ -160,10 +165,10 @@ export function NavigationSection({ settings }: { readonly settings: Settings })
       ))}
       <div className="flex gap-2">
         <Button size="sm" icon={Plus} onClick={addGroup}>
-          Gruppe hinzufügen
+          {n.addGroup}
         </Button>
         <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => void update({ navigation: DEFAULT_NAVIGATION })}>
-          Standard wiederherstellen
+          {n.restoreDefault}
         </Button>
       </div>
     </div>

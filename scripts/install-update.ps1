@@ -8,7 +8,15 @@ $ErrorActionPreference = 'Stop'
 $DataDir = Join-Path $env:APPDATA 'AI Interface'
 $Log = Join-Path (Split-Path $Installer) "update-$(Get-Date -Format 'yyyy-MM-dd-HHmm').log"
 
+$ReadyTimeoutSeconds = 60
+$IconSettleSeconds = 5
+
 function Write-Log([string]$Message) { "$(Get-Date -Format s) $Message" | Add-Content -Path $Log -Encoding utf8 }
+
+# Lesbar heißt: niemand hält die Datei mehr exklusiv offen (Installer, Virenscanner).
+function Test-Readable([string]$Path) {
+  try { [System.IO.File]::Open($Path, 'Open', 'Read', 'Read').Dispose(); return $true } catch { return $false }
+}
 
 try {
   Write-Log "Update gestartet: $Installer"
@@ -33,9 +41,15 @@ try {
   Write-Log "Installer beendet mit Code $($proc.ExitCode)"
   if ($proc.ExitCode -ne 0) { throw "Installer-Code $($proc.ExitCode)" }
 
-  # Während der Installer die .exe ersetzt, merkt sich Windows ein Standardsymbol für Taskleiste und Verknüpfungen.
+  # Die Taskleiste holt das Symbol über die Startmenü-Verknüpfung. Startet die App, bevor Verknüpfung und .exe
+  # wieder lesbar sind (Virenscanner prüft die neue .exe), merkt sich der Explorer für diesen Lauf ein leeres Symbol.
+  $Shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AI Interface.lnk'
+  for ($i = 0; $i -lt $ReadyTimeoutSeconds -and -not ((Test-Path $Shortcut) -and (Test-Readable $AppExe)); $i++) { Start-Sleep -Seconds 1 }
+  Write-Log "Verknüpfung und Exe bereit nach $i s"
+
   $IconRefresh = Join-Path $env:SystemRoot 'System32\ie4uinit.exe'
   if (Test-Path $IconRefresh) { Start-Process -FilePath $IconRefresh -ArgumentList '-show' -Wait -WindowStyle Hidden }
+  Start-Sleep -Seconds $IconSettleSeconds
   Write-Log 'Symbol-Cache aufgefrischt'
 
   Start-Process -FilePath $AppExe

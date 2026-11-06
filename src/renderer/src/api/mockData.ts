@@ -3,6 +3,7 @@
  * Alles wird relativ zu „jetzt“ erzeugt und ist durch einen festen Seed stabil.
  */
 import { DEFAULT_NAVIGATION } from '@shared/layout'
+import type { KnowledgeProject, ProjectKnowledge } from '@shared/knowledge'
 import type {
   Category,
   CustomModel,
@@ -20,7 +21,8 @@ import type {
   SessionSummary,
   Settings,
   TodoItem,
-  UsageTotals
+  UsageTotals,
+  Source
 } from '@shared/types'
 import { todayIso } from '@renderer/lib/format'
 
@@ -82,6 +84,23 @@ export const MOCK_FAVORITES: Favorite[] = [
   { id: 3, host: 'mini-pc', path: '/home/alex/projects/wetter-dashboard', name: 'Wetter-Dashboard', color: '#6f9bd8', sortOrder: 2, createdAt: Date.now() - 90 * DAY_MS, categoryId: 1, starred: false, icon: 'lucide:map-pin' },
   { id: 4, host: 'mini-pc', path: '/opt/smarthome', name: 'Smarthome', color: '#5fb3a8', sortOrder: 3, createdAt: Date.now() - 120 * DAY_MS, categoryId: 2, starred: true, icon: 'lucide:house' },
   { id: 5, host: 'local', path: 'C:\\Users\\Alex\\OneDrive\\Obsidian Vault', name: 'Obsidian-Vault', color: '#9b8ad8', sortOrder: 4, createdAt: Date.now() - 12 * DAY_MS, categoryId: null, starred: false, icon: null }
+]
+
+const AI = 'C:\\Users\\Alex\\projects\\ai-interface'
+const MUSIC = '/home/alex/projects/Playlist_Builder_v2'
+
+/** Beispiel-Quellen: eigene und von der KI, ein Bündel (Wikipedia), Allgemein ohne Projekt. */
+export const MOCK_SOURCES: Source[] = [
+  { id: 1, url: 'https://music.example.org', title: 'Music Recommender (live)', note: 'Eigene Seite des Projekts', host: 'mini-pc', project: MUSIC, origin: 'user', starred: true, sessionId: null, createdAt: Date.now() - 2 * DAY_MS },
+  { id: 2, url: 'https://developer.spotify.com/documentation/web-api', title: 'Spotify Web API', note: 'Endpunkte für Empfehlungen und Audio-Features', host: 'mini-pc', project: MUSIC, origin: 'user', starred: false, sessionId: null, createdAt: Date.now() - 5 * DAY_MS },
+  { id: 3, url: 'https://de.wikipedia.org/wiki/Kosinus-%C3%84hnlichkeit', title: 'Kosinus-Ähnlichkeit · de.wikipedia.org', note: 'Wie berechnet man die Kosinus-Ähnlichkeit zweier Vektoren?', host: 'mini-pc', project: MUSIC, origin: 'ai', starred: false, sessionId: 's1', createdAt: Date.now() - 1 * DAY_MS },
+  { id: 4, url: 'https://de.wikipedia.org/wiki/Mel-Frequenz-Cepstrum', title: 'Mel Frequenz Cepstrum · de.wikipedia.org', note: 'Was sind MFCCs und wofür nutzt man sie bei Audio?', host: 'mini-pc', project: MUSIC, origin: 'ai', starred: false, sessionId: 's1', createdAt: Date.now() - 1 * DAY_MS },
+  { id: 5, url: 'https://de.wikipedia.org/wiki/Collaborative_Filtering', title: 'Collaborative Filtering · de.wikipedia.org', note: 'Grundidee von Collaborative Filtering', host: 'mini-pc', project: MUSIC, origin: 'ai', starred: false, sessionId: 's2', createdAt: Date.now() - 3 * DAY_MS },
+  { id: 6, url: 'https://librosa.org/doc/latest/feature.html', title: 'feature.html · librosa.org', note: 'Which librosa feature functions exist for spectral analysis?', host: 'mini-pc', project: MUSIC, origin: 'ai', starred: false, sessionId: 's2', createdAt: Date.now() - 3 * DAY_MS },
+  { id: 7, url: 'https://www.electronjs.org/docs/latest/api/webview-tag', title: 'webview tag · electronjs.org', note: 'Welche Attribute und Ereignisse hat das webview-Tag?', host: 'local', project: AI, origin: 'ai', starred: false, sessionId: 's3', createdAt: Date.now() - 4 * 3_600_000 },
+  { id: 8, url: 'https://tailwindcss.com/docs/theme', title: 'Tailwind Theme', note: 'Eigene Farben als Theme-Variablen', host: 'local', project: AI, origin: 'user', starred: true, sessionId: null, createdAt: Date.now() - 8 * DAY_MS },
+  { id: 9, url: 'https://news.ycombinator.com', title: 'Hacker News', note: '', host: null, project: null, origin: 'user', starred: true, sessionId: null, createdAt: Date.now() - 30 * DAY_MS },
+  { id: 10, url: 'https://www.zigbee2mqtt.io/supported-devices', title: 'supported devices · zigbee2mqtt.io', note: 'Wird der SONOFF Dongle Max unterstützt?', host: null, project: null, origin: 'ai', starred: false, sessionId: 's4', createdAt: Date.now() - 6 * DAY_MS }
 ]
 
 interface ProjectSeed {
@@ -325,8 +344,12 @@ export const MOCK_SETTINGS: Settings = {
   notifications: { permission: true, question: true, done: true, quotaFree: true },
   orchestrator: { enabled: true, confirmBeforeSend: true },
   images: { importReadImages: false },
+  sources: { openIn: 'app', hintSeen: false },
   projectsRoot: 'D:\\GitHub',
-  speech: { model: 'large-v3-turbo-q5_0', deviceId: '', hotkeyEnabled: false }
+  speech: { model: 'large-v3-turbo-q5_0', deviceId: '', hotkeyEnabled: false },
+  // IDs der Beispielprojekte in MOCK_KNOWLEDGE_PROJECTS.
+  knowledge: { projects: [101, 102, 103] },
+  language: 'system'
 }
 
 const SMARTHOME_PROTOCOLS = 'Programmieren/Server/homeserver/Protokoll'
@@ -504,4 +527,85 @@ export const MOCK_IMAGE_SEEDS: readonly MockImageSeed[] = [
   { meta: { id: 5, fileName: '5.png', title: 'Screenshot · browser_take_screenshot · Wetter', project: '/home/alex/projects/wetter-dashboard', tags: ['screenshot'], bytes: 1_204_778, createdAt: Date.now() - 9 * DAY_MS, host: 'mini-pc', source: 'auto', sessionId: 'mock-s5' }, width: 900, height: 1400 },
   { meta: { id: 6, fileName: '6.png', title: 'Stromverbrauch September', project: '/opt/smarthome', tags: ['energie', 'auswertung'], bytes: 233_091, createdAt: Date.now() - 12 * DAY_MS, host: 'mini-pc', source: 'manual', sessionId: null }, width: 1400, height: 800 },
   { meta: { id: 7, fileName: '7.png', title: 'Whiteboard-Foto Architektur', project: null, tags: ['notiz'], bytes: 2_310_442, createdAt: Date.now() - 15 * DAY_MS, host: null, source: 'manual', sessionId: null }, width: 1300, height: 975 }
+]
+
+const NOTE_APP_KNOWLEDGE: ProjectKnowledge = {
+  version: 1,
+  generatedAt: Date.now() - 2 * DAY_MS,
+  basedOn: { head: 'a1b2c3d', protocolDate: todayIso() },
+  summary: 'Notiz-App: Desktop-Programm zum Schreiben und Verknüpfen von Markdown-Notizen mit Synchronisation über einen eigenen Server.',
+  architecture: {
+    nodes: [
+      { id: 'ui', label: 'Editor-Oberfläche', kind: 'ui' },
+      { id: 'main', label: 'Hauptprozess', kind: 'service' },
+      { id: 'store', label: 'Notiz-Speicher', kind: 'data' },
+      { id: 'sync', label: 'Sync-Dienst', kind: 'service' },
+      { id: 'server', label: 'Sync-Server', kind: 'external' },
+      { id: 'phone', label: 'Handy-App', kind: 'device' }
+    ],
+    edges: [
+      { from: 'ui', to: 'main', label: 'IPC' },
+      { from: 'main', to: 'store' },
+      { from: 'main', to: 'sync' },
+      { from: 'sync', to: 'server', label: 'SSH-Tunnel' },
+      { from: 'phone', to: 'server' }
+    ]
+  },
+  features: [
+    { name: 'Markdown-Editor mit Vorschau', where: 'src/renderer/Editor.tsx', status: 'fertig' },
+    { name: 'Verknüpfungen zwischen Notizen', where: 'src/main/links', status: 'teilweise' },
+    { name: 'Synchronisation', where: 'src/main/sync', status: 'teilweise' },
+    { name: 'Handy-Ansicht', where: 'mobile/', status: 'geplant' }
+  ],
+  timeline: [
+    {
+      date: '2026-10-02',
+      title: 'Erster Editor',
+      detail: 'Markdown-Bearbeitung mit Live-Vorschau steht.',
+      links: [
+        { kind: 'commit', ref: '9f8e7d6' },
+        { kind: 'file', ref: 'src/renderer/Editor.tsx' }
+      ]
+    },
+    {
+      date: '2026-10-15',
+      title: 'Notizen verknüpfen',
+      detail: 'Wiki-Links und Rückverweise im Speicher.',
+      links: [
+        { kind: 'protocol', ref: 'Programmieren/Notiz-App/Protokoll/2026-10-15.md' },
+        { kind: 'file', ref: 'src/main/links/LinkIndex.ts' }
+      ]
+    },
+    {
+      date: '2026-10-28',
+      title: 'Sync über SSH-Tunnel',
+      detail: 'Abgleich mit dem eigenen Server, Konflikte werden markiert.',
+      links: [
+        { kind: 'commit', ref: 'a1b2c3d' },
+        { kind: 'protocol', ref: 'Programmieren/Notiz-App/Protokoll/2026-10-28.md' }
+      ]
+    }
+  ],
+  concepts: [
+    { term: 'SSH-Tunnel', explanation: 'Eine verschlüsselte Verbindung, durch die der Sync-Dienst den Server erreicht, ohne dass dieser öffentlich erreichbar sein muss.' },
+    { term: 'IPC zwischen Main und Renderer', explanation: 'Die Oberfläche läuft getrennt vom Hauptprozess und fragt Daten über benannte Kanäle an, statt direkt auf Dateien zuzugreifen.' },
+    { term: 'Rückverweis', explanation: 'Zu jeder Notiz wird gespeichert, welche anderen Notizen auf sie zeigen.' }
+  ],
+  gaps: ['Wie Sync-Konflikte bei gleichzeitiger Bearbeitung aufgelöst werden, steht nirgends dokumentiert.']
+}
+
+const MOCK_KNOWLEDGE_BASE = { host: 'local', color: '#e08a4f', icon: null, error: null } as const
+
+export const MOCK_KNOWLEDGE_PROJECTS: readonly KnowledgeProject[] = [
+  { ...MOCK_KNOWLEDGE_BASE, favoriteId: 101, name: 'Notiz-App', path: '/home/user/projects/notiz-app', status: 'current', knowledge: NOTE_APP_KNOWLEDGE },
+  {
+    ...MOCK_KNOWLEDGE_BASE,
+    favoriteId: 102,
+    name: 'Wetterstation',
+    path: '/home/user/projects/wetterstation',
+    color: '#6f9bd8',
+    status: 'stale',
+    knowledge: { ...NOTE_APP_KNOWLEDGE, generatedAt: Date.now() - 20 * DAY_MS, summary: 'Wetterstation: Sensoren melden Messwerte an einen kleinen Server, der sie als Diagramme zeigt.', basedOn: { head: '1234abc', protocolDate: '2026-10-05' }, gaps: [] }
+  },
+  { ...MOCK_KNOWLEDGE_BASE, favoriteId: 103, name: 'Spiel-Prototyp', path: '/home/user/projects/spiel-prototyp', color: '#8fb573', status: 'missing', knowledge: null }
 ]

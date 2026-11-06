@@ -6,7 +6,7 @@ import { Button } from '@renderer/components/Button'
 import { HostBadge } from '@renderer/components/Host'
 import { ProjectMark } from '@renderer/components/ProjectMark'
 import { EmptyState, Skeleton } from '@renderer/components/States'
-import { STATUS_LABEL, StatusDot } from '@renderer/components/StatusDot'
+import { statusLabel, StatusDot } from '@renderer/components/StatusDot'
 import { formatMetric, type ChartSeries } from '@renderer/lib/analytics'
 import { formatDayShort, formatRelative } from '@renderer/lib/format'
 import { liveTerminalFor, topProjects } from '@renderer/lib/home'
@@ -15,22 +15,14 @@ import { useNav } from '@renderer/stores/navStore'
 import { useTerminals, type LaunchTarget } from '@renderer/stores/terminalStore'
 import { useUsage } from '@renderer/stores/usageStore'
 import { SERIES_STYLE } from '@renderer/views/analytics/seriesStyle'
+import { useLocale, useT } from '@renderer/i18n/useT'
+import type { Messages } from '@shared/i18n/messages'
 
 const WINDOW_DAYS = 14
 const CARD_LIMIT = 6
 const FAVORITE_PREFIX = 'fav-'
 const KEY_SEPARATOR = '|'
 const STAGGER_S = 0.04
-
-/** Kurzform für die enge Karte; die volle Beschreibung steht im Tooltip. */
-const SHORT_STATUS: Readonly<Record<TerminalStatus, string>> = {
-  working: 'arbeitet',
-  review: 'fertig',
-  idle: 'bereit',
-  question: 'Frage',
-  permission: 'Erlaubnis',
-  exited: 'beendet'
-}
 
 interface Card {
   readonly key: string
@@ -63,17 +55,17 @@ interface Activity {
 }
 
 /** „zuletzt vor …“ aus Verbrauch und Sessions, sonst der letzte Tag mit aktiver Zeit. */
-function lastText(series: ChartSeries, buckets: readonly string[], activity: Activity): string | null {
+function lastText(series: ChartSeries, buckets: readonly string[], activity: Activity, t: Messages['usage']['home']['cards']): string | null {
   const keys = new Set(series.memberKeys)
   const stamps = [
     ...activity.projects.filter((p) => keys.has(`${p.host}${KEY_SEPARATOR}${p.project}`)).map((p) => p.lastActive),
     ...activity.sessions.filter((s) => keys.has(`${s.host}${KEY_SEPARATOR}${s.project}`)).map((s) => s.endedAt)
   ]
-  if (stamps.length) return `zuletzt ${formatRelative(Math.max(...stamps), activity.now)}`
+  if (stamps.length) return t.lastAgo(formatRelative(Math.max(...stamps), activity.now))
   const recent = buckets.slice(-series.values.length)
   const index = series.values.findLastIndex((v) => v > 0)
   const day = recent[index]
-  return day ? `zuletzt am ${formatDayShort(day)}` : null
+  return day ? t.lastOn(formatDayShort(day)) : null
 }
 
 function useCards(result: AnalyticsResult | null, tasks: readonly ProjectTasks[] | null, now: number): Card[] | null {
@@ -81,6 +73,8 @@ function useCards(result: AnalyticsResult | null, tasks: readonly ProjectTasks[]
   const terminals = useTerminals((s) => s.terminals)
   const projects7d = useUsage((s) => s.projects7d)
   const sessions = useUsage((s) => s.overview?.recentSessions)
+  const locale = useLocale()
+  const t = useT().usage.home.cards
   return useMemo(() => {
     if (!result) return null
     const activity: Activity = { projects: projects7d, sessions: sessions ?? [], now }
@@ -94,33 +88,35 @@ function useCards(result: AnalyticsResult | null, tasks: readonly ProjectTasks[]
         host,
         path,
         hours: s.total,
-        lastText: lastText(s, result.buckets, activity),
+        lastText: lastText(s, result.buckets, activity, t),
         openTasks: fav ? (tasks ?? []).filter((t) => t.favoriteId === fav.id).reduce((sum, t) => sum + t.tasks.length, 0) : 0,
         terminal: liveTerminalFor(terminals, host, path)
       }
     })
-  }, [result, tasks, favorites, terminals, projects7d, sessions, now])
+  }, [result, tasks, favorites, terminals, projects7d, sessions, now, t, locale])
 }
 
 function CardStatus({ terminal, status }: { readonly terminal: TerminalInfo | null; readonly status: TerminalStatus | undefined }): React.JSX.Element {
+  const t = useT().usage.home.cards
   if (!terminal) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 text-2xs font-[560] text-ink-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
         <RotateCcw className="size-3" aria-hidden strokeWidth={2.25} />
-        Fortsetzen
+        {t.resume}
       </span>
     )
   }
   const shown: TerminalStatus = status ?? (terminal.running ? 'idle' : 'exited')
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 text-2xs font-[560] text-ink-2" title={`Terminal: ${STATUS_LABEL[shown]}`}>
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-2xs font-[560] text-ink-2" title={t.terminalStatus(statusLabel(shown))}>
       <StatusDot status={shown} size="sm" />
-      {SHORT_STATUS[shown]}
+      {t.statusShort[shown]}
     </span>
   )
 }
 
 function ContinueCard({ card, index }: { readonly card: Card; readonly index: number }): React.JSX.Element {
+  const t = useT().usage.home.cards
   const status = useTerminals((s) => (card.terminal ? s.statuses[card.terminal.id] : undefined))
   const target: LaunchTarget = { host: card.host, path: card.path, name: card.name }
   const open = (): void => {
@@ -145,8 +141,7 @@ function ContinueCard({ card, index }: { readonly card: Card; readonly index: nu
       <button
         type="button"
         onClick={open}
-        title={card.terminal ? `Zum Terminal in ${card.name}` : `Letzte Claude-Session in ${card.name} fortsetzen
-${card.path}`}
+        title={card.terminal ? t.openTerminal(card.name) : t.resumeTitle(card.name, card.path)}
         className="group flex h-full w-full flex-col gap-3 rounded-lg border border-line bg-raised/35 px-4 py-3.5 text-left transition-[background-color,border-color,transform] duration-150 group-hover/card:border-line-strong group-hover/card:bg-raised active:translate-y-px focus-visible:border-accent/60"
       >
         <span className="flex min-w-0 items-center gap-2.5">
@@ -162,12 +157,12 @@ ${card.path}`}
         <span className="mt-auto flex min-h-6 items-center justify-between gap-3 pr-[4.25rem]">
           <span className="flex items-baseline gap-1.5">
             <span className="num text-[1.0625rem] leading-none font-[620] text-ink">{formatMetric('hours', card.hours)}</span>
-            <span className="text-2xs text-ink-3">in {WINDOW_DAYS} Tagen</span>
+            <span className="text-2xs text-ink-3">{t.inDays(WINDOW_DAYS)}</span>
           </span>
           {card.openTasks > 0 ? (
             <span className="inline-flex shrink-0 items-center gap-1 text-2xs font-[560] text-accent-text">
               <ListTodo className="size-3" aria-hidden strokeWidth={2} />
-              {card.openTasks} offen
+              {t.openTasks(card.openTasks)}
             </span>
           ) : null}
         </span>
@@ -175,12 +170,12 @@ ${card.path}`}
       <button
         type="button"
         onClick={startNew}
-        aria-label={`Neue Claude-Session in ${card.name} starten`}
-        title={`Neue Claude-Session in ${card.name} starten`}
+        aria-label={t.newSession(card.name)}
+        title={t.newSession(card.name)}
         className="absolute right-3 bottom-3 inline-flex h-6 items-center gap-1 rounded-md border border-line bg-base/70 pr-2 pl-1.5 text-2xs font-[560] text-ink-2 transition-[background-color,border-color,color,transform] duration-150 hover:border-accent/50 hover:bg-accent-soft hover:text-accent-text active:scale-[0.96]"
       >
         <Plus className="size-3" aria-hidden strokeWidth={2.5} />
-        Neu
+        {t.newShort}
       </button>
     </motion.li>
   )
@@ -199,10 +194,11 @@ interface ContinueCardsProps {
 
 /** Bis zu sechs Projekte mit der meisten aktiven Zeit: Klick springt ins laufende Terminal oder setzt die letzte Session fort, „Neu“ startet eine frische Session. */
 export function ContinueCards({ result, tasks, now }: ContinueCardsProps): React.JSX.Element {
+  const t = useT().usage.home.cards
   const cards = useCards(result, tasks, now)
   if (!cards) {
     return (
-      <div className="grid grid-cols-1 gap-3 @min-[36rem]/main:grid-cols-2 @min-[54rem]/main:grid-cols-3" aria-busy="true" aria-label="Projekte werden geladen">
+      <div className="grid grid-cols-1 gap-3 @min-[36rem]/main:grid-cols-2 @min-[54rem]/main:grid-cols-3" aria-busy="true" aria-label={t.loadingAria}>
         {Array.from({ length: CARD_LIMIT }, (_, i) => (
           <Skeleton key={i} className="h-[7.25rem] rounded-lg" />
         ))}
@@ -213,15 +209,15 @@ export function ContinueCards({ result, tasks, now }: ContinueCardsProps): React
     return (
       <EmptyState
         icon={FolderClock}
-        title="Noch keine aktive Zeit erfasst"
+        title={t.emptyTitle}
         compact
         action={
           <Button size="sm" icon={SquarePlus} onClick={openNewTerminal}>
-            Neues Terminal
+            {t.newTerminal}
           </Button>
         }
       >
-        Sobald du in einem Projekt mit Claude arbeitest, erscheinen hier die Projekte der letzten {WINDOW_DAYS} Tage zum Weitermachen.
+        {t.emptyBody(WINDOW_DAYS)}
       </EmptyState>
     )
   }

@@ -1,6 +1,8 @@
 import { motion } from 'motion/react'
 import type { AnalyticsMetric } from '@shared/types'
 import { formatMetric, type ChartSeries } from '@renderer/lib/analytics'
+import { localized } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
 
 interface RankingBarsProps {
   readonly series: readonly ChartSeries[]
@@ -18,10 +20,11 @@ const STAGGER_S = 0.03
 const MAX_STAGGERED = 12
 const REST_TONE = 'var(--color-ink-3)'
 
-const share = new Intl.NumberFormat('de-DE', { style: 'percent', maximumFractionDigits: 1 })
+const share = localized((tag) => new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 1 }))
 
 /** Serien nach Kennzahl im Zeitraum, mit Wert und Anteil; Klick bohrt in die Serie. */
 export function RankingBars({ series, metric, selected, onSelect, restFrom }: RankingBarsProps): React.JSX.Element {
+  const t = useT().usage
   const max = Math.max(0, ...series.map((s) => s.total))
   const sum = series.reduce((s, x) => s + x.total, 0)
   return (
@@ -34,7 +37,7 @@ export function RankingBars({ series, metric, selected, onSelect, restFrom }: Ra
           <>
             <span className="flex items-baseline gap-3 text-[0.8125rem]">
               <span className={`min-w-0 flex-1 truncate ${active ? 'font-[600] text-ink' : 'text-ink-2'}`}>{s.label}</span>
-              <span className="num w-12 shrink-0 text-right text-xs text-ink-3">{sum > 0 ? share.format(s.total / sum) : '–'}</span>
+              <span className="num w-12 shrink-0 text-right text-xs text-ink-3">{sum > 0 ? share().format(s.total / sum) : '–'}</span>
               <span className="num w-[5.25rem] shrink-0 text-right font-[560] text-ink">{formatMetric(metric, s.total)}</span>
             </span>
             <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-raised-2/70">
@@ -56,7 +59,7 @@ export function RankingBars({ series, metric, selected, onSelect, restFrom }: Ra
                 type="button"
                 className={`${box} hover:bg-raised focus-visible:bg-raised focus-visible:outline-none hover:opacity-100`}
                 aria-pressed={active}
-                title={active ? 'Filter aufheben' : `Nur „${s.label}“ zeigen`}
+                title={active ? t.analytics.clearFilter : t.charts.ranking.onlyShow(s.label)}
                 onClick={() => onSelect(s)}
               >
                 {body}

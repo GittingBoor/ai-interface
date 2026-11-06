@@ -1,0 +1,52 @@
+import type { Messages } from '../messages'
+
+export const todos: Messages['todos'] = {
+  description: 'Tasks from the TODO file in the Obsidian vault',
+  reload: 'Reload',
+  synced: '· synced with Obsidian',
+  syncedModified: (age: string): string => `· synced with Obsidian, modified ${age}`,
+  missingTitle: "The TODO file doesn't exist yet",
+  createFile: 'Create TODO file',
+  expectedBefore: 'Expected at ',
+  expectedAfter: (host: string): string => ` on ${host}. You can change the path and vault in Settings.`,
+  status: 'Status',
+  statusOpen: 'Open',
+  statusDone: 'Done',
+  statusAll: 'All',
+  priority: 'Priority',
+  priorityAny: 'Any',
+  high: 'High',
+  normal: 'Normal',
+  low: 'Low',
+  search: 'Search',
+  searchLabel: 'Search TODOs',
+  overdue: (n: number): string => (n === 1 ? '1 task is overdue.' : `${n} tasks are overdue.`),
+  noSection: 'No section',
+  deleteTitle: 'Delete TODO?',
+  deleteMessage: (text: string): string => `“${text}” will be removed from the file in the vault.`,
+  noMatchesTitle: 'No matches',
+  noMatchesBody: 'Adjust the filter or search.',
+  allDoneTitle: 'All done',
+  allDoneBody: (shortcut: string): string => `No open TODOs. Add new tasks above or use ${shortcut} “todo: …”.`,
+  nothingDoneTitle: 'Nothing done yet',
+  nothingDoneBody: 'Checked-off TODOs appear here.',
+  composer: {
+    aria: 'New TODO',
+    placeholder: 'New TODO …',
+    section: 'Section',
+    sectionNone: 'none',
+    due: 'Due',
+    add: 'Add'
+  },
+  row: {
+    editText: 'TODO text',
+    dueOn: 'Due on',
+    reopen: (text: string): string => `Reopen “${text}”`,
+    complete: (text: string): string => `Mark “${text}” as done`,
+    highPriority: 'High priority',
+    lowPriority: 'Low priority',
+    doneOn: (date: string): string => `done on ${date}`,
+    dueTitle: (date: string): string => `Due on ${date}`,
+    edit: 'Edit'
+  }
+}

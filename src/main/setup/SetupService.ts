@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { Category, DetectedProject, DeviceSettings, DeviceTestResult, Favorite, FavoriteInput, SetupDetection, SetupInput, Settings, SettingsPatch, VaultScan } from '@shared/types'
 import { ValidationError } from '../errors'
 import { type Host, joinPath } from '../hosts/Host'
@@ -87,7 +88,7 @@ export class SetupService {
   /** TODO-Dateien, Protokollordner und oberste Ordner im Vault (Pfade relativ, Trenner `/`). */
   async scanVault(path: string): Promise<VaultScan> {
     const host = this.deps.host
-    if (!(await host.stat(path))?.isDirectory) throw new ValidationError(`Der Ordner ${path} existiert nicht.`)
+    if (!(await host.stat(path))?.isDirectory) throw new ValidationError(mainT().errors.setup.folderMissing(path))
     const todoFiles: string[] = []
     const protocolDirs: string[] = []
     const walk = async (relative: readonly string[], depth: number): Promise<void> => {
@@ -109,7 +110,7 @@ export class SetupService {
   async testDevice(device: DeviceSettings): Promise<DeviceTestResult> {
     try {
       await this.deps.testSsh({ ...device, enabled: true, hostFingerprint: '' })
-      return { ok: true, message: `Verbunden mit ${device.user}@${device.host}.` }
+      return { ok: true, message: mainT().errors.setup.connected(device.user, device.host) }
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) }
     }
@@ -117,10 +118,10 @@ export class SetupService {
 
   /** Speichert die Einrichtung; vorhandene Projekte und Arten bleiben, doppelte werden übersprungen. */
   finish(input: SetupInput): Settings {
-    if (!input.projectsRoot.trim()) throw new ValidationError('Bitte einen Projektordner wählen.')
+    if (!input.projectsRoot.trim()) throw new ValidationError(mainT().errors.setup.pickProjectsRoot)
     const ids = new Set<string>()
     for (const d of input.devices) {
-      if (!d.id || d.id === 'local' || ids.has(d.id)) throw new ValidationError(`Geräte-ID „${d.id}“ ist ungültig oder doppelt.`)
+      if (!d.id || d.id === 'local' || ids.has(d.id)) throw new ValidationError(mainT().errors.setup.deviceIdInvalid(d.id))
       ids.add(d.id)
     }
     const current = this.deps.settings()

@@ -11,10 +11,12 @@ import { baseName } from '@renderer/lib/format'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { usePrivacy } from '@renderer/stores/privacyStore'
 import { notify } from '@renderer/stores/toastStore'
+import { currentT, useT } from '@renderer/i18n/useT'
 
 
 /** Ordner über den Ordner-Browser oder einen vorhandenen Favoriten als privat markieren. */
 function AddPrivate(): React.JSX.Element {
+  const p = useT().settings.privacy
   const favorites = useFavorites((s) => s.favorites)
   const projects = usePrivacy((s) => s.projects)
   const add = usePrivacy((s) => s.add)
@@ -24,14 +26,14 @@ function AddPrivate(): React.JSX.Element {
   const candidates = favorites.filter((f) => !projects.some((p) => p.host === f.host && p.path === f.path))
 
   const addEntry = async (entryHost: HostId, entryPath: string, label: string): Promise<void> => {
-    if (await add({ host: entryHost, path: entryPath, label })) notify.success(`„${label}“ ist jetzt privat.`)
+    if (await add({ host: entryHost, path: entryPath, label })) notify.success(currentT().settings.privacy.markedPrivate(label))
   }
 
   return (
     <div className="mt-4 grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <select
-          aria-label="Favorit als privat markieren"
+          aria-label={p.favoriteAria}
           value=""
           disabled={candidates.length === 0}
           onChange={(e) => {
@@ -40,7 +42,7 @@ function AddPrivate(): React.JSX.Element {
           }}
           className="field max-w-xs text-[0.8125rem]"
         >
-          <option value="">{candidates.length === 0 ? 'Keine weiteren Favoriten' : 'Favorit hinzufügen …'}</option>
+          <option value="">{candidates.length === 0 ? p.noMoreFavorites : p.addFavorite}</option>
           {candidates.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name} ({hostLabel(f.host)})
@@ -48,13 +50,13 @@ function AddPrivate(): React.JSX.Element {
           ))}
         </select>
         <Button size="sm" variant="ghost" icon={FolderPlus} onClick={() => setBrowsing(!browsing)} aria-expanded={browsing}>
-          Ordner hinzufügen
+          {p.addFolder}
         </Button>
       </div>
       {browsing ? (
         <div className="grid gap-3 rounded-lg border border-line p-3">
           <Segmented
-            label="Rechner"
+            label={p.computer}
             value={host}
             options={hostOptions()}
             onChange={(next: HostId) => {
@@ -67,7 +69,7 @@ function AddPrivate(): React.JSX.Element {
           </div>
           <div className="flex items-center justify-end gap-2">
             <p aria-live="polite" className="min-w-0 flex-1 truncate font-mono text-2xs text-ink-3" title={path ?? undefined}>
-              {path ?? 'Ordner auswählen'}
+              {path ?? p.pickFolder}
             </p>
             <Button
               size="sm"
@@ -81,7 +83,7 @@ function AddPrivate(): React.JSX.Element {
                 })
               }}
             >
-              Als privat markieren
+              {p.markPrivate}
             </Button>
           </div>
         </div>
@@ -92,6 +94,8 @@ function AddPrivate(): React.JSX.Element {
 
 /** Inhalt der Einstellungsgruppe „Privatmodus“. */
 export function PrivacySection(): React.JSX.Element {
+  const t = useT()
+  const p = t.settings.privacy
   const status = usePrivacy((s) => s.status)
   const projects = usePrivacy((s) => s.projects)
   const { load, lock, unlock, setPin, remove } = usePrivacy.getState()
@@ -101,15 +105,15 @@ export function PrivacySection(): React.JSX.Element {
     void load()
   }, [load])
 
-  if (!status) return <p className="text-xs text-ink-3">Lädt …</p>
-  const count = status.hiddenCount === 1 ? '1 Projekt' : `${status.hiddenCount} Projekte`
+  if (!status) return <p className="text-xs text-ink-3">{t.common.loading}</p>
+  const count = p.projectCount(status.hiddenCount)
 
   return (
     <div>
       <Switch
         checked={status.locked}
-        label="Privatmodus"
-        description={status.locked ? `Aktiv: ${count} ausgeblendet. Ausschalten nur mit PIN.` : 'Aus: private Projekte sind sichtbar. Einschalten blendet sie sofort aus.'}
+        label={p.switchLabel}
+        description={status.locked ? p.activeDescription(count) : p.inactiveDescription}
         onChange={(on) => {
           if (on) void lock()
           else setDialog(status.hasPin ? 'unlock' : 'create')
@@ -117,33 +121,33 @@ export function PrivacySection(): React.JSX.Element {
       />
       {status.locked ? (
         <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-ink-3">
-          <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden /> Die Liste der privaten Projekte ist nur entsperrt sichtbar. Beim App-Start ist der Privatmodus immer an.
+          <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden /> {p.lockedNote}
         </p>
       ) : (
         <>
           <ul className="mt-5 divide-y divide-line rounded-lg border border-line">
-            {projects.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 px-3 py-2.5">
+            {projects.map((proj) => (
+              <li key={proj.id} className="flex items-center gap-3 px-3 py-2.5">
                 <LockOpen className="size-3.5 shrink-0 text-ink-3" aria-hidden />
                 <div className="min-w-0 flex-1">
                   <p className="text-[0.8125rem] font-[560] text-ink">
-                    {p.label} <span className="font-normal text-ink-3">· {hostLabel(p.host)}</span>
+                    {proj.label} <span className="font-normal text-ink-3">· {hostLabel(proj.host)}</span>
                   </p>
-                  <p className="truncate font-mono text-2xs text-ink-3" title={p.path}>
-                    {p.path}
+                  <p className="truncate font-mono text-2xs text-ink-3" title={proj.path}>
+                    {proj.path}
                   </p>
                 </div>
-                <Button size="sm" variant="ghost" icon={Trash2} aria-label={`„${p.label}“ entfernen (nicht mehr privat)`} onClick={() => void remove(p.id)}>
-                  Entfernen
+                <Button size="sm" variant="ghost" icon={Trash2} aria-label={p.removeAria(proj.label)} onClick={() => void remove(proj.id)}>
+                  {p.remove}
                 </Button>
               </li>
             ))}
-            {projects.length === 0 ? <li className="px-3 py-2.5 text-xs text-ink-3">Noch keine privaten Projekte.</li> : null}
+            {projects.length === 0 ? <li className="px-3 py-2.5 text-xs text-ink-3">{p.noProjects}</li> : null}
           </ul>
           <AddPrivate />
           <div className="mt-4">
             <Button size="sm" variant="ghost" icon={KeyRound} onClick={() => setDialog('change')}>
-              PIN ändern
+              {p.changePin}
             </Button>
           </div>
         </>
@@ -154,7 +158,7 @@ export function PrivacySection(): React.JSX.Element {
         onSubmit={async (pin, next) => {
           if (dialog === 'unlock') await unlock(pin)
           else if (next !== null) await setPin(dialog === 'change' ? pin : null, next)
-          if (dialog === 'change') notify.success('PIN geändert.')
+          if (dialog === 'change') notify.success(currentT().settings.privacy.pinChanged)
         }}
       />
     </div>

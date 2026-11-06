@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, FolderGit2, LayoutGrid as LayoutIcon, Play, RefreshCw, RotateCcw, ServerOff, Settings2, SquareTerminal } from 'lucide-react'
 import { LayoutGrid, usePageLayout, type LayoutSection } from '@renderer/components/LayoutGrid'
 import type { DeviceSettings, HostId, LaunchMode } from '@shared/types'
+import type { Messages } from '@shared/i18n/messages'
 import { Button } from '@renderer/components/Button'
 import { FolderBrowser } from '@renderer/components/FolderBrowser'
 import { HostBadge } from '@renderer/components/Host'
@@ -12,6 +13,9 @@ import { useNav } from '@renderer/stores/navStore'
 import { useSettings } from '@renderer/stores/settingsStore'
 import { useTerminals } from '@renderer/stores/terminalStore'
 import { projectsDirOf, useMiniPc } from '@renderer/stores/miniPcStore'
+import { useClaudeAuth } from '@renderer/stores/claudeAuthStore'
+import { useT } from '@renderer/i18n/useT'
+import { claudeAuthView, type ClaudeAuthLevel } from '@renderer/lib/claudeAuth'
 import { useDevices } from '@renderer/lib/hosts'
 import { useInterval, useNow } from '@renderer/lib/hooks'
 import { baseName, formatTime } from '@renderer/lib/format'
@@ -59,15 +63,50 @@ function useDeviceId(): HostId {
   return useNav((s) => s.deviceId) ?? ''
 }
 
+const AUTH_TEXT: Readonly<Record<ClaudeAuthLevel, string>> = { ok: '', warn: 'text-warn', expired: 'text-danger-ink', unknown: '', none: '' }
+
+/** Restlaufzeit der Claude-Anmeldung auf dem Gerät; Tooltip mit Datum bzw. Anleitung zum Neuanmelden. */
+function ClaudeAuthStatus({ host, now }: { readonly host: HostId; readonly now: number }): React.JSX.Element | null {
+  const auth = useClaudeAuth((s) => s.byHost[host])
+  const checking = useClaudeAuth((s) => s.checking.includes(host))
+  const t = useT().device
+  const view = claudeAuthView(auth, now, t)
+  if (!view.label) return null
+  return (
+    <span className="flex items-center gap-1">
+      <span aria-hidden className="text-ink-3/60">
+        ·
+      </span>
+      <span title={view.hint ?? undefined} className={`num ${AUTH_TEXT[view.level]}`}>
+        {view.label}
+        {view.hint ? <span className="sr-only">. {view.hint}</span> : null}
+      </span>
+      <button
+        type="button"
+        onClick={() => void useClaudeAuth.getState().check(host)}
+        disabled={checking}
+        aria-label={t.authRecheck}
+        title={t.authRecheck}
+        className="grid size-5 place-items-center rounded text-ink-3 transition-colors hover:bg-raised hover:text-ink-2 disabled:opacity-60"
+      >
+        <RefreshCw className={`size-3 ${checking ? 'animate-spin' : ''}`} aria-hidden strokeWidth={2} />
+      </button>
+    </span>
+  )
+}
+
 function StatusLine(): React.JSX.Element {
   const host = useDeviceId()
   const snapshot = useMiniPc((s) => s.snapshot)
   const loading = useMiniPc((s) => s.snapshotLoading)
-  const text = !snapshot ? (loading ? 'Verbinde …' : 'noch nicht abgefragt') : snapshot.online ? `erreichbar · Stand ${formatTime(snapshot.fetchedAt)} Uhr` : 'nicht erreichbar'
+  const now = useNow(CLOCK_TICK_MS)
+  const t = useT().device
+  const text = !snapshot ? (loading ? t.connecting : t.notQueried) : snapshot.online ? t.onlineSince(formatTime(snapshot.fetchedAt)) : t.offline
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <HostBadge host={host} />
       <span className={`num ${snapshot && !snapshot.online ? 'text-danger-ink' : ''}`}>{text}</span>
+      <ClaudeAuthStatus host={host} now={now} />
     </span>
   )
 }
@@ -77,13 +116,14 @@ interface FolderPanelProps {
   onSelect(path: string): void
 }
 
-const FOLDER_ACTIONS: readonly { readonly mode: LaunchMode; readonly label: string; readonly icon: typeof Play }[] = [
-  { mode: 'new', label: 'Claude starten', icon: Play },
-  { mode: 'continue', label: 'Fortsetzen', icon: RotateCcw },
-  { mode: 'shell', label: 'Shell', icon: SquareTerminal }
+const FOLDER_ACTIONS: readonly { readonly mode: LaunchMode; readonly label: (t: Messages['device']) => string; readonly icon: typeof Play }[] = [
+  { mode: 'new', label: (t) => t.actionStart, icon: Play },
+  { mode: 'continue', label: (t) => t.actionContinue, icon: RotateCcw },
+  { mode: 'shell', label: (t) => t.actionShell, icon: SquareTerminal }
 ]
 
 function FolderPanel({ selected, onSelect }: FolderPanelProps): React.JSX.Element {
+  const t = useT().device
   const opening = useTerminals((s) => s.opening)
   const launch = useTerminals((s) => s.launch)
   const host = useDeviceId()
@@ -94,9 +134,9 @@ function FolderPanel({ selected, onSelect }: FolderPanelProps): React.JSX.Elemen
       <header className="mb-4 flex min-h-7 items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 id="minipc-files-title" className="text-[0.8125rem] font-[620] tracking-[0.005em] text-ink">
-            Ordner
+            {t.folderTitle}
           </h2>
-          <p className="mt-0.5 text-xs text-ink-3">Auswählen und dort ein Terminal öffnen</p>
+          <p className="mt-0.5 text-xs text-ink-3">{t.folderHint}</p>
         </div>
       </header>
       <div className="flex min-h-[18rem] flex-1 flex-col [&>*]:flex-1">
@@ -114,7 +154,7 @@ function FolderPanel({ selected, onSelect }: FolderPanelProps): React.JSX.Elemen
       </div>
       <div className="mt-3 space-y-2">
         <p className="truncate font-mono text-2xs text-ink-3" title={selected ?? undefined} aria-live="polite">
-          {selected ?? 'Kein Ordner ausgewählt'}
+          {selected ?? t.folderNone}
         </p>
         <div className="grid grid-cols-[1fr_auto_auto] gap-1.5">
           {FOLDER_ACTIONS.map((a, i) => (
@@ -126,9 +166,9 @@ function FolderPanel({ selected, onSelect }: FolderPanelProps): React.JSX.Elemen
               icon={a.icon}
               disabled={!selected || opening}
               onClick={() => selected && void launch({ host, path: selected, name }, a.mode)}
-              title={selected ? `${a.label} in ${name}` : undefined}
+              title={selected ? t.actionIn(a.label(t), name) : undefined}
             >
-              {a.label}
+              {a.label(t)}
             </Button>
           ))}
         </div>
@@ -138,6 +178,7 @@ function FolderPanel({ selected, onSelect }: FolderPanelProps): React.JSX.Elemen
 }
 
 function GitSection(): React.JSX.Element {
+  const t = useT().device
   const repos = useMiniPc((s) => s.repos)
   const loading = useMiniPc((s) => s.gitLoading)
   const error = useMiniPc((s) => s.gitError)
@@ -147,11 +188,11 @@ function GitSection(): React.JSX.Element {
   return (
     <Section
       id="minipc-git"
-      title="Git-Stand"
-      description={repos ? `${count} ${count === 1 ? 'Repository' : 'Repositories'} in ${dir}` : `Repositories in ${dir}`}
+      title={t.sectionGit}
+      description={repos ? t.gitCount(count, dir) : t.gitCountUnknown(dir)}
       actions={
         <Button size="sm" variant="ghost" icon={RefreshCw} loading={loading} onClick={() => void load()}>
-          Neu lesen
+          {t.gitReload}
         </Button>
       }
     >
@@ -160,8 +201,8 @@ function GitSection(): React.JSX.Element {
       ) : !repos ? (
         <SkeletonRows rows={3} />
       ) : repos.length === 0 ? (
-        <EmptyState icon={FolderGit2} title="Keine Git-Repositories gefunden" compact>
-          Direkt unter {dir} liegt kein Ordner mit Git-Repository. Den Projektordner des Geräts änderst du in den Einstellungen unter Geräte.
+        <EmptyState icon={FolderGit2} title={t.gitEmptyTitle} compact>
+          {t.gitEmptyBody(dir)}
         </EmptyState>
       ) : (
         <GitTable repos={repos} />
@@ -173,21 +214,22 @@ function GitSection(): React.JSX.Element {
 function OfflineState({ message }: { readonly message: string | null }): React.JSX.Element {
   const loading = useMiniPc((s) => s.snapshotLoading)
   const openSettings = useNav((s) => s.openSettings)
-  const name = useDevice()?.name ?? 'Gerät'
+  const t = useT().device
+  const name = useDevice()?.name ?? t.deviceFallback
   return (
     <div role="alert" className="flex max-w-lg flex-col items-start gap-4 border-t border-line pt-8">
       <MiniPcOfflineIllustration />
       <div className="space-y-1.5">
-        <p className="text-[0.9375rem] font-[620] text-ink">{name} nicht erreichbar</p>
-        <p className="text-[0.8125rem] leading-relaxed text-ink-3">Die SSH-Verbindung kam nicht zustande. Ist das Gerät an und im selben Netz (oder per VPN erreichbar)?</p>
+        <p className="text-[0.9375rem] font-[620] text-ink">{t.offlineTitle(name)}</p>
+        <p className="text-[0.8125rem] leading-relaxed text-ink-3">{t.offlineBody}</p>
         {message ? <p className="rounded-md bg-raised px-3 py-2 font-mono text-2xs leading-relaxed text-ink-2">{message}</p> : null}
       </div>
       <div className="flex gap-2">
         <Button variant="primary" icon={RefreshCw} loading={loading} onClick={refreshAll}>
-          Erneut verbinden
+          {t.reconnect}
         </Button>
         <Button variant="ghost" icon={Settings2} onClick={() => openSettings('devices')}>
-          Verbindung prüfen
+          {t.checkConnection}
         </Button>
       </div>
     </div>
@@ -195,8 +237,9 @@ function OfflineState({ message }: { readonly message: string | null }): React.J
 }
 
 function LoadingLayout(): React.JSX.Element {
+  const t = useT().device
   return (
-    <div className="space-y-10" aria-busy="true" aria-label="Gerät wird abgefragt">
+    <div className="space-y-10" aria-busy="true" aria-label={t.loadingAria}>
       <div className="grid grid-cols-3 gap-8 border-t border-line pt-4">
         {SKELETON_METERS.map((i) => (
           <div key={i} className="space-y-2">
@@ -231,6 +274,7 @@ function InfoNotice(): React.JSX.Element | null {
 function Dashboard({ editing }: { readonly editing: boolean }): React.JSX.Element {
   const snapshot = useMiniPc((s) => s.snapshot)
   const now = useNow(CLOCK_TICK_MS)
+  const t = useT().device
   const [selected, setSelected] = useState<string | null>(null)
   const onSelect = useCallback((path: string) => setSelected(path), [])
   if (!snapshot) return <LoadingLayout />
@@ -238,45 +282,45 @@ function Dashboard({ editing }: { readonly editing: boolean }): React.JSX.Elemen
   const sections: LayoutSection[] = [
     {
       id: 'system',
-      label: 'System',
+      label: t.sectionSystem,
       width: 'full',
       render: () => (
-        <Section id="minipc-system" title="System" description="Aktualisiert sich alle 10 Sekunden, solange dieser Bereich offen ist">
-          {system ? <SystemCard system={system} fetchedAt={snapshot.fetchedAt} /> : <p className="text-[0.8125rem] text-ink-3">Keine Systemwerte gelesen.</p>}
+        <Section id="minipc-system" title={t.sectionSystem} description={t.sectionSystemDesc}>
+          {system ? <SystemCard system={system} fetchedAt={snapshot.fetchedAt} /> : <p className="text-[0.8125rem] text-ink-3">{t.noSystemValues}</p>}
         </Section>
       )
     },
-    { id: 'notice', label: 'Hinweise', width: 'full', render: () => <InfoNotice /> },
-    { id: 'history', label: 'Verlauf', width: 'full', render: () => (system ? <HistorySection system={system} /> : null) },
-    { id: 'thermal', label: 'Temperaturen', width: 'full', render: () => (system ? <ThermalSection system={system} /> : null) },
+    { id: 'notice', label: t.sectionNotices, width: 'full', render: () => <InfoNotice /> },
+    { id: 'history', label: t.sectionHistory, width: 'full', render: () => (system ? <HistorySection system={system} /> : null) },
+    { id: 'thermal', label: t.sectionThermal, width: 'full', render: () => (system ? <ThermalSection system={system} /> : null) },
     {
       id: 'claude',
-      label: 'Claude-Sitzungen',
+      label: t.sectionClaude,
       width: 'full',
       render: () => (
-        <Section id="minipc-claude" title="Claude-Sitzungen" description="Laufende Claude-Code-Prozesse auf diesem Gerät">
+        <Section id="minipc-claude" title={t.sectionClaude} description={t.sectionClaudeDesc}>
           <ClaudeSessions sessions={snapshot.claude} now={now} />
         </Section>
       )
     },
-    { id: 'git', label: 'Git-Stand', width: 'full', render: () => <GitSection /> },
-    { id: 'cpu', label: 'Prozessor', width: 'half', render: () => (system ? <CpuDetails system={system} /> : null) },
-    { id: 'memory', label: 'Arbeitsspeicher', width: 'half', render: () => (system ? <MemoryDetails system={system} /> : null) },
-    { id: 'docker', label: 'Docker', width: 'full', render: () => <DockerTable /> },
-    { id: 'processes', label: 'Prozesse', width: 'full', render: () => (system ? <ProcessTable system={system} /> : null) },
-    { id: 'network', label: 'Netzwerk', width: 'full', render: () => (system ? <NetworkTable system={system} /> : null) },
-    { id: 'drives', label: 'Datenträger', width: 'full', render: () => (system ? <DriveList system={system} /> : null) },
+    { id: 'git', label: t.sectionGit, width: 'full', render: () => <GitSection /> },
+    { id: 'cpu', label: t.sectionCpu, width: 'half', render: () => (system ? <CpuDetails system={system} /> : null) },
+    { id: 'memory', label: t.sectionMemory, width: 'half', render: () => (system ? <MemoryDetails system={system} /> : null) },
+    { id: 'docker', label: t.sectionDocker, width: 'full', render: () => <DockerTable /> },
+    { id: 'processes', label: t.sectionProcesses, width: 'full', render: () => (system ? <ProcessTable system={system} /> : null) },
+    { id: 'network', label: t.sectionNetwork, width: 'full', render: () => (system ? <NetworkTable system={system} /> : null) },
+    { id: 'drives', label: t.sectionDrives, width: 'full', render: () => (system ? <DriveList system={system} /> : null) },
     {
       id: 'ollama',
-      label: 'Ollama',
+      label: t.sectionOllama,
       width: 'full',
       render: () => (
-        <Section id="minipc-ollama" title="Ollama" description="Lokale Modelle auf diesem Gerät">
+        <Section id="minipc-ollama" title={t.sectionOllama} description={t.sectionOllamaDesc}>
           <OllamaList />
         </Section>
       )
     },
-    { id: 'facts', label: 'Gerätedaten', width: 'full', render: () => <DeviceFacts /> }
+    { id: 'facts', label: t.sectionFacts, width: 'full', render: () => <DeviceFacts /> }
   ]
   return (
     <div className="grid min-h-0 flex-1 gap-x-10 gap-y-10 lg:grid-cols-[minmax(18rem,23rem)_minmax(0,1fr)]">
@@ -299,23 +343,25 @@ function Body({ editing }: { readonly editing: boolean }): React.JSX.Element {
 }
 
 function Missing(): React.JSX.Element {
+  const t = useT().device
   const openSettings = useNav((s) => s.openSettings)
   return (
     <EmptyState
       icon={ServerOff}
-      title="Gerät nicht gefunden"
+      title={t.missingTitle}
       action={
         <Button variant="primary" icon={Settings2} onClick={() => openSettings('devices')}>
-          Geräte verwalten
+          {t.manageDevices}
         </Button>
       }
     >
-      Das Gerät wurde entfernt oder ausgeschaltet. Unter Einstellungen → Geräte kannst du Geräte hinzufügen, einschalten und in der Seitenleiste anheften.
+      {t.missingBody}
     </EmptyState>
   )
 }
 
 export function MiniPcView(): React.JSX.Element {
+  const t = useT().device
   const settings = useSettings((s) => s.settings)
   const device = useDevice()
   const enabled = device?.enabled ?? false
@@ -340,30 +386,30 @@ export function MiniPcView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
-        title={device?.name ?? 'Gerät'}
+        title={device?.name ?? t.deviceFallback}
         actions={
           !enabled ? null : editing ? (
             <>
               <Button variant="ghost" icon={RotateCcw} onClick={reset}>
-                Standard
+                {t.layoutReset}
               </Button>
               <Button variant="primary" icon={Check} onClick={() => setEditing(false)}>
-                Fertig
+                {t.layoutDone}
               </Button>
             </>
           ) : (
             <>
               <Button variant="ghost" icon={LayoutIcon} onClick={() => setEditing(true)}>
-                Anpassen
+                {t.customize}
               </Button>
               <Button icon={RefreshCw} loading={busy} onClick={refreshAll}>
-                Aktualisieren
+                {t.refresh}
               </Button>
             </>
           )
         }
       >
-        {enabled ? <StatusLine /> : 'System, Claude-Sitzungen, Git und Ollama auf einem Gerät'}
+        {enabled ? <StatusLine /> : t.subtitleDisabled}
       </ViewHeader>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 pb-10">
         {!settings ? <SkeletonRows rows={4} /> : !enabled ? <Missing /> : shown === id ? <Body editing={editing} /> : <LoadingLayout />}

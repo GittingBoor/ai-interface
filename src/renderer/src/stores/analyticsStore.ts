@@ -93,7 +93,7 @@ function readPrefs(): AnalyticsPrefs {
       tab: isOneOf(TABS, raw.tab) ? raw.tab : DEFAULTS.tab
     }
   } catch (error) {
-    console.warn('Auswertung: gespeicherte Einstellungen nicht lesbar, Standard wird genutzt', error)
+    console.warn('Auswertung: gespeicherte Einstellungen nicht lesbar, Standard wird genutzt', error) // i18n-ignore: Entwicklerprotokoll
     return DEFAULTS
   }
 }
@@ -103,7 +103,7 @@ function writePrefs(prefs: AnalyticsPrefs): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs))
   } catch (error) {
-    console.warn('Auswertung: Einstellungen konnten nicht gespeichert werden', error)
+    console.warn('Auswertung: Einstellungen konnten nicht gespeichert werden', error) // i18n-ignore: Entwicklerprotokoll
   }
 }
 

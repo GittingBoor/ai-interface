@@ -1,0 +1,52 @@
+import type { Messages } from '../messages'
+
+export const todos: Messages['todos'] = {
+  description: 'Obsidian 库中 TODO 文件里的任务',
+  reload: '重新加载',
+  synced: '· 与 Obsidian 同步',
+  syncedModified: (age: string): string => `· 与 Obsidian 同步，修改于 ${age}`,
+  missingTitle: 'TODO 文件尚不存在',
+  createFile: '创建 TODO 文件',
+  expectedBefore: '应位于 ',
+  expectedAfter: (host: string): string => `（${host}）。路径和库可在设置中更改。`,
+  status: '状态',
+  statusOpen: '未完成',
+  statusDone: '已完成',
+  statusAll: '全部',
+  priority: '优先级',
+  priorityAny: '不限',
+  high: '高',
+  normal: '普通',
+  low: '低',
+  search: '搜索',
+  searchLabel: '搜索 TODO',
+  overdue: (n: number): string => `${n} 项任务已逾期。`,
+  noSection: '无分组',
+  deleteTitle: '删除 TODO？',
+  deleteMessage: (text: string): string => `“${text}”将从库中的文件里移除。`,
+  noMatchesTitle: '没有匹配项',
+  noMatchesBody: '请调整筛选或搜索。',
+  allDoneTitle: '全部完成',
+  allDoneBody: (shortcut: string): string => `没有未完成的 TODO。可在上方添加新任务，或按 ${shortcut} 后输入“todo: …”。`,
+  nothingDoneTitle: '还没有完成的任务',
+  nothingDoneBody: '勾选完成的 TODO 会显示在这里。',
+  composer: {
+    aria: '新 TODO',
+    placeholder: '新 TODO …',
+    section: '分组',
+    sectionNone: '无',
+    due: '截止',
+    add: '添加'
+  },
+  row: {
+    editText: 'TODO 文本',
+    dueOn: '截止日期',
+    reopen: (text: string): string => `重新打开“${text}”`,
+    complete: (text: string): string => `完成“${text}”`,
+    highPriority: '高优先级',
+    lowPriority: '低优先级',
+    doneOn: (date: string): string => `完成于 ${date}`,
+    dueTitle: (date: string): string => `截止于 ${date}`,
+    edit: '编辑'
+  }
+}

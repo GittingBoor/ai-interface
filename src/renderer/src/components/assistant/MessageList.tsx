@@ -1,6 +1,7 @@
 import { memo, useLayoutEffect, useMemo, useRef } from 'react'
 import { motion } from 'motion/react'
 import { AlertTriangle, Wrench } from 'lucide-react'
+import { useT } from '@renderer/i18n/useT'
 import { renderMarkdown } from '@renderer/lib/markdown'
 import { toolLabel, type AssistantMessage, type ChatMessage, type ErrorMessage, type ToolMessage, type UserMessage } from '@renderer/lib/assistantMessages'
 import { ConfirmCard } from './ConfirmCard'
@@ -34,10 +35,11 @@ const AssistantText = memo(function AssistantText({ message }: { readonly messag
 })
 
 function ToolLine({ message, live }: { readonly message: ToolMessage; readonly live: boolean }): React.JSX.Element {
+  const t = useT()
   return (
     <motion.p {...ENTER} className="flex items-center gap-2 text-2xs text-ink-3" title={message.summary === '{}' ? message.name : `${message.name} ${message.summary}`}>
       <Wrench className="size-3 shrink-0" aria-hidden strokeWidth={2} />
-      <span className="truncate">{toolLabel(message.name)}
+      <span className="truncate">{toolLabel(message.name, t)}
         {live ? ' …' : ''}
       </span>
     </motion.p>
@@ -57,9 +59,10 @@ function ErrorLine({ message }: { readonly message: ErrorMessage }): React.JSX.E
 }
 
 function TypingIndicator(): React.JSX.Element {
+  const t = useT()
   return (
     <motion.div {...ENTER} role="status" className="flex h-5 items-center gap-1 text-ink-3">
-      <span className="sr-only">Der Assistent antwortet …</span>
+      <span className="sr-only">{t.assistant.typing}</span>
       {TYPING_DOTS.map((i) => (
         <motion.span
           key={i}

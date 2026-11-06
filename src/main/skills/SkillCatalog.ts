@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { createHash } from 'node:crypto'
 import type { Favorite, SkillAi, SkillCatalogResult, SkillEntry, SkillKind, SkillScope } from '@shared/types'
 import { HostUnreachableError } from '../errors'
@@ -83,7 +84,7 @@ export class SkillCatalog {
       installed = JSON.parse((await this.host.readFile(file)).toString('utf8')) as InstalledPlugins
     } catch (error) {
       if (error instanceof HostUnreachableError) throw error
-      if (!isMissing(error)) this.errors.push(`${file}: nicht lesbar`)
+      if (!isMissing(error)) this.errors.push(mainT().errors.skills.unreadable(file))
       return
     }
     for (const [key, installs] of Object.entries(installed.plugins ?? {})) {
@@ -100,7 +101,7 @@ export class SkillCatalog {
       content = (await this.host.readFile(path)).toString('utf8')
     } catch (error) {
       if (error instanceof HostUnreachableError) throw error
-      this.errors.push(`${path}: nicht lesbar`)
+      this.errors.push(mainT().errors.skills.unreadable(path))
       return
     }
     const { data, body } = parseFrontmatter(content)
@@ -119,6 +120,7 @@ export class SkillCatalog {
       tools: asList(data['tools']),
       model: asText(data['model']) || null,
       skills: asList(data['skills']),
+      color: asText(data['color']) || null,
       hash: createHash('sha256').update(content).digest('hex'),
       bodyExcerpt: body.trim().slice(0, EXCERPT_LENGTH)
     })
@@ -133,7 +135,7 @@ export class SkillCatalog {
       return await this.host.readDir(path)
     } catch (error) {
       if (error instanceof HostUnreachableError) throw error
-      if (!isMissing(error)) this.errors.push(`${path}: nicht lesbar`)
+      if (!isMissing(error)) this.errors.push(mainT().errors.skills.unreadable(path))
       return []
     }
   }

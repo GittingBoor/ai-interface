@@ -1,0 +1,52 @@
+import type { Messages } from '../messages'
+
+export const todos: Messages['todos'] = {
+  description: 'Obsidian Vault の TODO ファイルにあるタスク',
+  reload: '再読み込み',
+  synced: '· Obsidian と同期中',
+  syncedModified: (age: string): string => `· Obsidian と同期中、更新 ${age}`,
+  missingTitle: 'TODO ファイルがまだありません',
+  createFile: 'TODO ファイルを作成',
+  expectedBefore: '想定パス: ',
+  expectedAfter: (host: string): string => `（${host}）。パスと Vault は設定で変更できます。`,
+  status: '状態',
+  statusOpen: '未完了',
+  statusDone: '完了',
+  statusAll: 'すべて',
+  priority: '優先度',
+  priorityAny: 'すべて',
+  high: '高',
+  normal: '通常',
+  low: '低',
+  search: '検索',
+  searchLabel: 'TODO を検索',
+  overdue: (n: number): string => `期限切れのタスクが ${n} 件あります。`,
+  noSection: 'セクションなし',
+  deleteTitle: 'TODO を削除しますか？',
+  deleteMessage: (text: string): string => `「${text}」は Vault 内のファイルから削除されます。`,
+  noMatchesTitle: '該当なし',
+  noMatchesBody: 'フィルターや検索を変更してください。',
+  allDoneTitle: 'すべて完了',
+  allDoneBody: (shortcut: string): string => `未完了の TODO はありません。上で新しいタスクを追加するか、${shortcut} で「todo: …」と入力します。`,
+  nothingDoneTitle: '完了したものはまだありません',
+  nothingDoneBody: 'チェックした TODO はここに表示されます。',
+  composer: {
+    aria: '新しい TODO',
+    placeholder: '新しい TODO …',
+    section: 'セクション',
+    sectionNone: 'なし',
+    due: '期限',
+    add: '追加'
+  },
+  row: {
+    editText: 'TODO の内容',
+    dueOn: '期限日',
+    reopen: (text: string): string => `「${text}」を未完了に戻す`,
+    complete: (text: string): string => `「${text}」を完了にする`,
+    highPriority: '優先度: 高',
+    lowPriority: '優先度: 低',
+    doneOn: (date: string): string => `${date} に完了`,
+    dueTitle: (date: string): string => `期限: ${date}`,
+    edit: '編集'
+  }
+}

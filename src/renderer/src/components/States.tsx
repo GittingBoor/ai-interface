@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { AlertTriangle, type LucideIcon } from 'lucide-react'
+import { useT } from '@renderer/i18n/useT'
 import { Button } from './Button'
 
 interface EmptyStateProps {
@@ -31,16 +32,17 @@ export function EmptyState({ icon: Icon, illustration, title, children, action, 
 }
 
 export function ErrorState({ message, onRetry }: { readonly message: string; readonly onRetry?: () => void }): React.JSX.Element {
+  const t = useT()
   return (
     <div role="alert" className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3">
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger-ink" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-[0.8125rem] font-[600] text-ink">Laden fehlgeschlagen</p>
+        <p className="text-[0.8125rem] font-[600] text-ink">{t.frame.states.loadFailed}</p>
         <p className="mt-0.5 text-[0.8125rem] text-ink-2">{message}</p>
       </div>
       {onRetry ? (
         <Button size="sm" variant="secondary" onClick={onRetry}>
-          Erneut versuchen
+          {t.common.retry}
         </Button>
       ) : null}
     </div>
@@ -52,8 +54,9 @@ export function Skeleton({ className = '' }: { readonly className?: string }): R
 }
 
 export function SkeletonRows({ rows = 4 }: { readonly rows?: number }): React.JSX.Element {
+  const t = useT()
   return (
-    <div className="space-y-2.5" aria-busy="true" aria-label="Wird geladen">
+    <div className="space-y-2.5" aria-busy="true" aria-label={t.frame.states.loadingAria}>
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} className="h-9" />
       ))}

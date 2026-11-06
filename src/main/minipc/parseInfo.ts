@@ -18,7 +18,7 @@ const BYTE_UNITS: Readonly<Record<string, number>> = {
   TiB: BINARY ** 4
 }
 
-function keyValues(lines: readonly string[]): Map<string, string> {
+export function keyValues(lines: readonly string[]): Map<string, string> {
   const result = new Map<string, string>()
   for (const line of lines) {
     const split = line.indexOf('=')

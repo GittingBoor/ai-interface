@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type Database from 'better-sqlite3'
 import type { HostId } from '@shared/types'
 import type { PrivateProject, PrivateProjectInput } from '@shared/privacy'
@@ -22,7 +23,7 @@ export class PrivateProjectsRepo {
       const info = this.db.prepare('INSERT INTO private_projects (host, path, label, created_at) VALUES (?, ?, ?, ?)').run(input.host, input.path, input.label, Date.now())
       return { id: Number(info.lastInsertRowid), ...input }
     } catch (error) {
-      if (error instanceof Error && error.message.includes('UNIQUE')) throw new ValidationError('Dieser Ordner ist bereits privat.')
+      if (error instanceof Error && error.message.includes('UNIQUE')) throw new ValidationError(mainT().errors.privacy.alreadyPrivate)
       throw error
     }
   }

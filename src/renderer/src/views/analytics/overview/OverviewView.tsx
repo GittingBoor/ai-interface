@@ -20,6 +20,7 @@ import { MetricStrip } from './MetricStrip'
 import { HostPanel } from './HostPanel'
 import { ProjectComparison } from './ProjectComparison'
 import { AnalyticsTabs } from '../AnalyticsTabs'
+import { useT } from '@renderer/i18n/useT'
 
 const TOP_PROJECTS = 6
 const NOW_TICK_MS = 30_000
@@ -27,8 +28,9 @@ const NOW_TICK_MS = 30_000
 const PAGE = 'overview'
 
 function OverviewSkeleton(): React.JSX.Element {
+  const t = useT().usage.overview
   return (
-    <div className="space-y-8" aria-busy="true" aria-label="Übersicht wird geladen">
+    <div className="space-y-8" aria-busy="true" aria-label={t.loadingAria}>
       <Skeleton className="h-[8.5rem]" />
       <div className="grid grid-cols-12 gap-10">
         <Skeleton className="col-span-8 h-64" />
@@ -39,6 +41,8 @@ function OverviewSkeleton(): React.JSX.Element {
 }
 
 export function OverviewView(): React.JSX.Element {
+  const messages = useT()
+  const t = messages.usage.overview
   const overview = useUsage((s) => s.overview)
   const hosts = useUsage((s) => s.hosts)
   const error = useUsage((s) => s.error)
@@ -56,14 +60,14 @@ export function OverviewView(): React.JSX.Element {
 
   const sections: LayoutSection[] = overview
     ? [
-        { id: 'metrics', label: 'Kennzahlen', width: 'full', render: () => <MetricStrip overview={overview} openTodos={todos?.exists ? openTodoCount(todos) : null} /> },
+        { id: 'metrics', label: t.sections.metrics, width: 'full', render: () => <MetricStrip overview={overview} openTodos={todos?.exists ? openTodoCount(todos) : null} /> },
         {
           id: 'daily',
-          label: 'Verlauf',
+          label: t.sections.daily,
           width: 'wide',
           render: () => (
             <Section
-              title="Verlauf · 30 Tage"
+              title={t.dailyTitle}
               description={
                 <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   {legendHosts.map((h) => (
@@ -75,7 +79,7 @@ export function OverviewView(): React.JSX.Element {
                 </span>
               }
               actions={
-                <IconButton size="sm" icon={tableView ? BarChart3 : Table2} label={tableView ? 'Als Diagramm zeigen' : 'Als Tabelle zeigen'} onClick={() => setTableView((v) => !v)} />
+                <IconButton size="sm" icon={tableView ? BarChart3 : Table2} label={tableView ? t.showChart : t.showTable} onClick={() => setTableView((v) => !v)} />
               }
             >
               {tableView ? <DailyTable daily={overview.daily} /> : <DailyChart daily={overview.daily} />}
@@ -84,32 +88,32 @@ export function OverviewView(): React.JSX.Element {
         },
         {
           id: 'hosts',
-          label: 'Rechner',
+          label: t.sections.hosts,
           width: 'narrow',
           render: () => (
-            <Section title="Rechner" description="Abfrage alle 60 s und bei „Aktualisieren“">
+            <Section title={t.hostsTitle} description={t.hostsDesc}>
               <HostPanel hosts={hosts} now={now} />
             </Section>
           )
         },
         {
           id: 'activity',
-          label: 'Aktivität',
+          label: t.sections.activity,
           width: 'half',
           render: () => (
-            <Section title="Aktivität" description="Token je Wochentag und Stunde, letzte 12 Wochen">
-              <Heatmap cells={overview.heatmap.map((c) => ({ weekday: c.weekday, hour: c.hour, value: c.totalTokens }))} format={(v) => `${formatTokens(v)} Token`} />
+            <Section title={t.activityTitle} description={t.activityDesc}>
+              <Heatmap cells={overview.heatmap.map((c) => ({ weekday: c.weekday, hour: c.hour, value: c.totalTokens }))} format={(v) => messages.usage.tokensValue(formatTokens(v))} />
             </Section>
           )
         },
         {
           id: 'models',
-          label: 'Modelle',
+          label: t.sections.models,
           width: 'half',
           render: () => (
-            <Section title="Modelle · 30 Tage" description="Anteil am Verbrauch">
+            <Section title={t.modelsTitle} description={t.modelsDesc}>
               <BarList
-                emptyText="Noch keine Modellnutzung erfasst."
+                emptyText={t.modelsEmpty}
                 items={[...overview.models]
                   .sort((a, b) => b.totalTokens - a.totalTokens)
                   .map((m) => ({
@@ -117,36 +121,36 @@ export function OverviewView(): React.JSX.Element {
                     label: <span className="font-mono text-xs">{m.model}</span>,
                     value: m.totalTokens,
                     valueText: formatTokens(m.totalTokens),
-                    detail: m.costUsd === null ? 'ohne Preis' : formatUsd(m.costUsd),
+                    detail: m.costUsd === null ? t.noPrice : formatUsd(m.costUsd),
                     color: 'var(--color-ink-3)'
                   }))}
               />
             </Section>
           )
         },
-        { id: 'comparison', label: 'Projektvergleich', width: 'full', render: () => <ProjectComparison /> },
+        { id: 'comparison', label: t.sections.comparison, width: 'full', render: () => <ProjectComparison /> },
         {
           id: 'sessions',
-          label: 'Letzte Sessions',
+          label: t.sections.sessions,
           width: 'wide',
           render: () => (
-            <Section title="Letzte Sessions">
+            <Section title={messages.usage.lastSessions}>
               {overview.recentSessions.length ? (
                 <SessionTable sessions={overview.recentSessions} favorites={favorites} now={now} />
               ) : (
-                <p className="py-4 text-[0.8125rem] text-ink-3">Noch keine Sessions erfasst. Starte Claude in einem Projekt, dann erscheinen sie hier.</p>
+                <p className="py-4 text-[0.8125rem] text-ink-3">{messages.usage.noSessionsYet}</p>
               )}
             </Section>
           )
         },
         {
           id: 'topProjects',
-          label: 'Top-Projekte',
+          label: t.sections.topProjects,
           width: 'narrow',
           render: () => (
-            <Section title="Top-Projekte · 30 Tage">
+            <Section title={t.topProjectsTitle}>
               <BarList
-                emptyText="Noch keine Projekte mit Verbrauch."
+                emptyText={t.topProjectsEmpty}
                 items={groupByFavorite(favorites, overview.projects, baseName)
                   .slice(0, TOP_PROJECTS)
                   .map((g) => ({
@@ -175,35 +179,35 @@ export function OverviewView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
-        title="Auswertung"
+        title={messages.usage.analytics.title}
         actions={
           editing ? (
             <>
               <Button variant="ghost" icon={RotateCcw} onClick={reset}>
-                Standard
+                {t.reset}
               </Button>
               <Button variant="primary" icon={Check} onClick={() => setEditing(false)}>
-                Fertig
+                {t.done}
               </Button>
             </>
           ) : (
             <>
               <AnalyticsTabs />
               <Button variant="ghost" icon={LayoutIcon} onClick={() => setEditing(true)} disabled={!overview}>
-                Anpassen
+                {t.customize}
               </Button>
               <Button icon={RefreshCw} onClick={() => void refresh()} loading={refreshing}>
-                Aktualisieren
+                {messages.usage.refresh}
               </Button>
             </>
           )
         }
       >
         {editing
-          ? 'Abschnitte ziehen oder mit den Pfeilen verschieben, Breite umschalten, ausblenden'
+          ? t.editHint
           : loadedAt
-            ? `Claude-Code-Verbrauch aller Rechner · Stand ${formatRelative(loadedAt, now)}`
-            : 'Claude-Code-Verbrauch aller Rechner'}
+            ? t.subtitleAsOf(formatRelative(loadedAt, now))
+            : t.subtitle}
       </ViewHeader>
 
       <div className="@container flex-1 overflow-y-auto px-8 pb-10">

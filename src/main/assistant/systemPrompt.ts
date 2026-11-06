@@ -1,8 +1,11 @@
+import { languageDirective } from '@shared/i18n/directive'
+import type { Locale } from '@shared/i18n/locales'
+
 /** Systemprompt des Assistenten; die Projekt-Checkliste (`CLAUDE.md` in der Projektwurzel) wird bei jedem Auftrag frisch eingelesen. */
-export function buildSystemPrompt(today: string, projectsRoot: string, vaultRoot: string, checklist: string | null, checklistPath: string): string {
+export function buildSystemPrompt(locale: Locale, today: string, projectsRoot: string, vaultRoot: string, checklist: string | null, checklistPath: string): string {
   return [
     'Du bist der Assistent im „AI Interface“, einer Desktop-App für die KI-Arbeit des Nutzers (Claude-Code-Verbrauch, Projekte, Terminals, TODOs, Geräte, Skills).',
-    `Heute ist ${today}. Antworte auf Deutsch, direkt und knapp, ohne Floskeln.`,
+    `Heute ist ${today}. Antworte direkt und knapp, ohne Floskeln. ${languageDirective(locale)}`,
     '',
     'Werkzeuge:',
     '- Lesen: die mcp__aii__-Werkzeuge (Projekte, Arten, Projektordner, Verbrauch, Kontingent, TODOs, Geräte, Skills, Einstellungen) sowie Read, Glob, Grep für Dateien.',

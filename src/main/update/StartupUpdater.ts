@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import { join } from 'node:path'
 import { UpdateError } from '../errors'
 
@@ -37,9 +38,9 @@ export class StartupUpdater {
 
   async check(): Promise<UpdateCheck> {
     // Release-Builds (GitHub Actions) kennen keinen lokalen Repo-Ordner, aus dem sie neu bauen könnten.
-    if (!this.repoDir) return skipped(`Installiert aus einem Release: neue Versionen unter ${RELEASES_URL}`)
-    if (!this.buildCommit) return skipped('Build enthält keine Commit-Kennung')
-    if (!this.files.exists(this.repoDir)) return skipped(`Repo ${this.repoDir} fehlt`)
+    if (!this.repoDir) return skipped(mainT().errors.update.releaseInstall(RELEASES_URL))
+    if (!this.buildCommit) return skipped(mainT().errors.update.noCommit)
+    if (!this.files.exists(this.repoDir)) return skipped(mainT().errors.update.repoMissing(this.repoDir))
     await this.git('fetch', 'origin', BRANCH)
     const remote = (await this.git('rev-parse', REMOTE_REF)).trim()
     if (remote === this.buildCommit) return { kind: 'up-to-date' }
@@ -50,7 +51,7 @@ export class StartupUpdater {
   /** Prüft erneut (das Repo kann sich seit der Anzeige geändert haben), zieht origin/main und liefert den Installer-Pfad. */
   async build(): Promise<string> {
     const check = await this.check()
-    if (check.kind !== 'available') throw new UpdateError('Prüfung', check.kind === 'skipped' ? check.reason : 'kein neuerer Stand auf GitHub')
+    if (check.kind !== 'available') throw new UpdateError(mainT().errors.update.step, check.kind === 'skipped' ? check.reason : mainT().errors.update.nothingNewer)
     await this.git('merge', '--ff-only', REMOTE_REF)
     if (await this.needsInstall(check.remote)) await this.npm('ci')
     await this.npm('run', 'dist:win')
@@ -59,10 +60,10 @@ export class StartupUpdater {
 
   private async findBlocker(remote: string): Promise<string | null> {
     const ancestor = await this.runner.exec('git', ['merge-base', '--is-ancestor', this.buildCommit, remote], this.repoDir)
-    if (ancestor.code !== 0) return `installierter Stand ${this.buildCommit} liegt nicht in ${REMOTE_REF}`
+    if (ancestor.code !== 0) return mainT().errors.update.notInRemote(this.buildCommit, REMOTE_REF)
     const branch = (await this.git('rev-parse', '--abbrev-ref', 'HEAD')).trim()
-    if (branch !== BRANCH) return `Repo steht auf Branch ${branch} statt ${BRANCH}`
-    if ((await this.git('status', '--porcelain')).trim()) return 'Repo hat uncommittete Änderungen'
+    if (branch !== BRANCH) return mainT().errors.update.wrongBranch(branch, BRANCH)
+    if ((await this.git('status', '--porcelain')).trim()) return mainT().errors.update.dirty
     return null
   }
 
@@ -87,7 +88,7 @@ export class StartupUpdater {
 
   private async checked(command: string, args: readonly string[]): Promise<string> {
     const result = await this.runner.exec(command, args, this.repoDir)
-    if (result.code !== 0) throw new UpdateError(`${command} ${args.join(' ')}`, result.stderr.trim() || `Exit-Code ${result.code}`)
+    if (result.code !== 0) throw new UpdateError(`${command} ${args.join(' ')}`, result.stderr.trim() || mainT().errors.update.exitCode(result.code))
     return result.stdout
   }
 }

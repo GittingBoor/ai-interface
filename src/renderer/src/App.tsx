@@ -5,6 +5,7 @@ import { Sidebar } from '@renderer/components/Sidebar'
 import { TitleBar } from '@renderer/components/TitleBar'
 import { Toaster } from '@renderer/components/Toaster'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
+import { KnowledgeConfirmDialog } from '@renderer/components/KnowledgeConfirmDialog'
 import { CommandPalette } from '@renderer/components/CommandPalette'
 import { AssistantPanel } from '@renderer/components/assistant/AssistantPanel'
 import { useAssistant } from '@renderer/stores/assistantStore'
@@ -14,7 +15,11 @@ import { useFavorites } from '@renderer/stores/favoritesStore'
 import { useCategories } from '@renderer/stores/categoriesStore'
 import { isTerminalTarget } from '@renderer/lib/keyboard'
 import { useTodos } from '@renderer/stores/todoStore'
+import { useClaudeAuthPolling } from '@renderer/stores/claudeAuthStore'
+import { intlTag } from '@shared/i18n/locales'
+import { currentT, useLocale } from '@renderer/i18n/useT'
 import { useSettings } from '@renderer/stores/settingsStore'
+import { useKnowledge } from '@renderer/stores/knowledgeStore'
 import { useTerminals } from '@renderer/stores/terminalStore'
 import { usePalette } from '@renderer/stores/paletteStore'
 import { useInterval } from '@renderer/lib/hooks'
@@ -30,6 +35,7 @@ import { ProjectsView } from '@renderer/views/projects/ProjectsView'
 import { TerminalView } from '@renderer/views/terminal/TerminalView'
 import { ModelsView } from '@renderer/views/models/ModelsView'
 import { TodosView } from '@renderer/views/todos/TodosView'
+import { KnowledgeView } from '@renderer/views/knowledge/KnowledgeView'
 import { ProtocolsView } from '@renderer/views/protocols/ProtocolsView'
 import { GalleryView } from '@renderer/views/gallery/GalleryView'
 import { SettingsView } from '@renderer/views/settings/SettingsView'
@@ -37,8 +43,14 @@ import { RunsView } from '@renderer/views/runs/RunsView'
 import { useQuota } from '@renderer/stores/quotaStore'
 import { useRuns } from '@renderer/stores/runsStore'
 import { MiniPcView } from '@renderer/views/minipc/MiniPcView'
-import { LinkView } from '@renderer/views/links/LinkView'
+import { SourcesView } from '@renderer/views/sources/SourcesView'
+import { SourcePageView } from '@renderer/views/sources/SourcePageView'
+import { useSources } from '@renderer/stores/sourcesStore'
+import { LinkPages, LinkView } from '@renderer/views/links/LinkView'
 import { SkillsView } from '@renderer/views/skills/SkillsView'
+import { AgentsView } from '@renderer/views/agents/AgentsView'
+import { AutomationsView } from '@renderer/views/automations/AutomationsView'
+import { useAutomations } from '@renderer/stores/automationsStore'
 import { HowToView } from '@renderer/views/howto/HowToView'
 import { SpeechSetupDialog } from '@renderer/components/speech/SpeechSetupDialog'
 import { useSpeech } from '@renderer/stores/speechStore'
@@ -62,10 +74,15 @@ const PAGES: Readonly<Record<Exclude<ViewId, 'terminal'>, ComponentType>> = {
   models: ModelsView,
   todos: TodosView,
   protocols: ProtocolsView,
+  knowledge: KnowledgeView,
   gallery: GalleryView,
+  sources: SourcesView,
+  source: SourcePageView,
   device: MiniPcView,
   link: LinkView,
   skills: SkillsView,
+  agents: AgentsView,
+  automations: AutomationsView,
   howto: HowToView,
   settings: SettingsView
 }
@@ -78,11 +95,13 @@ function useBootstrap(): void {
     void useTodos.getState().load()
     void useSettings.getState().load()
     void useTerminals.getState().init()
+    void useKnowledge.getState().load()
     void useQuota.getState().load()
     void useRuns.getState().load()
     void useSpeech.getState().loadStatus()
     void usePrivacy.getState().load()
     void useUpdate.getState().load()
+    void useSources.getState().load()
     const offQuota = api.on('quota:updated', (state) => useQuota.getState().receive(state))
     const offRuns = api.on('runs:updated', (runs) => useRuns.getState().receive(runs))
     const offUpdate = api.on('update:state', (state) => useUpdate.getState().receive(state))
@@ -94,9 +113,13 @@ function useBootstrap(): void {
       useUsage.getState().setHosts(hosts)
       void useUsage.getState().load()
     })
+    const offKnowledgeProgress = api.on('knowledge:progress', (p) => useKnowledge.getState().applyProgress(p))
+    const offKnowledgeUpdated = api.on('knowledge:updated', () => void useKnowledge.getState().load())
     const offTodos = api.on('todos:changed', (state) => useTodos.getState().receive(state))
     const offTaskReview = api.on('tasks:reviewed', (result) => useTaskReview.getState().receive(result))
     const offData = api.on('data:changed', () => reloadSharedData())
+    const offAutomations = api.on('automations:changed', () => void useAutomations.getState().refresh())
+    const offSources = api.on('sources:changed', () => void useSources.getState().load())
     const offAssistant = api.on('assistant:event', (event) => useAssistant.getState().receive(event))
     // Privatmodus: alles neu laden, was private Projekte enthalten kann (Favoriten/Galerie über data:changed).
     const offPrivacy = api.on('privacy:changed', (status) => {
@@ -112,7 +135,7 @@ function useBootstrap(): void {
       useLiveData.getState().bump()
       const favorites = useFavorites.getState().favorites
       const names = projects.map((path) => favorites.find((f) => f.path === path)?.name ?? baseName(path))
-      notify.info(aiImagesMessage(count, names), 'Zu sehen in der Galerie unter „Nur KI-Bilder“.')
+      notify.info(aiImagesMessage(count, names), currentT().frame.app.imagesHint)
     })
     let lastFocusReload = Date.now()
     const onFocus = (): void => {
@@ -124,8 +147,12 @@ function useBootstrap(): void {
     return () => {
       offUsage()
       offTodos()
+      offKnowledgeProgress()
+      offKnowledgeUpdated()
       offTaskReview()
       offData()
+      offAutomations()
+      offSources()
       offAssistant()
       offPrivacy()
       offImages()
@@ -205,17 +232,26 @@ function useSpeechShortcuts(): void {
               activeTerminalId: useTerminals.getState().activeId
             })
       if (target) void speech.toggle(target)
-      else notify.info('Kein Ziel für das Diktat', 'Assistent öffnen (Strg+J) oder ein Terminal anzeigen.')
+      else notify.info(currentT().frame.app.noDictationTarget, currentT().frame.app.noDictationTargetHint)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 }
 
+function useDocumentLanguage(): void {
+  const locale = useLocale()
+  useEffect(() => {
+    document.documentElement.lang = intlTag(locale)
+  }, [locale])
+}
+
 export function App(): React.JSX.Element {
   const view = useNav((s) => s.view)
   const setupDone = useSettings((s) => s.settings?.setupDone ?? null)
   useBootstrap()
+  useDocumentLanguage()
+  useClaudeAuthPolling()
   useShortcuts()
   useSpeechShortcuts()
   const Page = view === 'terminal' ? null : PAGES[view]
@@ -257,6 +293,7 @@ export function App(): React.JSX.Element {
                 </motion.div>
               ) : null}
             </AnimatePresence>
+            <LinkPages />
             <div className={`absolute inset-0 ${view === 'terminal' ? '' : 'invisible pointer-events-none'}`} aria-hidden={view !== 'terminal'}>
               <TerminalView visible={view === 'terminal'} />
             </div>
@@ -266,6 +303,7 @@ export function App(): React.JSX.Element {
       </div>
       <CommandPalette />
       <ConfirmDialog />
+      <KnowledgeConfirmDialog />
       <SpeechSetupDialog />
       <Toaster />
     </MotionConfig>

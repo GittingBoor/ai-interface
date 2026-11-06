@@ -8,6 +8,8 @@ import { isFile, resolveClaudeExecutable } from '../claude/claudePath'
 import type { CategoriesRepo } from '../favorites/CategoriesRepo'
 import type { FavoritesRepo } from '../favorites/FavoritesRepo'
 import { GitCommandError } from '../errors'
+import { intlTag } from '@shared/i18n/locales'
+import { mainLocale } from '../i18n'
 import type { Host } from '../hosts/Host'
 import type { MiniPcService } from '../minipc/MiniPcService'
 import type { QuotaService } from '../quota/QuotaService'
@@ -46,7 +48,7 @@ export interface AssistantParts {
   onDataChanged(): void
 }
 
-const localDate = (): string => new Date().toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+const localDate = (): string => new Date().toLocaleDateString(intlTag(mainLocale()), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
 /** Stellt den Assistenten mit echten App-Diensten zusammen. */
 export function createAssistant(parts: AssistantParts): AssistantService {
@@ -132,7 +134,7 @@ export function createAssistant(parts: AssistantParts): AssistantService {
       systemPrompt: async () => {
         const root = parts.settings().projectsRoot
         const checklist = await readFile(join(root, CHECKLIST_FILE), 'utf8').catch(() => null)
-        return buildSystemPrompt(localDate(), root, vaultRoot(), checklist, join(root, CHECKLIST_FILE))
+        return buildSystemPrompt(mainLocale(), localDate(), root, vaultRoot(), checklist, join(root, CHECKLIST_FILE))
       }
     }),
     tools,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { OrchestratorSettings, TerminalInfo, TerminalOpenRequest } from '@shared/types'
 import type { LaunchExtras } from '../../src/main/terminal/TerminalService'
+import { languageDirective } from '../../src/shared/i18n/directive'
 import { OrchestratorService, orchestratorClaudeArgs } from '../../src/main/orchestrator/OrchestratorService'
 
 const TOOLS = [
@@ -9,13 +10,22 @@ const TOOLS = [
   { name: 'send_to_terminal', mutating: true }
 ]
 
+const DIRECTIVE = languageDirective('de')
+
 describe('orchestratorClaudeArgs', () => {
   it('mit Rückfrage: nur Lesewerkzeuge freigegeben', () => {
-    expect(orchestratorClaudeArgs('/o/mcp.json', true, TOOLS)).toEqual(['--mcp-config', '/o/mcp.json', '--allowedTools', 'mcp__orchestrator__list_projects'])
+    expect(orchestratorClaudeArgs('/o/mcp.json', true, TOOLS, DIRECTIVE)).toEqual([
+      '--mcp-config', '/o/mcp.json', '--allowedTools', 'mcp__orchestrator__list_projects', '--append-system-prompt', DIRECTIVE
+    ])
+  })
+
+  it('hängt die Sprachvorgabe direkt hinter --append-system-prompt an', () => {
+    const args = orchestratorClaudeArgs('/o/mcp.json', true, TOOLS, languageDirective('fr'))
+    expect(args[args.indexOf('--append-system-prompt') + 1]).toContain('French')
   })
 
   it('ohne Rückfrage: alle Werkzeuge freigegeben', () => {
-    expect(orchestratorClaudeArgs('/o/mcp.json', false, TOOLS)[3]).toBe(
+    expect(orchestratorClaudeArgs('/o/mcp.json', false, TOOLS, DIRECTIVE)[3]).toBe(
       'mcp__orchestrator__list_projects,mcp__orchestrator__open_project_terminal,mcp__orchestrator__send_to_terminal'
     )
   })
@@ -57,7 +67,7 @@ describe('OrchestratorService', () => {
     const info = await service.open('continue')
     expect(info.orchestrator).toBe(true)
     expect(calls.opened[0]?.request).toMatchObject({ host: 'local', path: '/o', mode: 'continue', title: 'Orchestrator' })
-    expect(calls.opened[0]?.extras).toEqual({ orchestrator: true, extraArgs: ['--mcp-config', '/o/mcp.json', '--allowedTools', 'mcp__orchestrator__list_projects'] })
+    expect(calls.opened[0]?.extras).toEqual({ orchestrator: true, extraArgs: ['--mcp-config', '/o/mcp.json', '--allowedTools', 'mcp__orchestrator__list_projects', '--append-system-prompt', DIRECTIVE] })
     expect(service.currentId()).toBe(info.id)
   })
 

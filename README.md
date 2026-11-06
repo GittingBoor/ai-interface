@@ -2,6 +2,8 @@
 
 # AI Interface
 
+**Deutsch** · [English](README.en.md)
+
 Eine Desktop-App (Electron) als Steuerzentrale für die Arbeit mit **Claude Code**: Was hast du verbraucht, woran
 arbeitest du, was läuft gerade, auf diesem PC und auf deinen anderen Rechnern.
 
@@ -13,7 +15,7 @@ Version → **Assets** → `AI-Interface-Setup.exe`. Zum Benutzen reicht diese e
 wenn du den Code ändern oder für Linux selbst bauen willst.
 
 - **Start:** Meistgenutzte Projekte zum Weiterarbeiten (setzt die letzte Claude-Session fort), offene Aufgaben je
-  Projekt aus dem Feld „Offen:“ des neuesten Protokolls (in der App abhakbar), Zahlen der Woche, Kontingent und
+  Projekt aus dem Feld „Offen:“ (oder der Entsprechung in einer anderen App-Sprache) des neuesten Protokolls (in der App abhakbar), Zahlen der Woche, Kontingent und
   Schnellzugriffe.
 - **Auswertung:** Token, API-Gegenwert, Stunden, Prompts und Sessions über 7 Tage bis „Gesamt“, aufgeteilt nach
   Projekt, Rechner oder Modell; Verlauf (Linien, gestapelt, 100 %), Ranking mit Drilldown und Aktivität je Stunde,
@@ -31,8 +33,12 @@ wenn du den Code ändern oder für Linux selbst bauen willst.
   Protokolle aus Markdown.
 - **Galerie:** Bilder und Screenshots je Projekt; Bilder, die Claude in einer Session erzeugt, landen automatisch
   beim richtigen Projekt.
-- **Modelle und Skills:** Claude-Nutzung je Modell, Ollama, eigene Modelle; alle Skills, Agents und Befehle
+- **Modelle und Skills:** Claude-Nutzung je Modell, Ollama, eigene Modelle; alle Skills und Befehle
   (Claude Code, Codex) als Liste und Grafik mit KI-Zusammenfassung.
+- **Agents:** alle Claude-Code-Agents mit Einstellungen, Tools, Skills und Qualitäts-Check; Builder mit Vorlagen,
+  KI-Entwurf und Live-Vorschau der Datei; Anleitung für gute Agents.
+- **Automatisierung:** Agents nach Zeitplan (`claude -p`) lokal oder per SSH starten, mit Verlauf, Ergebnis und
+  Benachrichtigung; Kontingent-Bremse bei fast vollem 5-Stunden-Fenster.
 - **Assistent** (Strg+J): Claude über dein Claude-Code-Login, kennt die App-Daten und legt z. B. neue Projekte an.
   Jede Änderung musst du bestätigen.
 - **Orchestrator:** Ein Claude-Terminal, das Aufträge in Umgangssprache entgegennimmt und an Claude-Terminals in
@@ -40,6 +46,8 @@ wenn du den Code ändern oder für Linux selbst bauen willst.
 - **Webseiten:** Eigene Seiten (z. B. Home Assistant, Router, Server-Panel) als Ansicht in der App.
 - **Diktat:** Spracheingabe mit whisper.cpp, lokal; Programm und Modell lädt die App bei Bedarf selbst.
 - **Privatmodus:** Blendet private Projekte per PIN überall aus.
+- **Sprachen:** Die App selbst läuft in 7 Sprachen (Deutsch, English, 中文, 日本語, Italiano, Español, Français);
+  umstellen unter Einstellungen → Sprache. Standard ist die Systemsprache.
 
 Die Seitenleiste ist in Gruppen geteilt (Arbeiten, Notizen, KI, Geräte, App). Gruppen, Reihenfolge und sichtbare
 Einträge legst du selbst fest.

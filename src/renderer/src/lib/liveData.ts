@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useCategories } from '@renderer/stores/categoriesStore'
 import { useFavorites } from '@renderer/stores/favoritesStore'
+import { useSources } from '@renderer/stores/sourcesStore'
 
 /** Zähler, auf den Ansichten mit eigenem Ladezustand (z. B. Galerie) reagieren. */
 interface LiveDataStore {
@@ -17,5 +18,6 @@ export const useLiveData = create<LiveDataStore>((set, get) => ({
 export function reloadSharedData(): void {
   void useFavorites.getState().load()
   void useCategories.getState().load()
+  void useSources.getState().load()
   useLiveData.getState().bump()
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { DeviceSettings, WebLinkSettings } from '@shared/types'
 import { DEVICE_COLORS, deviceIdFrom } from '@shared/layout'
 import { normalizeUrl } from '@shared/links'
+import { useT } from '@renderer/i18n/useT'
 import { ColorPicker } from './ColorPicker'
 import { Field } from './Controls'
 import { IconPicker } from './IconPicker'
@@ -30,28 +31,29 @@ interface LinkFormProps {
 
 /** Formular für eine Webseite: Name, Aussehen, Adresse und das Gerät, unter dem sie in der Seitenleiste steht. */
 export function LinkForm({ value, devices, onChange }: LinkFormProps): React.JSX.Element {
+  const t = useT()
   const [iconOpen, setIconOpen] = useState(false)
   const set = <K extends keyof WebLinkSettings>(key: K, v: WebLinkSettings[K]): void => onChange({ ...value, [key]: v })
   return (
     <div className="space-y-5">
-      <Field label="Name" hint="So heißt die Seite in der Seitenleiste, z. B. „Smart Home“, „Router“, „Server-Panel“">
+      <Field label={t.frame.fields.name} hint={t.frame.link.nameHint}>
         {(id, d) => (
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setIconOpen(true)}
-              title="Symbol wählen"
-              aria-label="Symbol wählen"
+              title={t.frame.iconPicker.choose}
+              aria-label={t.frame.iconPicker.choose}
               className="grid size-8 shrink-0 place-items-center rounded-md border border-line bg-canvas transition-colors hover:border-line-strong"
             >
               <ProjectMark color={value.color} icon={value.icon} size="md" />
             </button>
-            <input id={id} aria-describedby={d} value={value.name} onChange={(e) => set('name', e.target.value)} className="field" placeholder="Smart Home" />
+            <input id={id} aria-describedby={d} value={value.name} onChange={(e) => set('name', e.target.value)} className="field" placeholder={t.frame.link.namePlaceholder} />
           </div>
         )}
       </Field>
-      <Field label="Farbe">{() => <ColorPicker value={value.color} label="Farbe der Webseite" onChange={(c) => set('color', c)} />}</Field>
-      <Field label="Adresse" hint="Mit Port, falls nötig. Ohne http:// wird https:// ergänzt.">
+      <Field label={t.frame.fields.color}>{() => <ColorPicker value={value.color} label={t.frame.link.colorLabel} onChange={(c) => set('color', c)} />}</Field>
+      <Field label={t.frame.fields.address} hint={t.frame.link.addressHint}>
         {(id, d) => (
           <input
             id={id}
@@ -64,27 +66,27 @@ export function LinkForm({ value, devices, onChange }: LinkFormProps): React.JSX
           />
         )}
       </Field>
-      <Field label="In der Seitenleiste unter" hint="Die Seite erscheint eingerückt unter dem Gerät, ohne Gerät für sich allein.">
+      <Field label={t.frame.link.placement} hint={t.frame.link.placementHint}>
         {(id, d) => (
           <select id={id} aria-describedby={d} value={value.deviceId ?? ''} onChange={(e) => set('deviceId', e.target.value || null)} className="field">
-            <option value="">Kein Gerät</option>
+            <option value="">{t.frame.link.noDevice}</option>
             {devices.map((device) => (
               <option key={device.id} value={device.id}>
                 {device.name}
-                {device.enabled ? '' : ' (aus)'}
+                {device.enabled ? '' : t.frame.link.deviceOff}
               </option>
             ))}
           </select>
         )}
       </Field>
       <p className="text-xs leading-relaxed text-ink-3">
-        Anmeldungen (z. B. Home Assistant, Cloudflare Access) machst du direkt in der Seite. Die App speichert keine Passwörter, nur die Cookies der Seite, damit du angemeldet bleibst.
+        {t.frame.link.loginNote}
       </p>
       <IconPicker
         open={iconOpen}
         value={value.icon}
         color={value.color}
-        subject={value.name || 'Webseite'}
+        subject={value.name || t.frame.link.subjectFallback}
         onClose={() => setIconOpen(false)}
         onSelect={(icon) => {
           set('icon', icon)

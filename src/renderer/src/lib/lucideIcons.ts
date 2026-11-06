@@ -1,4 +1,5 @@
 import { iconNames, type IconName } from 'lucide-react/dynamic'
+import { activeTag } from '../i18n/activeLocale'
 
 const ICON_SET: ReadonlySet<string> = new Set<string>(iconNames)
 
@@ -74,7 +75,7 @@ const GERMAN_ALIASES: Readonly<Record<string, readonly string[]>> = {
   netz: ['network', 'wifi', 'globe', 'router']
 }
 
-const normalize = (text: string): string => text.trim().toLocaleLowerCase('de-DE')
+const normalize = (text: string): string => text.trim().toLocaleLowerCase(activeTag())
 
 /** Sucht Icon-Namen; Treffer am Wortanfang zuerst, höchstens `limit`. */
 export function searchIcons(query: string, limit: number): IconName[] {

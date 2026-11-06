@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { QuotaState, QuotaWindow, QuotaWindowKind } from '@shared/types'
 import { QuotaFormatError } from '../errors'
 
@@ -14,8 +15,6 @@ const HTTP_TOO_MANY = 429
 const WINDOW_KINDS: readonly QuotaWindowKind[] = ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet']
 const REQUIRED: readonly QuotaWindowKind[] = ['five_hour', 'seven_day']
 
-const EXPIRED_HINT = 'Claude Code einmal starten, dann wird die Anmeldung erneuert.'
-const UNAVAILABLE_HINT = 'Ohne Quelle zeigt die App keine Werte an.'
 
 type ProblemState = Extract<QuotaState, { status: 'expired' | 'unavailable' }>
 type Problem = Omit<ProblemState, 'fetchedAt'>
@@ -27,16 +26,16 @@ interface RawWindow {
 
 /** Liest die Fenster aus der Antwort; fehlt ein Pflichtfenster, gibt es keine Werte (kein Raten). */
 export function parseQuota(json: unknown): QuotaWindow[] {
-  if (typeof json !== 'object' || json === null) throw new QuotaFormatError('kein Objekt')
+  if (typeof json !== 'object' || json === null) throw new QuotaFormatError(mainT().errors.quota.notObject)
   const record = json as Record<string, RawWindow | null | undefined>
   const windows: QuotaWindow[] = []
   for (const kind of WINDOW_KINDS) {
     const raw = record[kind]
     if (raw === null || raw === undefined) {
-      if (REQUIRED.includes(kind)) throw new QuotaFormatError(`${kind} fehlt`)
+      if (REQUIRED.includes(kind)) throw new QuotaFormatError(mainT().errors.quota.missing(kind))
       continue
     }
-    if (typeof raw.utilization !== 'number') throw new QuotaFormatError(`${kind}.utilization fehlt`)
+    if (typeof raw.utilization !== 'number') throw new QuotaFormatError(mainT().errors.quota.utilizationMissing(kind))
     const resets = typeof raw.resets_at === 'string' ? Date.parse(raw.resets_at) : Number.NaN
     windows.push({ kind, percent: raw.utilization, resetsAt: Number.isNaN(resets) ? null : resets })
   }
@@ -117,45 +116,45 @@ export class QuotaService {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       })
     } catch {
-      return this.unavailable('Keine Verbindung zu Anthropic.', fetchedAt)
+      return this.unavailable(mainT().errors.quota.noConnection, fetchedAt)
     }
     if (response.status === HTTP_TOO_MANY) {
       this.backingOff = true
       this.delayMs = Math.min(this.delayMs * 2, MAX_BACKOFF_MS)
       // Letzte gültige Werte behalten; ihr Alter zeigt die Oberfläche selbst an.
       if (this.current.status === 'ok') return this.current
-      return this.unavailable('Zu viele Abfragen (HTTP 429), nächster Versuch später.', fetchedAt)
+      return this.unavailable(mainT().errors.quota.tooManyRequests, fetchedAt)
     }
     this.backingOff = false
     this.delayMs = POLL_MS
-    if (response.status === HTTP_UNAUTHORIZED) return { status: 'expired', reason: 'Die Claude-Anmeldung ist abgelaufen.', hint: EXPIRED_HINT, fetchedAt }
-    if (!response.ok) return this.unavailable(`Abfrage fehlgeschlagen (HTTP ${response.status}).`, fetchedAt)
+    if (response.status === HTTP_UNAUTHORIZED) return { status: 'expired', reason: mainT().errors.quota.loginExpired, hint: mainT().errors.quota.expiredHint, fetchedAt }
+    if (!response.ok) return this.unavailable(mainT().errors.quota.requestFailed(response.status), fetchedAt)
     try {
       return { status: 'ok', windows: parseQuota(await response.json()), fetchedAt }
     } catch (error) {
-      return this.unavailable(error instanceof QuotaFormatError ? error.message : 'Antwort war kein JSON.', fetchedAt)
+      return this.unavailable(error instanceof QuotaFormatError ? error.message : mainT().errors.quota.notJson, fetchedAt)
     }
   }
 
   /** Das Zugriffstoken oder der Grund, warum es keins gibt. */
   private async token(): Promise<string | Problem> {
     const raw = await this.deps.readCredentials().catch(() => null)
-    if (raw === null) return { status: 'unavailable', reason: 'Keine Claude-Anmeldung gefunden.', hint: UNAVAILABLE_HINT }
+    if (raw === null) return { status: 'unavailable', reason: mainT().errors.quota.noLogin, hint: mainT().errors.quota.unavailableHint }
     let parsed: OauthCredentials
     try {
       parsed = JSON.parse(raw) as OauthCredentials
     } catch {
-      return { status: 'unavailable', reason: 'Anmeldedatei von Claude Code ist unlesbar.', hint: UNAVAILABLE_HINT }
+      return { status: 'unavailable', reason: mainT().errors.quota.loginUnreadable, hint: mainT().errors.quota.unavailableHint }
     }
     const oauth = parsed.claudeAiOauth
-    if (typeof oauth?.accessToken !== 'string') return { status: 'unavailable', reason: 'Keine Abo-Anmeldung (claude.ai) gefunden.', hint: UNAVAILABLE_HINT }
+    if (typeof oauth?.accessToken !== 'string') return { status: 'unavailable', reason: mainT().errors.quota.noSubscription, hint: mainT().errors.quota.unavailableHint }
     if (typeof oauth.expiresAt === 'number' && oauth.expiresAt <= this.deps.now()) {
-      return { status: 'expired', reason: 'Die Claude-Anmeldung ist abgelaufen.', hint: EXPIRED_HINT }
+      return { status: 'expired', reason: mainT().errors.quota.loginExpired, hint: mainT().errors.quota.expiredHint }
     }
     return oauth.accessToken
   }
 
   private unavailable(reason: string, fetchedAt: number): QuotaState {
-    return { status: 'unavailable', reason, hint: UNAVAILABLE_HINT, fetchedAt }
+    return { status: 'unavailable', reason, hint: mainT().errors.quota.unavailableHint, fetchedAt }
   }
 }

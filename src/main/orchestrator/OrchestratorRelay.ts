@@ -3,7 +3,7 @@ import type { TerminalStatus, TerminalStatusChange } from '@shared/types'
 /** So lange nach dem letzten Tastendruck im Orchestrator wird nichts hineingeschrieben. */
 export const QUIET_MS = 5_000
 const PREFIX = '[AI Interface]'
-const DETAILS = 'read_terminal für Details.'
+const DETAILS = 'read_terminal für Details.' // i18n-ignore: Text an das Modell im Orchestrator-Terminal
 const READY: readonly TerminalStatus[] = ['idle', 'review']
 const SUBMIT = '\r'
 

@@ -7,6 +7,7 @@ import type {
   InterruptedRun,
   MiniPcSnapshot,
   SkillCatalogResult,
+  Source,
   TerminalInfo
 } from '@shared/types'
 
@@ -29,6 +30,11 @@ export function imagesAddedPayload(added: readonly ImageMeta[], hidden: HiddenCh
   return visible.length ? { count: visible.length, projects: [...new Set(visible.map((i) => i.project ?? ''))] } : null
 }
 
+/** Quellen „Allgemein“ (ohne Projekt) sind nie privat. */
+export const isSourceHidden = (source: Source, hidden: HiddenCheck): boolean => source.project !== null && source.host !== null && hidden(source.host, source.project)
+
+export const filterSources = (items: readonly Source[], hidden: HiddenCheck): Source[] => items.filter((s) => !isSourceHidden(s, hidden))
+
 export const isTerminalHidden = (terminals: readonly TerminalInfo[], id: string, hidden: HiddenCheck): boolean => {
   const terminal = terminals.find((t) => t.id === id)
   return terminal !== undefined && hidden(terminal.host, terminal.path)
@@ -37,6 +43,16 @@ export const isTerminalHidden = (terminals: readonly TerminalInfo[], id: string,
 export const filterRuns = (items: readonly InterruptedRun[], hidden: HiddenCheck): InterruptedRun[] => items.filter((r) => !hidden(r.host, r.project))
 
 export const filterTerminals = (items: readonly TerminalInfo[], hidden: HiddenCheck): TerminalInfo[] => items.filter((t) => !hidden(t.host, t.path))
+
+export const withoutBackground = (terminals: readonly TerminalInfo[]): TerminalInfo[] => terminals.filter((t) => t.background === undefined)
+
+const normalizePath = (path: string): string => path.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase()
+
+/** Läufe aus einem Ordner (z. B. dem Wissens-Arbeitsordner) entfernen; der Pfadvergleich ignoriert Trennzeichen, Schlussstrich und Groß-/Kleinschreibung. */
+export function withoutRunsIn(runs: readonly InterruptedRun[], dir: string): InterruptedRun[] {
+  const target = normalizePath(dir)
+  return runs.filter((r) => normalizePath(r.project) !== target)
+}
 
 export const filterFolders = (host: HostId, items: readonly FolderEntry[], hidden: HiddenCheck): FolderEntry[] =>
   items.filter((f) => !hidden(host, f.path))

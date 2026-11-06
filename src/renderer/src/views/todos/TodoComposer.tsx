@@ -5,16 +5,21 @@ import { Button } from '@renderer/components/Button'
 import { Segmented } from '@renderer/components/Controls'
 import { useTodos } from '@renderer/stores/todoStore'
 import { useNav } from '@renderer/stores/navStore'
+import { useT } from '@renderer/i18n/useT'
+import type { Messages } from '@shared/i18n/messages'
 
-export const PRIORITY_OPTIONS: readonly { readonly value: Priority; readonly label: string }[] = [
-  { value: 'high', label: 'Hoch' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'low', label: 'Niedrig' }
-]
+export function priorityOptions(t: Messages): readonly { readonly value: Priority; readonly label: string }[] {
+  return [
+    { value: 'high', label: t.todos.high },
+    { value: 'normal', label: t.todos.normal },
+    { value: 'low', label: t.todos.low }
+  ]
+}
 
 const LAST_SECTION_KEY = 'ai-interface.todo.section'
 
 export function TodoComposer({ sections }: { readonly sections: readonly string[] }): React.JSX.Element {
+  const t = useT()
   const apply = useTodos((s) => s.apply)
   const pending = useTodos((s) => s.pending)
   const request = useNav((s) => s.todoComposerRequest)
@@ -58,18 +63,18 @@ export function TodoComposer({ sections }: { readonly sections: readonly string[
         ref={input}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        aria-label="Neues TODO"
-        placeholder="Neues TODO …"
+        aria-label={t.todos.composer.aria}
+        placeholder={t.todos.composer.placeholder}
         className="h-10 w-full bg-transparent px-3 text-[0.9375rem] text-ink outline-none"
       />
       <div className="flex flex-wrap items-center gap-2 px-1.5 pb-0.5">
         <label className="flex items-center gap-2 text-xs text-ink-3">
-          Abschnitt
+          {t.todos.composer.section}
           <input
             list="todo-sections"
             value={section}
             onChange={(e) => setSection(e.target.value)}
-            placeholder="ohne"
+            placeholder={t.todos.composer.sectionNone}
             className="field h-7 w-44 text-xs"
           />
           <datalist id="todo-sections">
@@ -78,13 +83,13 @@ export function TodoComposer({ sections }: { readonly sections: readonly string[
             ))}
           </datalist>
         </label>
-        <Segmented<Priority> label="Priorität" value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
+        <Segmented<Priority> label={t.todos.priority} value={priority} onChange={setPriority} options={priorityOptions(t)} />
         <label className="flex items-center gap-2 text-xs text-ink-3">
-          Fällig
+          {t.todos.composer.due}
           <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="field h-7 w-36 text-xs" />
         </label>
         <Button type="submit" variant="primary" size="sm" loading={pending} className="ml-auto" disabled={!text.trim()}>
-          Anlegen <CornerDownLeft className="size-3 opacity-70" aria-hidden />
+          {t.todos.composer.add} <CornerDownLeft className="size-3 opacity-70" aria-hidden />
         </Button>
       </div>
     </form>

@@ -1,5 +1,7 @@
 import { session, shell, type WebContents } from 'electron'
+import log from 'electron-log/main'
 import { isWebUrl, LINK_PARTITION } from '@shared/links'
+import { keepSessionCookies } from './sessionCookies'
 
 /** Sitzungen, in denen eingebettete Seiten laufen dürfen. */
 const PARTITIONS: readonly string[] = [LINK_PARTITION]
@@ -13,6 +15,7 @@ const ALLOWED_PERMISSIONS: readonly string[] = ['clipboard-sanitized-write', 'fu
  */
 export function guardWebviews(host: WebContents): void {
   for (const partition of PARTITIONS) session.fromPartition(partition).setPermissionRequestHandler((_contents, permission, callback) => callback(ALLOWED_PERMISSIONS.includes(permission)))
+  keepSessionCookies(session.fromPartition(LINK_PARTITION).cookies, () => Math.floor(Date.now() / 1000), (message) => log.warn(message))
   host.on('will-attach-webview', (event, preferences, params) => {
     if (!PARTITIONS.includes(params['partition'] ?? '') || !isWebUrl(params['src'] ?? '')) {
       event.preventDefault()

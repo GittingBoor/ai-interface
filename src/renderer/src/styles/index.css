@@ -9,7 +9,13 @@
  * sind überall gleich und nie Dekoration.
  */
 @theme {
-  --font-sans: 'Mona Sans Variable', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Mona Sans Variable', 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Yu Gothic UI',
+    'Meiryo UI', 'Noto Sans CJK SC', 'Noto Sans CJK JP', 'PingFang SC', 'Hiragino Sans', system-ui, sans-serif;
+  --font-sans-ja: 'Mona Sans Variable', 'Segoe UI Variable', 'Segoe UI', 'Yu Gothic UI', 'Meiryo UI',
+    'Noto Sans CJK JP', 'Hiragino Sans', 'Microsoft YaHei UI', 'Noto Sans CJK SC', 'PingFang SC', system-ui,
+    sans-serif;
+  --font-sans-zh: 'Mona Sans Variable', 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Noto Sans CJK SC',
+    'PingFang SC', 'Yu Gothic UI', 'Meiryo UI', 'Noto Sans CJK JP', 'Hiragino Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'Cascadia Mono', Consolas, monospace;
 
   --color-canvas: oklch(0.165 0.004 70);
@@ -105,6 +111,14 @@
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  html:lang(ja) {
+    font-family: var(--font-sans-ja);
+  }
+
+  html:lang(zh) {
+    font-family: var(--font-sans-zh);
   }
 
   body {
@@ -266,6 +280,13 @@
   .prose-log th { text-align: left; color: var(--color-ink-3); font-weight: 560; border-bottom: 1px solid var(--color-line-strong); padding: 0.45rem 0.75rem 0.45rem 0; }
   .prose-log td { border-bottom: 1px solid var(--color-line); padding: 0.45rem 0.75rem 0.45rem 0; vertical-align: top; }
   .prose-log img { max-width: 100%; border-radius: 8px; border: 1px solid var(--color-line); margin: 0.4em 0; }
+
+  /* Agent-Anweisungen im schmalen Detailbereich: kleinere Stufen, gleiche Ordnung */
+  .agent-prompt { max-width: none; font-size: 0.8125rem; line-height: 1.6; }
+  .agent-prompt h1 { font-size: 1rem; font-stretch: 100%; letter-spacing: 0; }
+  .agent-prompt h2 { font-size: 0.875rem; margin-top: 1.4em; padding-top: 0.9em; }
+  .agent-prompt h3, .agent-prompt h4 { font-size: 0.8125rem; margin-top: 1.2em; }
+  .agent-prompt > :first-child { margin-top: 0; padding-top: 0; border-top: 0; }
   .prose-log .wikilink {
     color: var(--color-accent-text);
     background: var(--color-accent-soft);

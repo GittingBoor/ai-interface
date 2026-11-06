@@ -8,9 +8,13 @@ import { hostLabel } from '@renderer/lib/hosts'
 import { useTerminals } from '@renderer/stores/terminalStore'
 import { TerminalPane } from './TerminalPane'
 import { StatusDot, useTerminalStatus } from '@renderer/components/StatusDot'
+import { useT } from '@renderer/i18n/useT'
 
 /** Mindestgröße eines Slots in Pixeln, damit Claude Code noch lesbar bleibt. */
 const MIN_SLOT_PX = 160
+
+const DROP_TARGET_ACTIVE = 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]'
+const DROP_TARGET_LABEL = 'pointer-events-none rounded-md bg-raised px-2.5 py-1 text-xs font-[560] text-accent-text shadow-[0_4px_16px_-4px_oklch(0_0_0/0.6)]'
 
 type Orientation = 'horizontal' | 'vertical'
 
@@ -31,6 +35,7 @@ interface SlotProps {
 }
 
 function SlotHeader({ info, exitCode }: { readonly info: TerminalInfo; readonly exitCode: number | undefined }): React.JSX.Element {
+  const t = useT().terminal
   const status = useTerminalStatus(info.id, info.running)
   return (
     <div className="flex h-7 shrink-0 items-center gap-2 border-b border-line/70 px-3 text-2xs" title={`${hostLabel(info.host)}: ${info.path}`}>
@@ -38,22 +43,26 @@ function SlotHeader({ info, exitCode }: { readonly info: TerminalInfo; readonly 
       <span className="truncate font-[560] text-ink-2">{info.title}</span>
       <StatusDot status={status} size="sm" />
       <span className="min-w-0 flex-1 truncate font-mono text-ink-3/80">{info.path}</span>
-      {info.running ? null : <span className="shrink-0 text-ink-3">{exitCode === undefined ? 'beendet' : `Code ${exitCode}`}</span>}
+      {info.running ? null : <span className="shrink-0 text-ink-3">{exitCode === undefined ? t.exited : t.exitCode(exitCode)}</span>}
     </div>
   )
 }
 
 function Slot({ index, id, framed, visible, dragId, onDropped }: SlotProps): React.JSX.Element {
+  const t = useT().terminal
   const info = useTerminals((s) => (id ? s.terminals.find((t) => t.id === id) : undefined))
   const active = useTerminals((s) => id !== null && s.activeId === id)
   const exitCode = useTerminals((s) => (id ? s.exitCodes[id] : undefined))
   const activate = useTerminals((s) => s.activate)
   const place = useTerminals((s) => s.place)
   const [over, setOver] = useState(false)
+  const [filesOver, setFilesOver] = useState(false)
 
   useEffect(() => {
     if (!dragId) setOver(false)
   }, [dragId])
+
+  const acceptsFiles = (e: React.DragEvent): boolean => e.dataTransfer.types.includes('Files') && info?.running === true
 
   const frame = framed
     ? `rounded-lg border bg-canvas transition-[border-color,box-shadow] duration-200 ${active ? 'border-accent/45 shadow-[0_0_0_1px_oklch(0.76_0.155_55/0.12)]' : 'border-line'}`
@@ -64,9 +73,25 @@ function Slot({ index, id, framed, visible, dragId, onDropped }: SlotProps): Rea
       role={id ? 'tabpanel' : undefined}
       id={id ? `term-panel-${id}` : undefined}
       aria-labelledby={id ? `term-tab-${id}` : undefined}
-      aria-label={id ? undefined : `Leerer Bereich ${index + 1}`}
+      aria-label={id ? undefined : t.emptySlot(index + 1)}
       onMouseDownCapture={() => id && activate(id)}
       onFocusCapture={() => id && activate(id)}
+      onDragOver={(e) => {
+        if (!acceptsFiles(e)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        setFilesOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget))) setFilesOver(false)
+      }}
+      onDrop={(e) => {
+        if (!id || !acceptsFiles(e)) return
+        e.preventDefault()
+        setFilesOver(false)
+        activate(id)
+        terminalRegistry.dropFiles(id, [...e.dataTransfer.files])
+      }}
       className={`relative flex h-full w-full flex-col overflow-hidden ${frame}`}
     >
       {framed && info ? <SlotHeader info={info} exitCode={exitCode} /> : null}
@@ -78,7 +103,7 @@ function Slot({ index, id, framed, visible, dragId, onDropped }: SlotProps): Rea
         <div className={`grid flex-1 place-items-center p-6 transition-opacity duration-150 ${dragId ? 'opacity-0' : ''}`}>
           <p className="flex max-w-[16rem] items-center gap-2 text-center text-xs text-ink-3">
             <MousePointerClick className="size-4 shrink-0 opacity-70" aria-hidden strokeWidth={1.75} />
-            Terminal hierher ziehen oder mit + öffnen
+            {t.dropHint}
           </p>
         </div>
       )}
@@ -99,9 +124,14 @@ function Slot({ index, id, framed, visible, dragId, onDropped }: SlotProps): Rea
             place(index, dragId)
             onDropped()
           }}
-          className={`absolute inset-0 z-10 grid place-items-center rounded-[inherit] transition-[background-color,box-shadow] duration-150 ${over ? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'shadow-[inset_0_0_0_1px_var(--color-line-strong)]'}`}
+          className={`absolute inset-0 z-10 grid place-items-center rounded-[inherit] transition-[background-color,box-shadow] duration-150 ${over ? DROP_TARGET_ACTIVE : 'shadow-[inset_0_0_0_1px_var(--color-line-strong)]'}`}
         >
-          {over ? <span className="pointer-events-none rounded-md bg-raised px-2.5 py-1 text-xs font-[560] text-accent-text shadow-[0_4px_16px_-4px_oklch(0_0_0/0.6)]">Hier anzeigen</span> : null}
+          {over ? <span className={DROP_TARGET_LABEL}>{t.showHere}</span> : null}
+        </div>
+      ) : null}
+      {info?.running ? (
+        <div aria-hidden className={`pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[inherit] transition-opacity duration-150 ${DROP_TARGET_ACTIVE} ${filesOver ? '' : 'opacity-0'}`}>
+          <span className={DROP_TARGET_LABEL}>{t.pasteImage}</span>
         </div>
       ) : null}
     </div>

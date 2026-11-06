@@ -14,11 +14,14 @@ import { hostLabel } from '@renderer/lib/hosts'
 import { daysUntil, formatRelative, todayIso } from '@renderer/lib/format'
 import { TodoComposer } from './TodoComposer'
 import { TodoRow } from './TodoRow'
+import { activeTag } from '@renderer/i18n/activeLocale'
+import { currentT, useT } from '@renderer/i18n/useT'
+
+/** React-Schlüssel für TODOs ohne Abschnitt; unabhängig von der Anzeigesprache. */
+const NO_SECTION_KEY = '__no-section__'
 
 type StatusFilter = 'open' | 'done' | 'all'
 type PriorityFilter = Priority | 'all'
-
-const NO_SECTION = 'Ohne Abschnitt'
 
 function groupBySection(items: readonly TodoItem[], order: readonly string[]): [string, TodoItem[]][] {
   const groups = new Map<string, TodoItem[]>()
@@ -28,6 +31,7 @@ function groupBySection(items: readonly TodoItem[], order: readonly string[]): [
 }
 
 export function TodosView(): React.JSX.Element {
+  const t = useT()
   const state = useTodos((s) => s.state)
   const error = useTodos((s) => s.error)
   const load = useTodos((s) => s.load)
@@ -40,22 +44,23 @@ export function TodosView(): React.JSX.Element {
   const [optimistic, setOptimistic] = useState<Readonly<Record<string, boolean>>>({})
 
   const items = state?.items ?? []
-  const isDone = (t: TodoItem): boolean => optimistic[t.id] ?? t.done
-  const counts = { open: items.filter((t) => !isDone(t)).length, done: items.filter(isDone).length, all: items.length }
-  const overdue = items.filter((t) => !t.done && t.due && daysUntil(t.due) < 0).length
+  const isDone = (todo: TodoItem): boolean => optimistic[todo.id] ?? todo.done
+  const counts = { open: items.filter((todo) => !isDone(todo)).length, done: items.filter(isDone).length, all: items.length }
+  const overdue = items.filter((todo) => !todo.done && todo.due && daysUntil(todo.due) < 0).length
 
   const visible = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase('de-DE')
-    return items.filter((t) => {
-      const done = optimistic[t.id] ?? t.done
-      if (status === 'open' && done && optimistic[t.id] === undefined) return false
+    const q = query.trim().toLocaleLowerCase(activeTag())
+    return items.filter((todo) => {
+      const done = optimistic[todo.id] ?? todo.done
+      if (status === 'open' && done && optimistic[todo.id] === undefined) return false
       if (status === 'done' && !done) return false
-      if (priority !== 'all' && t.priority !== priority) return false
-      return !q || `${t.text} ${t.section} ${t.notes}`.toLocaleLowerCase('de-DE').includes(q)
+      if (priority !== 'all' && todo.priority !== priority) return false
+      return !q || `${todo.text} ${todo.section} ${todo.notes}`.toLocaleLowerCase(activeTag()).includes(q)
     })
   }, [items, status, priority, query, optimistic])
 
   const groups = groupBySection(visible, state?.sections ?? [])
+  const filtered = query !== '' || priority !== 'all'
 
   const toggle = async (item: TodoItem): Promise<void> => {
     setOptimistic((o) => ({ ...o, [item.id]: !item.done }))
@@ -67,15 +72,16 @@ export function TodosView(): React.JSX.Element {
   }
 
   const remove = async (item: TodoItem): Promise<void> => {
-    const ok = await confirmAction({ title: 'TODO löschen?', message: `„${item.text}“ wird aus der Datei im Vault entfernt.`, confirmLabel: 'Löschen', danger: true })
+    const messages = currentT()
+    const ok = await confirmAction({ title: messages.todos.deleteTitle, message: messages.todos.deleteMessage(item.text), confirmLabel: messages.common.delete, danger: true })
     if (ok) await apply({ kind: 'delete', id: item.id })
   }
 
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
-        title="TODOs"
-        actions={<IconButton icon={RefreshCw} label="Neu laden" onClick={() => void load()} />}
+        title={t.frame.views.todos}
+        actions={<IconButton icon={RefreshCw} label={t.todos.reload} onClick={() => void load()} />}
       >
         {state?.exists ? (
           <span className="flex min-w-0 items-center gap-2">
@@ -83,30 +89,32 @@ export function TodosView(): React.JSX.Element {
               {state.path}
             </span>
             <span className="shrink-0 text-ink-3">
-              · synchron mit Obsidian{state.modifiedAt ? `, geändert ${formatRelative(state.modifiedAt)}` : ''}
+              {state.modifiedAt ? t.todos.syncedModified(formatRelative(state.modifiedAt)) : t.todos.synced}
             </span>
           </span>
         ) : (
-          'Aufgaben aus der TODO-Datei im Obsidian-Vault'
+          t.todos.description
         )}
       </ViewHeader>
 
       <div className="@container/main flex-1 overflow-y-auto px-8 pb-10">
         <div>
-          {noVault ? <NoVault what="TODOs" /> : null}
+          {noVault ? <NoVault what={t.frame.views.todos} /> : null}
           {error && !noVault ? <ErrorState message={error} onRetry={() => void load()} /> : null}
           {!state && !error && !noVault ? <SkeletonRows rows={6} /> : null}
           {state && !state.exists ? (
             <EmptyState
               icon={FilePlus2}
-              title="Die TODO-Datei gibt es noch nicht"
+              title={t.todos.missingTitle}
               action={
                 <Button variant="primary" icon={FilePlus2} onClick={() => void create()}>
-                  TODO-Datei anlegen
+                  {t.todos.createFile}
                 </Button>
               }
             >
-              Erwartet unter <span className="font-mono text-2xs text-ink-2">{state.path}</span> auf {hostLabel(state.host)}. Pfad und Vault lassen sich in den Einstellungen ändern.
+              {t.todos.expectedBefore}
+              <span className="font-mono text-2xs text-ink-2">{state.path}</span>
+              {t.todos.expectedAfter(hostLabel(state.host))}
             </EmptyState>
           ) : null}
 
@@ -116,44 +124,42 @@ export function TodosView(): React.JSX.Element {
 
               <div className="mt-6 flex flex-wrap items-center gap-2">
                 <Segmented<StatusFilter>
-                  label="Status"
+                  label={t.todos.status}
                   value={status}
                   onChange={setStatus}
                   options={[
-                    { value: 'open', label: 'Offen', count: counts.open },
-                    { value: 'done', label: 'Erledigt', count: counts.done },
-                    { value: 'all', label: 'Alle', count: counts.all }
+                    { value: 'open', label: t.todos.statusOpen, count: counts.open },
+                    { value: 'done', label: t.todos.statusDone, count: counts.done },
+                    { value: 'all', label: t.todos.statusAll, count: counts.all }
                   ]}
                 />
                 <Segmented<PriorityFilter>
-                  label="Priorität"
+                  label={t.todos.priority}
                   value={priority}
                   onChange={setPriority}
                   options={[
-                    { value: 'all', label: 'Jede' },
-                    { value: 'high', label: 'Hoch' },
-                    { value: 'normal', label: 'Normal' },
-                    { value: 'low', label: 'Niedrig' }
+                    { value: 'all', label: t.todos.priorityAny },
+                    { value: 'high', label: t.todos.high },
+                    { value: 'normal', label: t.todos.normal },
+                    { value: 'low', label: t.todos.low }
                   ]}
                 />
                 <label className="relative ml-auto">
-                  <span className="sr-only">TODOs durchsuchen</span>
+                  <span className="sr-only">{t.todos.searchLabel}</span>
                   <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-3" aria-hidden />
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Suchen" className="field w-56 pl-8" type="search" />
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.todos.search} className="field w-56 pl-8" type="search" />
                 </label>
               </div>
               {overdue > 0 && status !== 'done' ? (
-                <p className="mt-3 text-xs text-danger-ink">
-                  {overdue} {overdue === 1 ? 'Aufgabe ist' : 'Aufgaben sind'} überfällig.
-                </p>
+                <p className="mt-3 text-xs text-danger-ink">{t.todos.overdue(overdue)}</p>
               ) : null}
 
               <div className="mt-6 grid items-start gap-x-12 gap-y-7 @min-[100rem]/main:grid-cols-2">
                 {groups.map(([section, list]) => (
-                  <section key={section || NO_SECTION} aria-label={section || NO_SECTION}>
+                  <section key={section || NO_SECTION_KEY} aria-label={section || t.todos.noSection}>
                     <h2 className="mb-1.5 flex items-baseline gap-2 px-2.5 text-xs font-[620] text-ink-2">
-                      {section || NO_SECTION}
-                      <span className="num font-[500] text-ink-3">{list.filter((t) => !isDone(t)).length}</span>
+                      {section || t.todos.noSection}
+                      <span className="num font-[500] text-ink-3">{list.filter((todo) => !isDone(todo)).length}</span>
                     </h2>
                     <ul>
                       <AnimatePresence initial={false}>
@@ -172,8 +178,8 @@ export function TodosView(): React.JSX.Element {
                   </section>
                 ))}
                 {groups.length === 0 ? (
-                  <EmptyState icon={ListChecks} illustration={query || priority !== 'all' ? undefined : <EmptyTodosIllustration />} title={query || priority !== 'all' ? 'Keine Treffer' : status === 'open' ? 'Alles erledigt' : 'Noch nichts erledigt'} compact>
-                    {query || priority !== 'all' ? 'Filter oder Suche anpassen.' : status === 'open' ? 'Keine offenen TODOs. Neue Aufgaben oben eintragen oder mit Strg+K „todo: …“.' : 'Abgehakte TODOs erscheinen hier.'}
+                  <EmptyState icon={ListChecks} illustration={filtered ? undefined : <EmptyTodosIllustration />} title={filtered ? t.todos.noMatchesTitle : status === 'open' ? t.todos.allDoneTitle : t.todos.nothingDoneTitle} compact>
+                    {filtered ? t.todos.noMatchesBody : status === 'open' ? t.todos.allDoneBody(t.frame.shortcut('K')) : t.todos.nothingDoneBody}
                   </EmptyState>
                 ) : null}
               </div>

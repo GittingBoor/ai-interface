@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, MoveHorizontal } from 'l
 import type { SectionLayout, SectionWidth } from '@shared/types'
 import { moveItem, resolveSections } from '@shared/layout'
 import { useSettings } from '@renderer/stores/settingsStore'
+import { useT } from '@renderer/i18n/useT'
 import { IconButton } from './Button'
 
 export interface LayoutSection {
@@ -20,7 +21,6 @@ const WIDTH_CLASS: Readonly<Record<SectionWidth, string>> = {
   half: 'col-span-12 @min-[52rem]:col-span-6',
   narrow: 'col-span-12 @min-[52rem]:col-span-4'
 }
-const WIDTH_LABEL: Readonly<Record<SectionWidth, string>> = { full: 'ganze Breite', wide: 'zwei Drittel', half: 'halbe Breite', narrow: 'ein Drittel' }
 const WIDTH_CYCLE: readonly SectionWidth[] = ['full', 'wide', 'half', 'narrow']
 const DRAG_TYPE = 'application/x-aii-section'
 const EMPTY_LAYOUT: SectionLayout = { order: [], hidden: [] }
@@ -57,14 +57,15 @@ interface ToolbarProps {
 }
 
 function Toolbar({ label, width, first, last, onMove, onWidth, onHide }: ToolbarProps): React.JSX.Element {
+  const t = useT()
   return (
     <div className="mb-3 flex items-center gap-1 rounded-md border border-line bg-raised px-1.5 py-1">
       <GripVertical className="size-3.5 shrink-0 cursor-grab text-ink-3" aria-hidden />
       <span className="min-w-0 flex-1 truncate px-1 text-xs font-[600] text-ink-2">{label}</span>
-      <IconButton size="sm" icon={ArrowUp} label={`${label} nach vorne`} disabled={first} onClick={() => onMove(-1)} />
-      <IconButton size="sm" icon={ArrowDown} label={`${label} nach hinten`} disabled={last} onClick={() => onMove(1)} />
-      <IconButton size="sm" icon={MoveHorizontal} label={`Breite: ${WIDTH_LABEL[width]} (ändern)`} onClick={onWidth} />
-      <IconButton size="sm" icon={EyeOff} label={`${label} ausblenden`} onClick={onHide} />
+      <IconButton size="sm" icon={ArrowUp} label={t.frame.layout.toFront(label)} disabled={first} onClick={() => onMove(-1)} />
+      <IconButton size="sm" icon={ArrowDown} label={t.frame.layout.toBack(label)} disabled={last} onClick={() => onMove(1)} />
+      <IconButton size="sm" icon={MoveHorizontal} label={t.frame.layout.width(t.frame.layout.widths[width])} onClick={onWidth} />
+      <IconButton size="sm" icon={EyeOff} label={t.frame.layout.hide(label)} onClick={onHide} />
     </div>
   )
 }
@@ -74,6 +75,7 @@ function Toolbar({ label, width, first, last, onMove, onWidth, onHide }: Toolbar
  * Im Bearbeiten-Modus: Ziehen oder Pfeile zum Verschieben, Breite umschalten, ausblenden und wieder einblenden.
  */
 export function LayoutGrid({ page, sections, editing, className = 'grid grid-cols-12 gap-x-10 gap-y-9' }: LayoutGridProps): React.JSX.Element {
+  const t = useT()
   const { layout, save } = usePageLayout(page)
   const [dragging, setDragging] = useState<string | null>(null)
   const byId = new Map(sections.map((s) => [s.id, s]))
@@ -136,14 +138,14 @@ export function LayoutGrid({ page, sections, editing, className = 'grid grid-col
                   onHide={() => setHidden(r.id, true)}
                 />
               ) : null}
-              {content ?? <p className="py-6 text-xs text-ink-3">Gerade keine Daten.</p>}
+              {content ?? <p className="py-6 text-xs text-ink-3">{t.frame.layout.noData}</p>}
             </div>
           )
         })}
       </div>
       {editing && hidden.length ? (
         <div className="mt-10 border-t border-line pt-4">
-          <p className="mb-2 text-xs font-[600] text-ink-3">Ausgeblendet</p>
+          <p className="mb-2 text-xs font-[600] text-ink-3">{t.frame.layout.hidden}</p>
           <div className="flex flex-wrap gap-2">
             {hidden.map((h) => (
               <button
@@ -153,7 +155,7 @@ export function LayoutGrid({ page, sections, editing, className = 'grid grid-col
                 className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-canvas px-2.5 text-xs text-ink-2 transition-colors hover:border-accent/50 hover:text-ink"
               >
                 <Eye className="size-3.5" aria-hidden />
-                {byId.get(h.id)?.label ?? h.id} einblenden
+                {t.frame.layout.show(byId.get(h.id)?.label ?? h.id)}
               </button>
             ))}
           </div>

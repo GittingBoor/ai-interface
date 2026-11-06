@@ -1,19 +1,13 @@
 import { z } from 'zod'
 import type { HostId, ProjectTasks, ReviewedTask } from '@shared/types'
 import { NotFoundError, ValidationError } from '../errors'
-import { joinPath, type Host } from '../hosts/Host'
-import { shellQuote } from '../hosts/shellQuote'
+import type { Host } from '../hosts/Host'
+import { assertRelativePath, quoteFor, readProjectFile, runGit } from '../hosts/projectRead'
 import { defineTool, type OrchestratorTool } from '../orchestrator/orchestratorTools'
 
 const DEFAULT_LOG_LIMIT = 40
 const MAX_LOG_LIMIT = 200
 const GREP_MAX_PER_FILE = 5
-const MAX_OUTPUT_CHARS = 12_000
-const READ_LIMIT_BYTES = 64 * 1024
-/** Zeichen, die `cmd.exe` auch in doppelten Anführungszeichen auswertet. */
-const CMD_UNSAFE = /["%\r\n]/
-const PARENT_SEGMENT = /(^|[\\/])\.\.([\\/]|$)/
-const ABSOLUTE_PATH = /^([\\/]|[a-zA-Z]:)/
 
 /** Projekt eines Protokollordners (aus dem Favoriten). */
 export interface ReviewProject {
@@ -35,18 +29,9 @@ export interface TaskReviewToolDeps {
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2)
 
-const clip = (text: string): string => (text.length > MAX_OUTPUT_CHARS ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… (gekürzt)` : text)
-
 const isoDay = (ms: number): string => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Argument für die Shell des Rechners: `cmd.exe` unter Windows, sonst POSIX. */
-function quoteFor(host: Pick<Host, 'separator'>, value: string): string {
-  if (host.separator === '/') return shellQuote(value)
-  if (CMD_UNSAFE.test(value)) throw new ValidationError(`„${value}“ enthält " oder %, das geht unter Windows nicht. Anderen Suchtext wählen.`)
-  return `"${value}"`
 }
 
 export function createTaskReviewTools(deps: TaskReviewToolDeps): OrchestratorTool[] {
@@ -61,12 +46,7 @@ export function createTaskReviewTools(deps: TaskReviewToolDeps): OrchestratorToo
     if (!project) throw new NotFoundError(`Ein Projektordner zu ${group.label}`, 'Diese Gruppe hat keinen Projektordner; nur aus dem Protokoll urteilen.')
     return project
   }
-  const git = async (project: ReviewProject, args: string): Promise<string> => {
-    const host = deps.host(project.host)
-    const result = await host.exec(`git -C ${quoteFor(host, project.path)} ${args}`)
-    if (result.code !== 0 && result.stdout.trim() === '') throw new ValidationError(`git meldet Code ${result.code}: ${result.stderr.trim() || 'keine Ausgabe'}`)
-    return clip(result.stdout.trim() || '(keine Treffer)')
-  }
+  const git = async (project: ReviewProject, args: string): Promise<string> => runGit(deps.host(project.host), project.path, args)
 
   return [
     defineTool({
@@ -113,12 +93,9 @@ export function createTaskReviewTools(deps: TaskReviewToolDeps): OrchestratorToo
       schema: { groupId: z.string().min(1), path: z.string().trim().min(1) },
       mutating: false,
       run: async ({ groupId, path }) => {
-        if (ABSOLUTE_PATH.test(path) || PARENT_SEGMENT.test(path)) throw new ValidationError(`„${path}“ muss relativ zum Projekt sein und darf kein .. enthalten.`)
+        assertRelativePath(path)
         const project = await projectOf(groupId)
-        const host = deps.host(project.host)
-        const data = await host.readFile(joinPath(host, project.path, path), 0, READ_LIMIT_BYTES)
-        const text = data.toString('utf8')
-        return data.length >= READ_LIMIT_BYTES ? `${text}\n… (nach ${READ_LIMIT_BYTES} Byte gekürzt)` : text
+        return readProjectFile(deps.host(project.host), project.path, path)
       }
     }),
     defineTool({

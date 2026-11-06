@@ -19,6 +19,8 @@ import { FAVORITE_COLORS } from '@renderer/lib/hosts'
 import { openTodosFor, statsFor, unassignedProjects, type FavoriteStats } from '@renderer/lib/projects'
 import { baseName, formatRelative, formatTokens } from '@renderer/lib/format'
 import { groupProjects, matchesFilter, mergeSubsetOrder, pinnedFirst, type ProjectFilter } from '@renderer/lib/projectOrganize'
+import { currentT, useT } from '@renderer/i18n/useT'
+import type { Messages } from '@shared/i18n/messages'
 import { AddFavoriteForm } from './AddFavoriteForm'
 import { FavoriteList } from './FavoriteList'
 import { ProjectDetail } from './ProjectDetail'
@@ -30,9 +32,9 @@ const OTHER_LIMIT = 8
 const FALLBACK_COLOR = '#e08a4f'
 const EMPTY_STATS: FavoriteStats = { tokens7d: 0, cost7d: 0, lastActive: null, sessions: 0 }
 
-const LAYOUT_OPTIONS: readonly { readonly value: ProjectsLayout; readonly label: string }[] = [
-  { value: 'grouped', label: 'Gruppiert' },
-  { value: 'list', label: 'Liste' }
+const layoutOptions = (t: Messages['projects']['view']): readonly { readonly value: ProjectsLayout; readonly label: string }[] => [
+  { value: 'grouped', label: t.layoutGrouped },
+  { value: 'list', label: t.layoutList }
 ]
 
 const filterKey = (filter: ProjectFilter): string => String(filter)
@@ -67,15 +69,17 @@ interface FilterChipsProps {
 }
 
 function FilterChips({ filter, favorites, categories, onFilter }: FilterChipsProps): React.JSX.Element {
+  const { projects } = useT()
+  const t = projects.view
   const count = (f: ProjectFilter): number => favorites.filter((p) => matchesFilter(p, f)).length
   return (
-    <div role="radiogroup" aria-label="Projekte filtern" className="flex min-w-0 flex-wrap gap-1.5">
+    <div role="radiogroup" aria-label={t.filterLabel} className="flex min-w-0 flex-wrap gap-1.5">
       <Chip active={filter === 'all'} count={favorites.length} onSelect={() => onFilter('all')}>
-        <span className="pl-0.5">Alle</span>
+        <span className="pl-0.5">{t.all}</span>
       </Chip>
       <Chip active={filter === 'starred'} count={count('starred')} onSelect={() => onFilter('starred')}>
         <Star className={`size-3.5 ${filter === 'starred' ? 'fill-accent text-accent' : ''}`} strokeWidth={1.75} aria-hidden />
-        Angepinnt
+        {t.pinned}
       </Chip>
       {categories.map((c) => (
         <Chip key={c.id} active={filter === c.id} count={count(c.id)} onSelect={() => onFilter(c.id)}>
@@ -85,7 +89,7 @@ function FilterChips({ filter, favorites, categories, onFilter }: FilterChipsPro
       ))}
       <Chip active={filter === 'uncategorized'} count={count('uncategorized')} onSelect={() => onFilter('uncategorized')}>
         <NoCategoryMark size="sm" />
-        Ohne Art
+        {projects.noCategory}
       </Chip>
     </div>
   )
@@ -101,16 +105,19 @@ export function NoCategoryMark({ size }: { readonly size: 'sm' | 'md' }): React.
 }
 
 function GroupHeader({ category, count }: { readonly category: Category | null; readonly count: number }): React.JSX.Element {
+  const noCategory = useT().projects.noCategory
   return (
     <h2 className="flex items-center gap-2 border-t border-line pt-3.5 pb-1.5 pl-1.5">
       {category ? <ProjectMark color={category.color} icon={category.icon} size="md" /> : <NoCategoryMark size="md" />}
-      <span className="text-[0.8125rem] font-[620] text-ink">{category?.name ?? 'Ohne Art'}</span>
+      <span className="text-[0.8125rem] font-[620] text-ink">{category?.name ?? noCategory}</span>
       <span className="num text-xs text-ink-3">{count}</span>
     </h2>
   )
 }
 
 export function ProjectsView(): React.JSX.Element {
+  const { projects: texts, frame } = useT()
+  const t = texts.view
   const favorites = useFavorites((s) => s.favorites)
   const loaded = useFavorites((s) => s.loaded)
   const error = useFavorites((s) => s.error)
@@ -151,7 +158,7 @@ export function ProjectsView(): React.JSX.Element {
     const color = FAVORITE_COLORS[favorites.length % FAVORITE_COLORS.length] ?? FALLBACK_COLOR
     const fav = await add({ host, path, name: baseName(path), color, categoryId: filterCategoryId, starred: false })
     if (fav) {
-      notify.success(`„${fav.name}“ ist jetzt ein Projekt.`)
+      notify.success(currentT().projects.view.promoted(fav.name))
       selectFavorite(fav.id)
     }
   }
@@ -161,21 +168,19 @@ export function ProjectsView(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
-        title="Projekte"
+        title={frame.views.projects}
         actions={
           <>
             <Button variant="ghost" icon={Tags} onClick={() => setManaging(true)}>
-              Arten verwalten
+              {t.manageCategories}
             </Button>
             <Button icon={Plus} onClick={() => setAdding(true)} disabled={adding}>
-              Projekt hinzufügen
+              {t.add}
             </Button>
           </>
         }
       >
-        {favorites.length
-          ? `${favorites.length} ${favorites.length === 1 ? 'Projekt' : 'Projekte'} · ${pinnedCount} angepinnt · Reihenfolge per Ziehen ändern`
-          : 'Projektordner auf deinen Rechnern'}
+        {favorites.length ? t.subtitle(favorites.length, pinnedCount) : t.subtitleEmpty}
       </ViewHeader>
 
       <div className="flex min-h-0 flex-1">
@@ -206,7 +211,7 @@ export function ProjectsView(): React.JSX.Element {
           {favorites.length > 0 ? (
             <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
               <FilterChips filter={activeFilter} favorites={favorites} categories={categories} onFilter={setFilter} />
-              <Segmented label="Darstellung" value={layout} options={LAYOUT_OPTIONS} onChange={(next: ProjectsLayout) => setLayout(next)} />
+              <Segmented label={t.layoutLabel} value={layout} options={layoutOptions(t)} onChange={(next: ProjectsLayout) => setLayout(next)} />
             </div>
           ) : null}
 
@@ -215,49 +220,47 @@ export function ProjectsView(): React.JSX.Element {
           {loaded && !error && favorites.length === 0 && !adding ? (
             <EmptyState
               icon={FolderGit2}
-              title="Noch keine Projekte"
+              title={t.emptyTitle}
               action={
                 <Button variant="primary" icon={Plus} onClick={() => setAdding(true)}>
-                  Erstes Projekt anlegen
+                  {t.emptyAction}
                 </Button>
               }
             >
-              Projekte sind Ordner auf diesem PC oder einem angebundenen Gerät. Von hier startest du Claude Code mit einem Klick und siehst Verbrauch und TODOs je Projekt.
+              {t.emptyBody}
             </EmptyState>
           ) : null}
           {favorites.length > 0 && visible.length === 0 ? (
             <EmptyState
               icon={SearchX}
-              title={activeFilter === 'starred' ? 'Nichts angepinnt' : 'Keine Projekte in dieser Auswahl'}
+              title={activeFilter === 'starred' ? t.nothingPinned : t.nothingInSelection}
               compact
               action={
                 <Button size="sm" onClick={() => setFilter('all')}>
-                  Alle zeigen
+                  {t.showAll}
                 </Button>
               }
             >
-              {activeFilter === 'starred'
-                ? 'Pinne Projekte mit dem Stern an. Angepinnte stehen oben, auch im Terminal und in der Befehlspalette.'
-                : 'Die Art eines Projekts stellst du in seinen Details ein.'}
+              {activeFilter === 'starred' ? t.pinHint : t.categoryHint}
             </EmptyState>
           ) : null}
 
           {visible.length > 0 && layout === 'list' ? (
-            <FavoriteList key={`list-${filterKey(activeFilter)}`} label="Projekte" favorites={visible} categoriesById={categoriesById} {...listProps} />
+            <FavoriteList key={`list-${filterKey(activeFilter)}`} label={t.listLabel} favorites={visible} categoriesById={categoriesById} {...listProps} />
           ) : null}
           {visible.length > 0 && layout === 'grouped' ? (
             <div className="space-y-4">
               {groups.map((g) => (
-                <section key={g.category?.id ?? 'none'} aria-label={g.category?.name ?? 'Ohne Art'}>
+                <section key={g.category?.id ?? 'none'} aria-label={g.category?.name ?? texts.noCategory}>
                   <GroupHeader category={g.category} count={g.projects.length} />
-                  <FavoriteList label={g.category?.name ?? 'Ohne Art'} favorites={g.projects} {...listProps} />
+                  <FavoriteList label={g.category?.name ?? texts.noCategory} favorites={g.projects} {...listProps} />
                 </section>
               ))}
             </div>
           ) : null}
 
           {others.length > 0 ? (
-            <Section className="mt-10" title="Weitere Projekte" description="Aus den Verbrauchsdaten der letzten 30 Tage, noch nicht angelegt">
+            <Section className="mt-10" title={t.othersTitle} description={t.othersDescription}>
               <ul className="divide-y divide-line">
                 {others.map((p) => (
                   <li key={`${p.host}-${p.project}`} className="flex items-center gap-3 py-2.5">
@@ -269,7 +272,7 @@ export function ProjectsView(): React.JSX.Element {
                     <span className="num w-24 text-right text-xs text-ink-3">{formatRelative(p.lastActive, now)}</span>
                     <span className="num w-20 text-right text-xs text-ink-2">{formatTokens(p.totalTokens)}</span>
                     <Button size="sm" variant="ghost" icon={Plus} onClick={() => void promote(p.host, p.project)}>
-                      Als Projekt
+                      {t.promote}
                     </Button>
                   </li>
                 ))}
@@ -278,7 +281,7 @@ export function ProjectsView(): React.JSX.Element {
           ) : null}
         </div>
 
-        <aside aria-label="Projektdetails" className="w-[23rem] shrink-0 overflow-y-auto border-l border-line/70 px-6 pb-10 max-[1180px]:w-[20rem] max-lg:w-[18rem] max-lg:px-5">
+        <aside aria-label={t.detailsAria} className="w-[23rem] shrink-0 overflow-y-auto border-l border-line/70 px-6 pb-10 max-[1180px]:w-[20rem] max-lg:w-[18rem] max-lg:px-5">
           <AnimatePresence mode="wait" initial={false}>
             {selected ? (
               <motion.div
@@ -299,8 +302,8 @@ export function ProjectsView(): React.JSX.Element {
               </motion.div>
             ) : (
               <motion.div key="none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <EmptyState icon={MousePointerClick} title="Projekt auswählen" compact>
-                  Wähle links ein Projekt, um Sessions, Bilder und Einstellungen zu sehen.
+                <EmptyState icon={MousePointerClick} title={t.pickTitle} compact>
+                  {t.pickBody}
                 </EmptyState>
               </motion.div>
             )}

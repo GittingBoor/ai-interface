@@ -1,3 +1,4 @@
+import type { Messages } from '@shared/i18n/messages'
 import type { AssistantEvent } from '@shared/types'
 
 export type ConfirmStatus = 'pending' | 'sending' | 'allowed' | 'denied'
@@ -48,33 +49,9 @@ export const ASSISTANT_DEFAULT_WIDTH = 420
 /** Trenner zwischen zwei Textabschnitten derselben Antwort (eigener Markdown-Absatz). */
 const CHUNK_SEPARATOR = '\n\n'
 
-const TOOL_LABEL: Readonly<Record<string, string>> = {
-  list_projects: 'Liest Projekte',
-  list_categories: 'Liest Projektarten',
-  list_project_folders: 'Liest Projektordner',
-  usage_summary: 'Wertet Verbrauch aus',
-  quota: 'Prüft Kontingent',
-  list_todos: 'Liest TODOs',
-  devices_status: 'Fragt die Geräte ab',
-  list_skills: 'Liest Skills',
-  app_settings: 'Liest Einstellungen',
-  create_project_folder: 'Legt Projektordner an',
-  write_obsidian_note: 'Schreibt Obsidian-Notiz',
-  add_project: 'Trägt Projekt ein',
-  create_category: 'Legt Art an',
-  add_todo: 'Fügt TODO hinzu'
-}
-
-const CONFIRM_TITLE: Readonly<Record<string, string>> = {
-  create_project_folder: 'Projektordner anlegen',
-  write_obsidian_note: 'Obsidian-Notiz schreiben',
-  add_project: 'Projekt eintragen',
-  create_category: 'Art anlegen',
-  add_todo: 'TODO hinzufügen'
-}
-
-export const toolLabel = (name: string): string => TOOL_LABEL[name] ?? name
-export const confirmTitle = (tool: string): string => CONFIRM_TITLE[tool] ?? tool
+/** Beschriftung eines Werkzeugs; unbekannte Namen bleiben unverändert. */
+export const toolLabel = (name: string, t: Messages): string => t.assistant.toolLabels[name] ?? name
+export const confirmTitle = (tool: string, t: Messages): string => t.assistant.confirmTitles[tool] ?? tool
 
 export const clampAssistantWidth = (width: number): number =>
   Math.round(Math.min(ASSISTANT_MAX_WIDTH, Math.max(ASSISTANT_MIN_WIDTH, width)))

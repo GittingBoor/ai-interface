@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { LINK_PARTITION } from '@shared/links'
+import { currentT } from '@renderer/i18n/useT'
 
 /** Der Teil der Electron-`<webview>`-Schnittstelle, den die Ansicht braucht. */
 interface WebviewElement extends HTMLElement {
@@ -19,6 +20,12 @@ interface FailLoadEvent extends Event {
 const ERR_ABORTED = -3
 const NAVIGATION_EVENTS: readonly string[] = ['did-navigate', 'did-navigate-in-page']
 
+/** Fehlerart des letzten Ladevorgangs; der Text entsteht erst bei der Anzeige in der aktuellen Sprache. */
+interface LoadFailure {
+  readonly code: number
+  readonly description: string
+}
+
 export interface WebviewState {
   readonly loading: boolean
   readonly error: string | null
@@ -36,7 +43,7 @@ export interface WebviewState {
 export function useWebview(container: RefObject<HTMLDivElement | null>, url: string, partition: string = LINK_PARTITION): WebviewState {
   const view = useRef<WebviewElement | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<LoadFailure | null>(null)
   const [canGoBack, setCanGoBack] = useState(false)
 
   useEffect(() => {
@@ -49,12 +56,12 @@ export function useWebview(container: RefObject<HTMLDivElement | null>, url: str
     element.className = 'size-full'
     const onStart = (): void => {
       setLoading(true)
-      setError(null)
+      setFailure(null)
     }
     const onStop = (): void => setLoading(false)
     const onFail = (event: Event): void => {
       const fail = event as FailLoadEvent
-      if (fail.isMainFrame && fail.errorCode !== ERR_ABORTED) setError(fail.errorDescription || `Fehler ${fail.errorCode}`)
+      if (fail.isMainFrame && fail.errorCode !== ERR_ABORTED) setFailure({ code: fail.errorCode, description: fail.errorDescription })
     }
     const onNavigate = (): void => setCanGoBack(element.canGoBack())
     element.addEventListener('did-start-loading', onStart)
@@ -67,7 +74,7 @@ export function useWebview(container: RefObject<HTMLDivElement | null>, url: str
       view.current = null
       element.remove()
       setLoading(true)
-      setError(null)
+      setFailure(null)
       setCanGoBack(false)
     }
   }, [container, url, partition])
@@ -75,5 +82,6 @@ export function useWebview(container: RefObject<HTMLDivElement | null>, url: str
   const goBack = useCallback(() => view.current?.goBack(), [])
   const reload = useCallback(() => view.current?.reload(), [])
   const executeJavaScript = useCallback(async (code: string) => (view.current ? view.current.executeJavaScript(code) : null), [])
+  const error = failure ? failure.description || currentT().links.errorCode(failure.code) : null
   return { loading, error, canGoBack, goBack, reload, executeJavaScript }
 }

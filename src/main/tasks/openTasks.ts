@@ -4,11 +4,34 @@ export interface ParsedTask {
 }
 
 const SECTION = /^## /
-const OPEN_FIELD = /^\*\*Offen(?::\*\*|\*\*:)\s*(.*)$/
+/** Feldname „Offen“ je Sprache (de, en, es, fr, it, ja, zh); Groß-/Kleinschreibung ist egal. */
+const OPEN_FIELD_NAMES: readonly string[] = ['Offen', 'Open', 'Pendiente', 'Pendientes', 'À faire', 'Ouvert', 'Aperti', 'Da fare', '未完了', '待办', '未完成']
+/** Doppelpunkt: ASCII oder Vollbreite (CJK), innerhalb oder außerhalb der Hervorhebung. */
+const COLON = '[:：]'
+const OPEN_FIELD = new RegExp(String.raw`^\*\*(?:${OPEN_FIELD_NAMES.join('|')})(?:${COLON}\*\*|\*\*${COLON})[\s\u3000]*(.*)$`, 'i')
 const NEXT_FIELD = /^\*\*[^*]+\*\*/
 const LIST_ITEM = /^[-*]\s+(?:\[([ xX])\]\s+)?(.+)$/
-/** „Nichts offen“ in den üblichen Schreibweisen. */
-const NOTHING = /^(?:[-–—]|nichts(?: mehr)?(?: offen)?|keine(?:s)?(?: offenen (?:punkte|aufgaben))?)\.?$/i
+/** „Nichts offen“ je Sprache. Ganzer Text muss passen (kein ``, das bei CJK nicht greift). */
+const NOTHING_WORDS: readonly string[] = [
+  '[-–—]',
+  'nichts(?: mehr)?(?: offen)?',
+  'keine(?:s)?(?: offenen (?:punkte|aufgaben))?', // i18n-ignore: Erkennungsmuster, kein Nutzertext
+  'none',
+  'nothing',
+  'nada',
+  'ninguna',
+  'ninguno',
+  'rien',
+  'aucune?',
+  'niente',
+  'nessuna',
+  'nessuno',
+  'なし',
+  '無し',
+  '无',
+  '没有'
+]
+const NOTHING = new RegExp(`^(?:${NOTHING_WORDS.join('|')})[.。]?$`, 'i')
 
 /** Zeilen des letzten `## `-Abschnitts (ohne Überschrift: das ganze Dokument). */
 function lastSection(lines: readonly string[]): readonly string[] {
@@ -37,5 +60,5 @@ export function parseOpenTasks(markdown: string): ParsedTask[] {
 
 /** Vergleichsschlüssel einer Aufgabe: ohne Hervorhebung, Kleinschreibung, Leerraum zusammengefasst. */
 export function normalizeTask(text: string): string {
-  return text.replace(/[*`_]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('de-DE')
+  return text.replace(/[*`_]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('de-DE') // i18n-ignore: Vergleichsschlüssel, sprachunabhängig
 }

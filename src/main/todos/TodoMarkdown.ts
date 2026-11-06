@@ -1,9 +1,11 @@
+import { mainT } from '../i18n'
 import type { Priority, TodoChange, TodoItem } from '@shared/types'
 import { AppError, ValidationError } from '../errors'
 
 export class TodoNotFoundError extends AppError {
   constructor() {
-    super('TODO_NOT_FOUND', 'Der Eintrag existiert in der TODO-Datei nicht mehr.', 'TODOs neu laden, die Datei wurde extern geändert.')
+    const t = mainT().errors.todoNotFound
+    super('TODO_NOT_FOUND', t.message, t.hint)
   }
 }
 
@@ -122,9 +124,9 @@ export function parseTodos(markdown: string): TodoItem[] {
 }
 
 function validate(text: string, due: string | null): void {
-  if (!text.trim()) throw new ValidationError('Der TODO-Text darf nicht leer sein.')
-  if (/[\r\n]/.test(text)) throw new ValidationError('Der TODO-Text darf keinen Zeilenumbruch enthalten.')
-  if (due !== null && !DATE.test(due)) throw new ValidationError(`Ungültiges Datum „${due}“, erwartet JJJJ-MM-TT.`)
+  if (!text.trim()) throw new ValidationError(mainT().errors.todoEmpty)
+  if (/[\r\n]/.test(text)) throw new ValidationError(mainT().errors.todoNewline)
+  if (due !== null && !DATE.test(due)) throw new ValidationError(mainT().errors.todoDateInvalid(due))
 }
 
 function renderBody(text: string, priority: Priority, due: string | null, doneDate: string | null): string {

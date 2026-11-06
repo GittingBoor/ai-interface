@@ -7,6 +7,7 @@ import { fillSlots, moveInOrder, orchestratorFirst, placeInSlot } from '@rendere
 import { confirmAction } from './confirmStore'
 import { useNav } from './navStore'
 import { useSettings } from './settingsStore'
+import { currentT } from '@renderer/i18n/useT'
 
 const DEFAULT_COLS = 120
 const DEFAULT_ROWS = 32
@@ -15,7 +16,19 @@ const SIZE_SAVE_DELAY_MS = 500
 let initialized = false
 let sizeTimer: ReturnType<typeof setTimeout> | null = null
 
-const MODE_SUFFIX: Readonly<Record<LaunchMode, string>> = { new: '', continue: ' · fortgesetzt', resume: ' · fortgesetzt', shell: ' · Shell' }
+/** Zusatz im Terminal-Titel je Startart (in der Sprache beim Start). */
+function modeSuffix(mode: LaunchMode): string {
+  const t = currentT().frame.stores
+  switch (mode) {
+    case 'continue':
+    case 'resume':
+      return ` · ${t.terminalContinued}`
+    case 'shell':
+      return ` · ${t.terminalShell}`
+    default:
+      return ''
+  }
+}
 
 /** Wo ein Terminal startet: Projekt oder frei gewählter Ordner. */
 export interface LaunchTarget {
@@ -106,8 +119,9 @@ export const useTerminals = create<TerminalStore>((set, get) => {
       })
       // Von der App selbst geschlossen (z. B. Aufgaben-Prüfung fertig): ohne Rückfrage entfernen.
       api.on('terminal:closed', ({ id }) => {
-        if (!get().terminals.some((t) => t.id === id)) return
+        // Auch Hintergrundläufe (nicht in der Liste): ihr Ausgabepuffer würde sonst liegen bleiben.
         terminalRegistry.dispose(id)
+        if (!get().terminals.some((t) => t.id === id)) return
         const order = get().order.filter((o) => o !== id)
         const index = get().order.indexOf(id)
         const activeId = get().activeId === id ? (order[Math.min(index, order.length - 1)] ?? null) : get().activeId
@@ -164,7 +178,7 @@ export const useTerminals = create<TerminalStore>((set, get) => {
             host: target.host,
             path: target.path,
             mode,
-            title: title?.trim() || `${target.name}${MODE_SUFFIX[mode]}`,
+            title: title?.trim() || `${target.name}${modeSuffix(mode)}`,
             cols: DEFAULT_COLS,
             rows: DEFAULT_ROWS,
             ...(sessionId ? { sessionId } : {})
@@ -212,10 +226,11 @@ export const useTerminals = create<TerminalStore>((set, get) => {
       const info = get().terminals.find((t) => t.id === id)
       if (!info) return
       if (info.running) {
+        const t = currentT().frame.stores
         const ok = await confirmAction({
-          title: 'Laufendes Terminal schließen?',
-          message: `„${info.title}“ läuft noch. Beim Schließen wird der Prozess beendet.`,
-          confirmLabel: 'Beenden und schließen',
+          title: t.terminalCloseTitle,
+          message: t.terminalCloseMessage(info.title),
+          confirmLabel: t.terminalCloseConfirm,
           danger: true
         })
         if (!ok) return
@@ -228,7 +243,7 @@ export const useTerminals = create<TerminalStore>((set, get) => {
       commit({ terminals: get().terminals.filter((t) => t.id !== id), order, activeId })
     },
     markExited: (id, code) => {
-      terminalRegistry.writeNotice(id, `[Prozess beendet, Code ${code}]`)
+      terminalRegistry.writeNotice(id, currentT().frame.stores.processExited(code))
       set({
         terminals: get().terminals.map((t) => (t.id === id ? { ...t, running: false } : t)),
         exitCodes: { ...get().exitCodes, [id]: code }

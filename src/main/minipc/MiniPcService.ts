@@ -1,7 +1,9 @@
-import type { GitState, HostId, MiniPcInfo, MiniPcSnapshot } from '@shared/types'
+import { mainT } from '../i18n'
+import type { ClaudeAuth, GitState, HostId, MiniPcInfo, MiniPcSnapshot } from '@shared/types'
 import { NotFoundError, toErrorInfo } from '../errors'
 import type { Host } from '../hosts/Host'
-import { FETCH_ERROR, fetchScript, gitBatchScript, infoScript, systemScript } from './commands'
+import { claudeAuthScript, FETCH_ERROR, fetchScript, gitBatchScript, infoScript, systemScript } from './commands'
+import { parseClaudeAuth } from './parseClaudeAuth'
 import { parseGitStatusBatch } from './parseGitStatus'
 import { parseInfo } from './parseInfo'
 import { parseClaudeSessions, parseCounters, parseSystem } from './parseSystem'
@@ -51,8 +53,18 @@ export class MiniPcService {
       ?.slice(FETCH_ERROR.length + 1)
       .trim()
     const [state] = parseGitStatusBatch(stdout.split('\n').filter((l) => !l.startsWith(FETCH_ERROR)).join('\n'))
-    if (!state) throw new NotFoundError(`Git-Stand für ${path}`, 'Prüfen, ob der Ordner ein Git-Repository ist.')
+    if (!state) throw new NotFoundError(mainT().errors.what.gitState(path), mainT().errors.hints.gitRepo)
     return fetchError ? { ...state, error: fetchError } : state
+  }
+
+  /** Anmeldestand von Claude Code; ein nicht erreichbares Gerät ergibt `unknown` statt eines Fehlers. */
+  async claudeAuth(id: HostId): Promise<ClaudeAuth> {
+    try {
+      const { stdout } = await this.hosts(id).exec(claudeAuthScript())
+      return parseClaudeAuth(stdout, this.now())
+    } catch (error) {
+      return { state: 'unknown', reason: toErrorInfo(error).message, checkedAt: this.now() }
+    }
   }
 
   private async resolve(id: HostId, path: string): Promise<string> {

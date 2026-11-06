@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { ModelPrice, PriceTable as PriceTableType } from '@shared/types'
 import { Button, IconButton } from '@renderer/components/Button'
+import { currentT, useT } from '@renderer/i18n/useT'
 
 interface PriceRow {
   readonly key: number
@@ -13,7 +14,6 @@ interface PriceRow {
 }
 
 const PRICE_FIELDS = ['input', 'output', 'cacheWrite', 'cacheRead'] as const
-const FIELD_LABEL: Readonly<Record<(typeof PRICE_FIELDS)[number], string>> = { input: 'Input', output: 'Output', cacheWrite: 'Cache schreiben', cacheRead: 'Cache lesen' }
 
 let rowKey = 0
 const PRICE_DECIMALS = 6
@@ -24,11 +24,17 @@ function toRows(table: PriceTableType): PriceRow[] {
   return Object.entries(table).map(([model, p]) => ({ key: ++rowKey, model, input: toText(p.input), output: toText(p.output), cacheWrite: toText(p.cacheWrite), cacheRead: toText(p.cacheRead) }))
 }
 
-function validate(rows: readonly PriceRow[]): string | null {
+/** Fehlerart statt Text, damit die Meldung beim Sprachwechsel mitgeht. */
+type PriceProblem =
+  | { readonly kind: 'missingId' }
+  | { readonly kind: 'duplicateId' }
+  | { readonly kind: 'invalidPrice'; readonly model: string; readonly field: (typeof PRICE_FIELDS)[number] }
+
+function validate(rows: readonly PriceRow[]): PriceProblem | null {
   const names = rows.map((r) => r.model.trim())
-  if (names.some((n) => !n)) return 'Jede Zeile braucht eine Modell-ID.'
-  if (new Set(names).size !== names.length) return 'Jede Modell-ID darf nur einmal vorkommen.'
-  for (const r of rows) for (const f of PRICE_FIELDS) if (!Number.isFinite(toNumber(r[f])) || toNumber(r[f]) < 0) return `Ungültiger Preis bei „${r.model}“ (${FIELD_LABEL[f]}).`
+  if (names.some((n) => !n)) return { kind: 'missingId' }
+  if (new Set(names).size !== names.length) return { kind: 'duplicateId' }
+  for (const r of rows) for (const f of PRICE_FIELDS) if (!Number.isFinite(toNumber(r[f])) || toNumber(r[f]) < 0) return { kind: 'invalidPrice', model: r.model, field: f }
   return null
 }
 
@@ -39,10 +45,11 @@ interface PriceTableProps {
 
 /** Editierbare Preistabelle (USD pro Mio. Token). */
 export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Element {
+  const p = useT().settings.prices
   const [rows, setRows] = useState<PriceRow[]>(() => toRows(prices))
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [problem, setProblem] = useState<PriceProblem | null>(null)
 
   useEffect(() => {
     if (!dirty) setRows(toRows(prices))
@@ -54,9 +61,9 @@ export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Eleme
   }
 
   const save = async (): Promise<void> => {
-    const problem = validate(rows)
-    setError(problem)
-    if (problem) return
+    const found = validate(rows)
+    setProblem(found)
+    if (found) return
     const table: Record<string, ModelPrice> = {}
     for (const r of rows) table[r.model.trim()] = { input: toNumber(r.input), output: toNumber(r.output), cacheWrite: toNumber(r.cacheWrite), cacheRead: toNumber(r.cacheRead) }
     setSaving(true)
@@ -71,25 +78,25 @@ export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Eleme
         <table className="num w-full min-w-[40rem] border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="text-left text-ink-3">
-              <th className="px-2 pb-2 font-[520]">Modell-ID (Präfix)</th>
+              <th className="px-2 pb-2 font-[520]">{p.modelIdPrefix}</th>
               {PRICE_FIELDS.map((f) => (
                 <th key={f} className="w-[7.5rem] px-2 pb-2 text-right font-[520] whitespace-nowrap">
-                  {FIELD_LABEL[f]}
+                  {p.fields[f]}
                 </th>
               ))}
-              <th className="w-9 pb-2" aria-label="Aktionen" />
+              <th className="w-9 pb-2" aria-label={p.actions} />
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.key}>
                 <td className="border-t border-line px-1 py-1">
-                  <input aria-label="Modell-ID" value={r.model} onChange={(e) => edit(r.key, 'model', e.target.value)} spellCheck={false} className="field h-7 border-transparent bg-transparent font-mono text-xs hover:border-line focus:bg-canvas" />
+                  <input aria-label={p.modelId} value={r.model} onChange={(e) => edit(r.key, 'model', e.target.value)} spellCheck={false} className="field h-7 border-transparent bg-transparent font-mono text-xs hover:border-line focus:bg-canvas" />
                 </td>
                 {PRICE_FIELDS.map((f) => (
                   <td key={f} className="border-t border-line px-1 py-1">
                     <input
-                      aria-label={`${FIELD_LABEL[f]} für ${r.model || 'neues Modell'}`}
+                      aria-label={p.fieldFor(p.fields[f], r.model || p.newModel)}
                       inputMode="decimal"
                       value={r[f]}
                       onChange={(e) => edit(r.key, f, e.target.value)}
@@ -102,7 +109,7 @@ export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Eleme
                     size="sm"
                     tone="danger"
                     icon={Trash2}
-                    label={`${r.model || 'Zeile'} entfernen`}
+                    label={p.removeRow(r.model || p.row)}
                     onClick={() => {
                       setRows((list) => list.filter((x) => x.key !== r.key))
                       setDirty(true)
@@ -114,7 +121,11 @@ export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Eleme
           </tbody>
         </table>
       </div>
-      {error ? <p role="alert" className="mt-2 text-xs text-danger-ink">{error}</p> : null}
+      {problem ? (
+        <p role="alert" className="mt-2 text-xs text-danger-ink">
+          {problem.kind === 'missingId' ? p.errorMissingId : problem.kind === 'duplicateId' ? p.errorDuplicateId : p.errorInvalidPrice(problem.model, p.fields[problem.field])}
+        </p>
+      ) : null}
       <div className="mt-3 flex items-center justify-between gap-3">
         <Button
           size="sm"
@@ -125,7 +136,7 @@ export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Eleme
             setDirty(true)
           }}
         >
-          Zeile hinzufügen
+          {p.addRow}
         </Button>
         <div className="flex gap-2">
           {dirty ? (
@@ -134,15 +145,15 @@ export function PriceTable({ prices, onSave }: PriceTableProps): React.JSX.Eleme
               variant="ghost"
               onClick={() => {
                 setDirty(false)
-                setError(null)
+                setProblem(null)
                 setRows(toRows(prices))
               }}
             >
-              Verwerfen
+              {currentT().settings.discard}
             </Button>
           ) : null}
           <Button size="sm" variant="primary" disabled={!dirty} loading={saving} onClick={() => void save()}>
-            Preise speichern
+            {p.save}
           </Button>
         </div>
       </div>

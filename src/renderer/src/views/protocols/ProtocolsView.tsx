@@ -13,6 +13,8 @@ import { NoVault, useNoVault } from '@renderer/components/NoVault'
 import { renderMarkdown } from '@renderer/lib/markdown'
 import { formatBytes, formatDateTime, formatDayLong, formatRelative } from '@renderer/lib/format'
 import { useNav } from '@renderer/stores/navStore'
+import { activeTag } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
 
 const DATE_NAME = /^(\d{4}-\d{2}-\d{2})/
 const EXPAND_EASE = [0.16, 1, 0.3, 1] as const
@@ -39,11 +41,11 @@ function newestPath(groups: readonly ProtocolGroup[]): string | null {
 
 function matches(entry: ProtocolEntry, query: string): boolean {
   const { title, sub } = titleOf(entry.name)
-  return `${entry.name} ${title} ${sub ?? ''}`.toLocaleLowerCase('de-DE').includes(query)
+  return `${entry.name} ${title} ${sub ?? ''}`.toLocaleLowerCase(activeTag()).includes(query)
 }
 
 function filterGroups(groups: readonly ProtocolGroup[], rawQuery: string): ProtocolGroup[] {
-  const query = rawQuery.trim().toLocaleLowerCase('de-DE')
+  const query = rawQuery.trim().toLocaleLowerCase(activeTag())
   if (!query) return [...groups]
   return groups.map((g) => ({ ...g, entries: g.entries.filter((e) => matches(e, query)) })).filter((g) => g.entries.length > 0)
 }
@@ -119,6 +121,7 @@ function GroupSection({ group, open, selected, onToggle, onSelect }: GroupSectio
 }
 
 function DocumentView({ path }: { readonly path: string }): React.JSX.Element {
+  const t = useT()
   const [doc, setDoc] = useState<ProtocolDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -148,7 +151,7 @@ function DocumentView({ path }: { readonly path: string }): React.JSX.Element {
   return (
     <article>
       <p className="num mb-6 text-xs text-ink-3">
-        {doc.name} · geändert {formatDateTime(doc.modifiedAt)}
+        {doc.name} · {t.protocols.modified(formatDateTime(doc.modifiedAt))}
       </p>
       <div className="prose-log" dangerouslySetInnerHTML={{ __html: html }} />
     </article>
@@ -178,6 +181,7 @@ function useProtocolRequest(
 }
 
 export function ProtocolsView(): React.JSX.Element {
+  const t = useT()
   const [groups, setGroups] = useState<ProtocolGroup[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -213,9 +217,9 @@ export function ProtocolsView(): React.JSX.Element {
   if (noVault) {
     return (
       <div className="flex h-full flex-col">
-        <ViewHeader title="Protokolle">Markdown-Protokolle aus deinem Obsidian-Vault</ViewHeader>
+        <ViewHeader title={t.frame.views.protocols}>{t.protocols.description}</ViewHeader>
         <div className="px-8">
-          <NoVault what="Protokolle" />
+          <NoVault what={t.frame.views.protocols} />
         </div>
       </div>
     )
@@ -223,22 +227,22 @@ export function ProtocolsView(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Protokolle" actions={<IconButton icon={RefreshCw} label="Neu laden" onClick={load} />}>
-        {projectCount ? `Protokollordner aus ${projectCount} ${projectCount === 1 ? 'Projekt' : 'Projekten'} im Vault, nur lesen` : 'Protokollordner der Projekte im Vault, nur lesen'}
+      <ViewHeader title={t.frame.views.protocols} actions={<IconButton icon={RefreshCw} label={t.protocols.reload} onClick={load} />}>
+        {projectCount ? t.protocols.subtitleCount(projectCount) : t.protocols.subtitleNone}
       </ViewHeader>
       <div className="flex min-h-0 flex-1 border-t border-line/70">
-        <nav aria-label="Protokolle" className="flex w-[18rem] shrink-0 flex-col border-r border-line/70">
+        <nav aria-label={t.protocols.navLabel} className="flex w-[18rem] shrink-0 flex-col border-r border-line/70">
           <label className="relative mx-4 mt-4 mb-2 block">
-            <span className="sr-only">Protokolle durchsuchen</span>
+            <span className="sr-only">{t.protocols.searchLabel}</span>
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-3" aria-hidden />
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Datum oder Titel" className="field pl-8" />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.protocols.searchPlaceholder} className="field pl-8" />
           </label>
           <div className="flex-1 overflow-y-auto px-2 pb-4">
             {error ? <div className="px-2"><ErrorState message={error} onRetry={load} /></div> : null}
             {!groups && !error ? <div className="px-2 pt-2"><SkeletonRows rows={5} /></div> : null}
             {groups && filtered.length === 0 ? (
               <p className="px-3 py-4 text-xs text-ink-3">
-                {groups.length ? 'Keine Treffer.' : 'Keine Protokollordner gefunden. Angezeigt werden Ordner namens „Protokoll“ in Projekten, die im Obsidian-Vault liegen.'}
+                {groups.length ? t.protocols.noMatches : t.protocols.noFolders}
               </p>
             ) : null}
             <ul className="space-y-1">
@@ -255,8 +259,8 @@ export function ProtocolsView(): React.JSX.Element {
                 <DocumentView path={selected} />
               </motion.div>
             ) : groups ? (
-              <EmptyState icon={NotebookText} illustration={<EmptyProtocolsIllustration />} title="Kein Protokoll ausgewählt">
-                Protokolle liegen als Markdown im Vault und werden hier nur gelesen. Bearbeitet werden sie in Obsidian.
+              <EmptyState icon={NotebookText} illustration={<EmptyProtocolsIllustration />} title={t.protocols.emptyTitle}>
+                {t.protocols.emptyBody}
               </EmptyState>
             ) : null}
           </AnimatePresence>

@@ -2,26 +2,21 @@ import { motion } from 'motion/react'
 import { ArrowDownRight, ArrowUpRight, CircleDashed } from 'lucide-react'
 import type { AnalyticsMetric, AnalyticsRange, AnalyticsResult } from '@shared/types'
 import { AnimatedNumber } from '@renderer/components/AnimatedNumber'
-import { changeRatio, formatMetric, METRIC_LABEL } from '@renderer/lib/analytics'
+import { changeRatio, formatMetric, metricLabel } from '@renderer/lib/analytics'
+import { localized } from '@renderer/i18n/activeLocale'
+import { useT } from '@renderer/i18n/useT'
 
 const METRICS: readonly AnalyticsMetric[] = ['tokens', 'cost', 'hours', 'prompts', 'sessions']
 
-const PREVIOUS_TEXT: Readonly<Record<AnalyticsRange, string>> = {
-  '7d': 'ggü. Vorwoche',
-  '30d': 'ggü. 30 Tagen davor',
-  '90d': 'ggü. Quartal davor',
-  '365d': 'ggü. Vorjahr',
-  all: ''
-}
-
-const change = new Intl.NumberFormat('de-DE', { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+const change = localized((tag) => new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' }))
 
 function Change({ ratio, range }: { readonly ratio: number | null; readonly range: AnalyticsRange }): React.JSX.Element {
+  const t = useT().usage.analytics.tiles
   if (ratio === null) {
-    const why = range === 'all' ? 'Bei „Gesamt“ gibt es keinen Vergleich.' : 'Der Zeitraum davor liegt vor Beginn der Daten oder war leer.'
+    const why = range === 'all' ? t.noCompareAll : t.noCompareEmpty
     return (
       <span className="text-ink-3" title={why}>
-        –<span className="sr-only">kein Vergleich. {why}</span>
+        –<span className="sr-only">{t.noCompareSr(why)}</span>
       </span>
     )
   }
@@ -31,9 +26,9 @@ function Change({ ratio, range }: { readonly ratio: number | null; readonly rang
     <span className="flex min-w-0 items-center gap-1">
       <span className={`num inline-flex items-center gap-0.5 font-[600] ${ratio === 0 ? 'text-ink-2' : up ? 'text-status-idle' : 'text-danger-ink'}`}>
         {ratio === 0 ? null : <Icon className="size-3.5" aria-hidden strokeWidth={2.25} />}
-        {change.format(ratio)}
+        {change().format(ratio)}
       </span>
-      <span className="truncate text-ink-3">{PREVIOUS_TEXT[range]}</span>
+      <span className="truncate text-ink-3">{range === 'all' ? '' : t.previous[range]}</span>
     </span>
   )
 }
@@ -47,6 +42,7 @@ interface MetricTilesProps {
 
 /** Fünf Kennzahlen des Zeitraums; die gewählte Kachel bestimmt die Kennzahl aller Diagramme. */
 export function MetricTiles({ result, range, metric, onSelect }: MetricTilesProps): React.JSX.Element {
+  const messages = useT().usage
   const move = (dir: 1 | -1): void => {
     const next = METRICS[(METRICS.indexOf(metric) + dir + METRICS.length) % METRICS.length]
     if (next) onSelect(next)
@@ -54,7 +50,7 @@ export function MetricTiles({ result, range, metric, onSelect }: MetricTilesProp
   return (
     <div
       role="radiogroup"
-      aria-label="Kennzahl der Diagramme"
+      aria-label={messages.analytics.tiles.aria}
       className="grid grid-cols-5 border-y border-line @max-[46rem]/content:grid-cols-3 @max-[28rem]/content:grid-cols-2"
       onKeyDown={(e) => {
         if (e.key === 'ArrowRight') move(1)
@@ -76,7 +72,7 @@ export function MetricTiles({ result, range, metric, onSelect }: MetricTilesProp
             {active ? (
               <motion.span layoutId="metric-tile-mark" aria-hidden className="absolute inset-x-0 -top-px h-0.5 rounded-full bg-accent" transition={{ type: 'spring', bounce: 0.12, duration: 0.4 }} />
             ) : null}
-            <span className={`block text-xs font-[560] transition-colors duration-150 ${active ? 'text-accent-text' : 'text-ink-2'}`}>{METRIC_LABEL[m]}</span>
+            <span className={`block text-xs font-[560] transition-colors duration-150 ${active ? 'text-accent-text' : 'text-ink-2'}`}>{metricLabel(m)}</span>
             <AnimatedNumber
               value={result.totals[m]}
               format={(v) => formatMetric(m, v)}
@@ -86,10 +82,10 @@ export function MetricTiles({ result, range, metric, onSelect }: MetricTilesProp
               <Change ratio={result.previous ? changeRatio(result.totals[m], result.previous[m]) : null} range={range} />
             </span>
             {m === 'cost' && result.hasUnpriced ? (
-              <span title="Enthält Token von Modellen ohne hinterlegten Preis. Preise in den Einstellungen ergänzen." className="mt-1 inline-flex items-center gap-1 text-2xs text-warn">
+              <span title={messages.unpriced.title} className="mt-1 inline-flex items-center gap-1 text-2xs text-warn">
                 <CircleDashed className="size-3" aria-hidden />
-                <span className="sr-only">Enthält unbepreiste Modelle</span>
-                <span aria-hidden>+ unbepreist</span>
+                <span className="sr-only">{messages.unpriced.sr}</span>
+                <span aria-hidden>{messages.unpriced.badge}</span>
               </span>
             ) : null}
           </button>

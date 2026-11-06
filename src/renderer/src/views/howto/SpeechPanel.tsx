@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Download, Trash2 } from 'lucide-react'
-import { SPEECH_HOTKEY_KEYS, SPEECH_MODELS } from '@shared/speech'
+import { SPEECH_MODELS, speechHotkeyKeys, speechModelText } from '@shared/speech'
+import { useT } from '@renderer/i18n/useT'
 import { Button } from '@renderer/components/Button'
 import { Field, Switch } from '@renderer/components/Controls'
 import { Section } from '@renderer/components/Section'
@@ -22,6 +23,7 @@ function useMicrophones(): readonly MediaDeviceInfo[] {
 }
 
 export function SpeechPanel(): React.JSX.Element {
+  const t = useT()
   const status = useSpeech((s) => s.status)
   const { selectModel, removeModel, openSetup, loadStatus } = useSpeech.getState()
   const settings = useSettings((s) => s.settings)
@@ -32,17 +34,17 @@ export function SpeechPanel(): React.JSX.Element {
     void loadStatus()
   }, [loadStatus])
 
-  if (!settings) return <Section title="Spracheingabe">Lädt …</Section>
+  if (!settings) return <Section title={t.speech.title}>{t.common.loading}</Section>
   if (status?.supported === false) {
     return (
-      <Section title="Spracheingabe" description="Nur unter Windows automatisch eingerichtet. Hier Win+H bzw. /voice nutzen.">
+      <Section title={t.speech.title} description={t.speech.unsupportedDescription}>
         {null}
       </Section>
     )
   }
 
   return (
-    <Section id="speech" title="Spracheingabe" description="whisper.cpp läuft lokal auf der Grafikkarte (Vulkan). Nichts verlässt den PC.">
+    <Section id="speech" title={t.speech.title} description={t.speech.description}>
       <ul className="divide-y divide-line rounded-lg border border-line">
         {SPEECH_MODELS.map((m) => {
           const installed = status?.installedModels.includes(m.id) ?? false
@@ -59,18 +61,18 @@ export function SpeechPanel(): React.JSX.Element {
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[0.8125rem] font-[560] text-ink">
-                    {m.label} <span className="num font-normal text-ink-3">· {Math.round(m.bytes / MB)} MB</span>
+                    {speechModelText(m.id, t).label} <span className="num font-normal text-ink-3">· {Math.round(m.bytes / MB)} MB</span>
                   </span>
-                  <span className="block text-xs text-ink-3">{m.description}</span>
+                  <span className="block text-xs text-ink-3">{speechModelText(m.id, t).description}</span>
                 </span>
               </label>
               {installed ? (
-                <Button size="sm" variant="ghost" icon={Trash2} aria-label={`Modell ${m.label} entfernen`} onClick={() => void removeModel(m.id)}>
-                  Entfernen
+                <Button size="sm" variant="ghost" icon={Trash2} aria-label={t.speech.removeAria(speechModelText(m.id, t).label)} onClick={() => void removeModel(m.id)}>
+                  {t.speech.remove}
                 </Button>
               ) : (
-                <Button size="sm" variant="soft" icon={Download} aria-label={`Modell ${m.label} laden`} onClick={() => openSetup(m.id)}>
-                  Laden
+                <Button size="sm" variant="soft" icon={Download} aria-label={t.speech.loadAria(speechModelText(m.id, t).label)} onClick={() => openSetup(m.id)}>
+                  {t.speech.load}
                 </Button>
               )}
             </li>
@@ -78,7 +80,7 @@ export function SpeechPanel(): React.JSX.Element {
         })}
       </ul>
       <div className="mt-4 grid gap-4">
-        <Field label="Mikrofon">
+        <Field label={t.speech.microphone}>
           {(id) => (
             <select
               id={id}
@@ -86,10 +88,10 @@ export function SpeechPanel(): React.JSX.Element {
               onChange={(e) => void update({ speech: { ...settings.speech, deviceId: e.target.value } })}
               className="field text-[0.8125rem]"
             >
-              <option value="">Windows-Standard</option>
+              <option value="">{t.speech.windowsDefault}</option>
               {microphones.map((d) => (
                 <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || 'Mikrofon (Name nach erster Aufnahme)'}
+                  {d.label || t.speech.microphoneUnnamed}
                 </option>
               ))}
             </select>
@@ -97,8 +99,8 @@ export function SpeechPanel(): React.JSX.Element {
         </Field>
         <Switch
           checked={settings.speech.hotkeyEnabled}
-          label={`Tastenkürzel ${SPEECH_HOTKEY_KEYS.join('+')}`}
-          description="Startet und stoppt das Diktat ohne Maus. Standardmäßig aus."
+          label={t.speech.hotkeyLabel(speechHotkeyKeys(t).join('+'))}
+          description={t.speech.hotkeyDescription}
           onChange={(v) => void update({ speech: { ...settings.speech, hotkeyEnabled: v } })}
         />
       </div>

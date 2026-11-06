@@ -14,15 +14,14 @@ import { confirmAction } from '@renderer/stores/confirmStore'
 import { notify } from '@renderer/stores/toastStore'
 import { FAVORITE_COLORS } from '@renderer/lib/hosts'
 import { moveBy } from '@renderer/lib/projectOrganize'
+import { currentT, useT } from '@renderer/i18n/useT'
 
 const FALLBACK_COLOR = '#a39e96'
 const EXPAND_EASE = [0.16, 1, 0.3, 1] as const
 
-const projectCount = (n: number): string => (n === 1 ? '1 Projekt' : `${n} Projekte`)
-
 function nameTaken(categories: readonly Category[], name: string, exceptId: number | null): boolean {
-  const wanted = name.trim().toLocaleLowerCase('de-DE')
-  return categories.some((c) => c.id !== exceptId && c.name.toLocaleLowerCase('de-DE') === wanted)
+  const wanted = name.trim().toLocaleLowerCase('de-DE') // i18n-ignore: Vergleich wie im Backend (CategoriesRepo)
+  return categories.some((c) => c.id !== exceptId && c.name.toLocaleLowerCase('de-DE') === wanted) // i18n-ignore: s. o.
 }
 
 interface NameFieldProps {
@@ -32,6 +31,7 @@ interface NameFieldProps {
 
 /** Name als Knopf; Klick macht daraus ein Eingabefeld (Enter speichert, Esc verwirft). */
 function NameField({ category, categories }: NameFieldProps): React.JSX.Element {
+  const t = useT().projects.categories
   const update = useCategories((s) => s.update)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(category.name)
@@ -46,8 +46,8 @@ function NameField({ category, categories }: NameFieldProps): React.JSX.Element 
 
   const save = async (): Promise<void> => {
     const trimmed = name.trim()
-    if (!trimmed) return setError('Name darf nicht leer sein.')
-    if (nameTaken(categories, trimmed, category.id)) return setError(`„${trimmed}“ gibt es schon.`)
+    if (!trimmed) return setError(t.nameEmpty)
+    if (nameTaken(categories, trimmed, category.id)) return setError(t.nameTaken(trimmed))
     if (trimmed !== category.name && !(await update(category.id, { name: trimmed }))) return
     setError(null)
     setEditing(false)
@@ -58,7 +58,7 @@ function NameField({ category, categories }: NameFieldProps): React.JSX.Element 
       <button
         type="button"
         onClick={() => setEditing(true)}
-        title="Umbenennen"
+        title={t.rename}
         className="min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-[0.8125rem] font-[580] text-ink transition-colors hover:bg-raised-2"
       >
         {category.name}
@@ -70,7 +70,7 @@ function NameField({ category, categories }: NameFieldProps): React.JSX.Element 
       <input
         autoFocus
         data-own-escape
-        aria-label={`Name der Art ${category.name}`}
+        aria-label={t.nameOf(category.name)}
         aria-invalid={error !== null}
         value={name}
         onChange={(e) => {
@@ -106,20 +106,23 @@ interface CategoryRowProps {
 
 function CategoryRow(props: CategoryRowProps): React.JSX.Element {
   const { category, categories, index, count, expanded, dragging } = props
+  const t = useT().projects.categories
   const update = useCategories((s) => s.update)
   const remove = useCategories((s) => s.remove)
   const [picking, setPicking] = useState(false)
 
   const onDelete = async (): Promise<void> => {
+    const { projects, common } = currentT()
+    const msg = projects.categories
     const ok = await confirmAction({
-      title: `Art „${category.name}“ löschen?`,
-      message: count > 0 ? `${projectCount(count)} ${count === 1 ? 'wird' : 'werden'} „Ohne Art“. Die Projekte selbst bleiben erhalten.` : 'Keinem Projekt ist diese Art zugeordnet.',
-      confirmLabel: 'Löschen',
+      title: msg.deleteTitle(category.name),
+      message: count > 0 ? msg.deleteMessage(count) : msg.deleteUnused,
+      confirmLabel: common.delete,
       danger: true
     })
     if (!ok) return
     const affected = await remove(category.id)
-    if (affected !== null) notify.success(affected > 0 ? `„${category.name}“ gelöscht, ${projectCount(affected)} jetzt ohne Art.` : `„${category.name}“ gelöscht.`)
+    if (affected !== null) notify.success(affected > 0 ? msg.deletedWithProjects(category.name, affected) : msg.deleted(category.name))
   }
 
   return (
@@ -145,29 +148,29 @@ function CategoryRow(props: CategoryRowProps): React.JSX.Element {
         <button
           type="button"
           onClick={() => setPicking(true)}
-          aria-label={`Symbol von ${category.name} ändern`}
-          title="Symbol ändern"
+          aria-label={t.changeIconAria(category.name)}
+          title={t.changeIcon}
           className="rounded-lg transition-transform duration-150 hover:scale-105 active:scale-95"
         >
           <ProjectMark color={category.color} icon={category.icon} size="lg" />
         </button>
         <NameField category={category} categories={categories} />
-        <span className="num w-[4.5rem] shrink-0 text-right text-2xs text-ink-3">{projectCount(count)}</span>
+        <span className="num w-[4.5rem] shrink-0 text-right text-2xs text-ink-3">{t.projectCount(count)}</span>
         <button
           type="button"
           onClick={props.onToggleColor}
           aria-expanded={expanded}
-          aria-label={`Farbe von ${category.name} ändern`}
-          title="Farbe ändern"
+          aria-label={t.changeColorAria(category.name)}
+          title={t.changeColor}
           className={`grid size-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-raised-2 ${expanded ? 'bg-raised-2' : ''}`}
         >
           <span className="size-3.5 rounded-[4px]" style={{ background: category.color }} />
         </button>
         <div className="flex shrink-0">
-          <IconButton size="sm" icon={ChevronUp} label={`${category.name} nach oben`} disabled={index === 0} onClick={() => props.onMove(-1)} />
-          <IconButton size="sm" icon={ChevronDown} label={`${category.name} nach unten`} disabled={index === categories.length - 1} onClick={() => props.onMove(1)} />
+          <IconButton size="sm" icon={ChevronUp} label={t.up(category.name)} disabled={index === 0} onClick={() => props.onMove(-1)} />
+          <IconButton size="sm" icon={ChevronDown} label={t.down(category.name)} disabled={index === categories.length - 1} onClick={() => props.onMove(1)} />
         </div>
-        <IconButton size="sm" tone="danger" icon={Trash2} label={`${category.name} löschen`} onClick={() => void onDelete()} />
+        <IconButton size="sm" tone="danger" icon={Trash2} label={t.deleteAria(category.name)} onClick={() => void onDelete()} />
       </div>
       <AnimatePresence initial={false}>
         {expanded ? (
@@ -179,7 +182,7 @@ function CategoryRow(props: CategoryRowProps): React.JSX.Element {
             className="overflow-hidden"
           >
             <div className="pt-1 pb-3 pl-[3.25rem]">
-              <ColorPicker label={`Farbe von ${category.name}`} value={category.color} onChange={(color) => void update(category.id, { color })} />
+              <ColorPicker label={t.colorOf(category.name)} value={category.color} onChange={(color) => void update(category.id, { color })} />
             </div>
           </motion.div>
         ) : null}
@@ -188,7 +191,7 @@ function CategoryRow(props: CategoryRowProps): React.JSX.Element {
         open={picking}
         value={category.icon}
         color={category.color}
-        subject={`Art „${category.name}“`}
+        subject={t.subject(category.name)}
         onClose={() => setPicking(false)}
         onSelect={(icon) => void update(category.id, { icon })}
       />
@@ -197,6 +200,7 @@ function CategoryRow(props: CategoryRowProps): React.JSX.Element {
 }
 
 function NewCategoryForm({ categories }: { readonly categories: readonly Category[] }): React.JSX.Element {
+  const t = useT().projects.categories
   const add = useCategories((s) => s.add)
   const nextColor = FAVORITE_COLORS[categories.length % FAVORITE_COLORS.length] ?? FALLBACK_COLOR
   const [name, setName] = useState('')
@@ -207,8 +211,8 @@ function NewCategoryForm({ categories }: { readonly categories: readonly Categor
 
   const submit = async (): Promise<void> => {
     const trimmed = name.trim()
-    if (!trimmed) return setError('Bitte einen Namen eingeben.')
-    if (nameTaken(categories, trimmed, null)) return setError(`„${trimmed}“ gibt es schon.`)
+    if (!trimmed) return setError(t.nameRequired)
+    if (nameTaken(categories, trimmed, null)) return setError(t.nameTaken(trimmed))
     setSaving(true)
     const created = await add({ name: trimmed, color: nextColor, icon })
     setSaving(false)
@@ -230,8 +234,8 @@ function NewCategoryForm({ categories }: { readonly categories: readonly Categor
         <button
           type="button"
           onClick={() => setPicking(true)}
-          aria-label="Symbol der neuen Art wählen"
-          title="Symbol wählen"
+          aria-label={t.newIconAria}
+          title={t.newIconTitle}
           className="rounded-lg transition-transform duration-150 hover:scale-105 active:scale-95"
         >
           <ProjectMark color={nextColor} icon={icon} size="lg" />
@@ -242,17 +246,17 @@ function NewCategoryForm({ categories }: { readonly categories: readonly Categor
             setName(e.target.value)
             setError(null)
           }}
-          aria-label="Name der neuen Art"
+          aria-label={t.newNameAria}
           aria-invalid={error !== null}
-          placeholder="Neue Art, z. B. Musik"
+          placeholder={t.newPlaceholder}
           className="field flex-1"
         />
         <Button type="submit" variant="soft" icon={Plus} loading={saving}>
-          Anlegen
+          {t.create}
         </Button>
       </div>
       {error ? <p className="mt-1.5 pl-10 text-xs text-danger-ink">{error}</p> : null}
-      <IconPicker open={picking} value={icon} color={nextColor} subject={name.trim() || 'Neue Art'} onClose={() => setPicking(false)} onSelect={setIcon} />
+      <IconPicker open={picking} value={icon} color={nextColor} subject={name.trim() || t.newSubject} onClose={() => setPicking(false)} onSelect={setIcon} />
     </form>
   )
 }
@@ -264,6 +268,8 @@ interface CategoryManagerProps {
 
 /** Dialog „Arten verwalten“: sortieren, anlegen, umbenennen, Farbe, Symbol, löschen. */
 export function CategoryManager({ open, onClose }: CategoryManagerProps): React.JSX.Element {
+  const { projects, common } = useT()
+  const t = projects.categories
   const categories = useCategories((s) => s.categories)
   const reorder = useCategories((s) => s.reorder)
   const favorites = useFavorites((s) => s.favorites)
@@ -290,26 +296,26 @@ export function CategoryManager({ open, onClose }: CategoryManagerProps): React.
   return (
     <Modal
       open={open}
-      label="Arten verwalten"
+      label={t.title}
       onClose={onClose}
       className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-line-strong/70 bg-raised shadow-[0_24px_60px_-12px_oklch(0_0_0/0.7)]"
     >
       <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-3">
         <div>
-          <h2 className="text-[0.9375rem] font-[640] text-ink">Arten verwalten</h2>
-          <p className="mt-1 text-xs leading-relaxed text-ink-3">Arten gruppieren deine Projekte. Die Reihenfolge hier gilt für Gruppen und Filter.</p>
+          <h2 className="text-[0.9375rem] font-[640] text-ink">{t.title}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-ink-3">{t.intro}</p>
         </div>
-        <IconButton size="sm" icon={X} label="Schließen" onClick={onClose} />
+        <IconButton size="sm" icon={X} label={common.close} onClick={onClose} />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
         {ordered.length === 0 ? (
           <div className="px-1">
-            <EmptyState icon={Tags} title="Noch keine Arten" compact>
-              Lege unten eine Art an, z. B. Programmieren oder Uni.
+            <EmptyState icon={Tags} title={t.emptyTitle} compact>
+              {t.emptyBody}
             </EmptyState>
           </div>
         ) : (
-          <ul aria-label="Arten, per Ziehen oder Pfeilknöpfe sortierbar" className="space-y-0.5">
+          <ul aria-label={t.listAria} className="space-y-0.5">
             {ordered.map((category, index) => (
               <CategoryRow
                 key={category.id}

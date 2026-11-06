@@ -7,6 +7,7 @@ import { Field } from '@renderer/components/Controls'
 import { galleryImageUrl } from '@renderer/lib/imageUrl'
 import { formatBytes, formatDateTime } from '@renderer/lib/format'
 import { Modal } from '@renderer/components/Modal'
+import { useT } from '@renderer/i18n/useT'
 
 interface LightboxProps {
   readonly images: readonly ImageMeta[]
@@ -20,6 +21,7 @@ interface LightboxProps {
 const parseTags = (text: string): string[] => [...new Set(text.split(',').map((t) => t.trim()).filter(Boolean))]
 
 function MetaEditor({ image, favorites, onUpdate }: { readonly image: ImageMeta; readonly favorites: readonly Favorite[]; onUpdate: LightboxProps['onUpdate'] }): React.JSX.Element {
+  const t = useT()
   const [title, setTitle] = useState(image.title)
   const [tags, setTags] = useState(image.tags.join(', '))
   useEffect(() => {
@@ -37,20 +39,20 @@ function MetaEditor({ image, favorites, onUpdate }: { readonly image: ImageMeta;
 
   return (
     <div className="space-y-4">
-      <Field label="Titel">
+      <Field label={t.gallery.lightbox.fieldTitle}>
         {(id) => (
           <input id={id} value={title} onChange={(e) => setTitle(e.target.value)} onBlur={saveTitle} onKeyDown={(e) => e.key === 'Enter' && saveTitle()} className="field" />
         )}
       </Field>
-      <Field label="Tags" hint="Mit Komma trennen">
+      <Field label={t.gallery.lightbox.fieldTags} hint={t.gallery.lightbox.tagsHint}>
         {(id, d) => (
-          <input id={id} aria-describedby={d} value={tags} onChange={(e) => setTags(e.target.value)} onBlur={saveTags} onKeyDown={(e) => e.key === 'Enter' && saveTags()} className="field" placeholder="entwurf, ui" />
+          <input id={id} aria-describedby={d} value={tags} onChange={(e) => setTags(e.target.value)} onBlur={saveTags} onKeyDown={(e) => e.key === 'Enter' && saveTags()} className="field" placeholder={t.gallery.lightbox.tagsPlaceholder} />
         )}
       </Field>
-      <Field label="Projekt">
+      <Field label={t.gallery.lightbox.fieldProject}>
         {(id) => (
           <select id={id} value={image.project ?? ''} onChange={(e) => void onUpdate(image.id, { project: e.target.value || null })} className="field">
-            <option value="">Ohne Projekt</option>
+            <option value="">{t.gallery.lightbox.noProject}</option>
             {favorites.map((f) => (
               <option key={f.id} value={f.path}>
                 {f.name}
@@ -64,6 +66,7 @@ function MetaEditor({ image, favorites, onUpdate }: { readonly image: ImageMeta;
 }
 
 export function Lightbox({ images, index, favorites, onIndex, onUpdate, onDelete }: LightboxProps): React.JSX.Element {
+  const t = useT()
   const image = index !== null ? images[index] : undefined
   const [direction, setDirection] = useState(0)
 
@@ -88,7 +91,7 @@ export function Lightbox({ images, index, favorites, onIndex, onUpdate, onDelete
   return (
     <Modal
       open={image !== undefined}
-      label={image ? `Bild: ${image.title}` : 'Bild'}
+      label={image ? t.gallery.lightbox.label(image.title) : t.gallery.lightbox.labelFallback}
       onClose={() => onIndex(null)}
       backdrop="bg-[oklch(0.1_0.004_70/0.92)]"
       className="flex h-[min(88vh,56rem)] w-[min(92vw,90rem)] overflow-hidden rounded-xl border border-line bg-canvas shadow-[0_30px_80px_-20px_oklch(0_0_0/0.8)]"
@@ -110,8 +113,8 @@ export function Lightbox({ images, index, favorites, onIndex, onUpdate, onDelete
             </AnimatePresence>
             {images.length > 1 ? (
               <>
-                <IconButton icon={ChevronLeft} label="Vorheriges Bild (Pfeil links)" onClick={() => step(-1)} className="absolute top-1/2 left-3 size-10 -translate-y-1/2 rounded-full bg-canvas/70 text-ink-2" />
-                <IconButton icon={ChevronRight} label="Nächstes Bild (Pfeil rechts)" onClick={() => step(1)} className="absolute top-1/2 right-3 size-10 -translate-y-1/2 rounded-full bg-canvas/70 text-ink-2" />
+                <IconButton icon={ChevronLeft} label={t.gallery.lightbox.previous} onClick={() => step(-1)} className="absolute top-1/2 left-3 size-10 -translate-y-1/2 rounded-full bg-canvas/70 text-ink-2" />
+                <IconButton icon={ChevronRight} label={t.gallery.lightbox.next} onClick={() => step(1)} className="absolute top-1/2 right-3 size-10 -translate-y-1/2 rounded-full bg-canvas/70 text-ink-2" />
               </>
             ) : null}
             <p className="num absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-canvas/70 px-2.5 py-1 text-2xs text-ink-2">
@@ -120,21 +123,21 @@ export function Lightbox({ images, index, favorites, onIndex, onUpdate, onDelete
           </div>
           <aside className="flex w-[20rem] shrink-0 flex-col border-l border-line bg-base p-5">
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-[0.875rem] font-[620] text-ink">Details</h2>
-              <IconButton icon={X} label="Schließen (Esc)" onClick={() => onIndex(null)} data-autofocus />
+              <h2 className="text-[0.875rem] font-[620] text-ink">{t.gallery.lightbox.details}</h2>
+              <IconButton icon={X} label={t.gallery.lightbox.closeEsc} onClick={() => onIndex(null)} data-autofocus />
             </div>
             <MetaEditor image={image} favorites={favorites} onUpdate={onUpdate} />
             <dl className="num mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 border-t border-line pt-4 text-xs">
-              <dt className="text-ink-3">Datei</dt>
+              <dt className="text-ink-3">{t.gallery.lightbox.file}</dt>
               <dd className="truncate text-right font-mono text-2xs text-ink-2">{image.fileName}</dd>
-              <dt className="text-ink-3">Größe</dt>
+              <dt className="text-ink-3">{t.gallery.lightbox.size}</dt>
               <dd className="text-right text-ink-2">{formatBytes(image.bytes)}</dd>
-              <dt className="text-ink-3">Hinzugefügt</dt>
+              <dt className="text-ink-3">{t.gallery.lightbox.addedOn}</dt>
               <dd className="text-right text-ink-2">{formatDateTime(image.createdAt)}</dd>
             </dl>
             <div className="mt-auto pt-5">
               <Button variant="ghost" icon={Trash2} onClick={() => void onDelete(image)} className="-ml-3 text-danger-ink hover:bg-danger-soft hover:text-danger-ink">
-                Bild löschen
+                {t.gallery.lightbox.deleteImage}
               </Button>
             </div>
           </aside>

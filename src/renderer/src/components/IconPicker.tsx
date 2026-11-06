@@ -4,6 +4,7 @@ import { DynamicIcon } from 'lucide-react/dynamic'
 import { formatIcon, isValidIcon, parseIcon } from '@shared/projectIcon'
 import { searchIcons } from '@renderer/lib/lucideIcons'
 import { EMOJI_GROUPS, searchEmoji, type EmojiEntry } from '@renderer/lib/emojiList'
+import { useT } from '@renderer/i18n/useT'
 import { Button } from './Button'
 import { Kbd, Segmented } from './Controls'
 import { Modal } from './Modal'
@@ -64,10 +65,11 @@ function Cell({ label, selected, onPick, children }: CellProps): React.JSX.Eleme
 }
 
 function IconGrid({ query, value, color, onPick }: { readonly query: string; readonly value: string | null; readonly color: string; onPick(icon: string): void }): React.JSX.Element {
+  const t = useT()
   const names = useMemo(() => searchIcons(query, MAX_ICON_RESULTS), [query])
-  if (!names.length) return <p className="px-1 py-10 text-center text-xs text-ink-3">Kein Icon passt zu „{query}“. Suche auf Englisch, z. B. „house“ oder „music“.</p>
+  if (!names.length) return <p className="px-1 py-10 text-center text-xs text-ink-3">{t.frame.iconPicker.noIcon(query)}</p>
   return (
-    <div role="group" aria-label="Icons" onKeyDown={moveFocus} className="grid grid-cols-10 gap-1">
+    <div role="group" aria-label={t.frame.iconPicker.tabIcons} onKeyDown={moveFocus} className="grid grid-cols-10 gap-1">
       {names.map((name) => {
         const raw = formatIcon({ kind: 'lucide', name })
         return (
@@ -96,6 +98,7 @@ function EmojiCells({ entries, value, onPick }: { readonly entries: readonly Emo
 }
 
 function FreeEmoji({ onPick }: { onPick(icon: string): void }): React.JSX.Element {
+  const t = useT()
   const [text, setText] = useState('')
   const raw = formatIcon({ kind: 'emoji', value: text.trim() })
   const valid = isValidIcon(raw)
@@ -110,23 +113,23 @@ function FreeEmoji({ onPick }: { onPick(icon: string): void }): React.JSX.Elemen
     >
       <div className="flex items-center gap-2">
         <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-ink-2">
-          <span className="shrink-0">Eigenes Emoji</span>
+          <span className="shrink-0">{t.frame.iconPicker.ownEmoji}</span>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             aria-invalid={invalid}
-            placeholder="z. B. 🦖"
+            placeholder={t.frame.iconPicker.ownEmojiPlaceholder}
             className="field h-7 w-28 text-[0.9375rem] placeholder:text-[0.8125rem]"
           />
         </label>
         <Button size="sm" type="submit" disabled={!valid}>
-          Übernehmen
+          {t.frame.iconPicker.apply}
         </Button>
       </div>
       <p className={`text-2xs ${invalid ? 'text-danger-ink' : 'text-ink-3'}`}>
-        {invalid ? 'Nur ein einzelnes Emoji, kein Text.' : (
+        {invalid ? t.frame.iconPicker.emojiInvalid : (
           <span className="inline-flex items-center gap-1">
-            Emoji-Auswahl von Windows: <Kbd>Win</Kbd> <Kbd>.</Kbd>
+            {t.frame.iconPicker.systemPicker} <Kbd>Win</Kbd> <Kbd>.</Kbd>
           </span>
         )}
       </p>
@@ -135,20 +138,21 @@ function FreeEmoji({ onPick }: { onPick(icon: string): void }): React.JSX.Elemen
 }
 
 function EmojiPane({ query, value, onPick }: { readonly query: string; readonly value: string | null; onPick(icon: string): void }): React.JSX.Element {
-  const hits = useMemo(() => (query.trim() ? searchEmoji(query) : null), [query])
+  const t = useT()
+  const hits = useMemo(() => (query.trim() ? searchEmoji(query, t) : null), [query, t])
   return (
     <div className="flex flex-col gap-3">
       {hits === null ? (
         EMOJI_GROUPS.map((group) => (
-          <section key={group.label} aria-label={group.label}>
-            <h3 className="mb-1 px-1 text-2xs font-[600] text-ink-3">{group.label}</h3>
+          <section key={group.id} aria-label={t.frame.emojiGroups[group.id]}>
+            <h3 className="mb-1 px-1 text-2xs font-[600] text-ink-3">{t.frame.emojiGroups[group.id]}</h3>
             <EmojiCells entries={group.entries} value={value} onPick={onPick} />
           </section>
         ))
       ) : hits.length ? (
         <EmojiCells entries={hits} value={value} onPick={onPick} />
       ) : (
-        <p className="px-1 py-8 text-center text-xs text-ink-3">Kein Emoji passt zu „{query}“. Füge unten ein beliebiges Emoji ein.</p>
+        <p className="px-1 py-8 text-center text-xs text-ink-3">{t.frame.iconPicker.noEmoji(query)}</p>
       )}
     </div>
   )
@@ -156,6 +160,7 @@ function EmojiPane({ query, value, onPick }: { readonly query: string; readonly 
 
 /** Dialog zur Wahl eines Symbols: Lucide-Icon, Emoji oder keins. */
 export function IconPicker({ open, value, color, subject, onClose, onSelect }: IconPickerProps): React.JSX.Element {
+  const t = useT()
   const [tab, setTab] = useState<PickerTab>('icons')
   const [query, setQuery] = useState('')
 
@@ -173,7 +178,7 @@ export function IconPicker({ open, value, color, subject, onClose, onSelect }: I
   return (
     <Modal
       open={open}
-      label={`Symbol für ${subject}`}
+      label={t.frame.iconPicker.dialog(subject)}
       onClose={onClose}
       align="top"
       className="flex max-h-[70vh] w-full max-w-[29rem] flex-col overflow-hidden rounded-xl border border-line-strong/70 bg-raised shadow-[0_24px_60px_-12px_oklch(0_0_0/0.7)]"
@@ -181,16 +186,16 @@ export function IconPicker({ open, value, color, subject, onClose, onSelect }: I
       <div className="flex items-center gap-3 px-4 pt-4">
         <ProjectMark color={color} icon={value} size="lg" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-[0.9375rem] font-[640] text-ink">Symbol wählen</h2>
+          <h2 className="text-[0.9375rem] font-[640] text-ink">{t.frame.iconPicker.choose}</h2>
           <p className="truncate text-xs text-ink-3">{subject}</p>
         </div>
         <Segmented
-          label="Art des Symbols"
+          label={t.frame.iconPicker.kind}
           value={tab}
           onChange={(next: PickerTab) => setTab(next)}
           options={[
-            { value: 'icons', label: 'Icons' },
-            { value: 'emoji', label: 'Emoji' }
+            { value: 'icons', label: t.frame.iconPicker.tabIcons },
+            { value: 'emoji', label: t.frame.iconPicker.tabEmoji }
           ]}
         />
       </div>
@@ -199,10 +204,10 @@ export function IconPicker({ open, value, color, subject, onClose, onSelect }: I
         <input
           data-autofocus
           type="search"
-          aria-label={tab === 'icons' ? 'Icons suchen' : 'Emoji suchen'}
+          aria-label={tab === 'icons' ? t.frame.iconPicker.searchIcons : t.frame.iconPicker.searchEmoji}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={tab === 'icons' ? 'Icons suchen, z. B. music, haus, code …' : 'Emoji suchen, z. B. musik, haus, uni …'}
+          placeholder={tab === 'icons' ? t.frame.iconPicker.placeholderIcons : t.frame.iconPicker.placeholderEmoji}
           spellCheck={false}
           className="field pl-8"
         />
@@ -214,10 +219,10 @@ export function IconPicker({ open, value, color, subject, onClose, onSelect }: I
         {tab === 'emoji' ? <FreeEmoji onPick={pick} /> : null}
         <div className="flex items-center justify-between gap-2">
           <Button size="sm" variant="ghost" icon={Ban} onClick={() => pick(null)} disabled={value === null} className="-ml-2">
-            Kein Symbol
+            {t.frame.iconPicker.none}
           </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t.common.cancel}
           </Button>
         </div>
       </div>

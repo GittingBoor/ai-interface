@@ -1,4 +1,5 @@
-import { speechModelInfo, type SpeechModelId, type SpeechProgress, type SpeechSettings, type SpeechStatus } from '@shared/speech'
+import { mainT } from '../i18n'
+import { speechModelText, type SpeechModelId, type SpeechProgress, type SpeechSettings, type SpeechStatus } from '@shared/speech'
 import { EmptyTranscriptError, SpeechBusyError, SpeechUnsupportedError, TranscriptionError, WhisperNotInstalledError } from '../errors'
 import type { WhisperInstaller } from './WhisperInstaller'
 import type { WhisperServer } from './WhisperServer'
@@ -59,7 +60,7 @@ export class SpeechService {
 
   async install(model: SpeechModelId): Promise<SpeechStatus> {
     if (!this.supported) throw new SpeechUnsupportedError()
-    if (this.installing) throw new SpeechBusyError(speechModelInfo(this.installing.model).label)
+    if (this.installing) throw new SpeechBusyError(speechModelText(this.installing.model, mainT()).label)
     const controller = new AbortController()
     this.installing = { model, controller }
     try {
@@ -90,7 +91,7 @@ export class SpeechService {
     if (!this.supported) throw new SpeechUnsupportedError()
     const { model } = this.deps.settings()
     const ready = (await this.deps.installer.binariesInstalled()) && (await this.deps.installer.installedModels()).includes(model)
-    if (!ready) throw new WhisperNotInstalledError(speechModelInfo(model).label)
+    if (!ready) throw new WhisperNotInstalledError(speechModelText(model, mainT()).label)
     const base = await this.deps.server.url(this.deps.installer.modelPath(model))
     const form = new FormData()
     form.append('file', new Blob([wav], { type: 'audio/wav' }), 'speech.wav')
@@ -121,7 +122,7 @@ export class SpeechService {
 
   private async readText(response: Response): Promise<string> {
     const body = (await response.json()) as { readonly text?: unknown }
-    if (typeof body.text !== 'string') throw new TranscriptionError('Antwort ohne Feld „text“')
+    if (typeof body.text !== 'string') throw new TranscriptionError(mainT().errors.speech.noTextField)
     return body.text
   }
 }

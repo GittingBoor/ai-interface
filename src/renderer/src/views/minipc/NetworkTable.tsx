@@ -1,5 +1,6 @@
 import type { NetAddress, NetRate, SystemStats } from '@shared/types'
 import { Section } from '@renderer/components/Section'
+import { useT } from '@renderer/i18n/useT'
 import { useMiniPc } from '@renderer/stores/miniPcStore'
 import { formatBytes } from '@renderer/lib/format'
 import { NO_VALUE, formatPercent, formatRate, linkStateText, shortAddress, sortAddresses } from '@renderer/lib/miniPcFormat'
@@ -21,7 +22,8 @@ function netRows(net: readonly NetRate[], addresses: readonly NetAddress[]): rea
 }
 
 function Addresses({ addresses }: { readonly addresses: readonly string[] }): React.JSX.Element {
-  if (addresses.length === 0) return <span className="text-xs text-ink-3">keine Adresse</span>
+  const t = useT().device
+  if (addresses.length === 0) return <span className="text-xs text-ink-3">{t.networkNoAddress}</span>
   return (
     <ul className="space-y-0.5">
       {sortAddresses(addresses).map((address) => (
@@ -41,10 +43,11 @@ interface FlowCellProps {
 
 /** Aktuelle Rate, darunter das Volumen seit dem Start. */
 function FlowCell({ rate, total }: FlowCellProps): React.JSX.Element {
+  const t = useT().device
   return (
     <td className={`${TABLE_CELL} num text-right whitespace-nowrap text-ink-2`}>
       {formatRate(rate)}
-      {total !== null ? <p className="mt-0.5 text-2xs text-ink-3">gesamt {formatBytes(total)}</p> : null}
+      {total !== null ? <p className="mt-0.5 text-2xs text-ink-3">{t.networkTotal(formatBytes(total))}</p> : null}
     </td>
   )
 }
@@ -57,6 +60,7 @@ interface NetworkRowProps {
 }
 
 function NetworkRow({ row, wifiPercent, pending }: NetworkRowProps): React.JSX.Element {
+  const t = useT().device
   const state = row.address?.state
   const tone: StateTone = state?.toUpperCase() === LINK_UP ? 'active' : 'idle'
   const isWifi = row.name.startsWith(WIFI_PREFIX)
@@ -65,8 +69,8 @@ function NetworkRow({ row, wifiPercent, pending }: NetworkRowProps): React.JSX.E
       <td className={TABLE_CELL}>
         <p className="font-mono text-xs text-ink">{row.name}</p>
         <p className="mt-0.5 text-2xs whitespace-nowrap text-ink-3">
-          {isWifi ? 'WLAN' : 'Kabel'}
-          {isWifi && wifiPercent !== null ? <span className="num"> · Signal {formatPercent(wifiPercent)}</span> : null}
+          {isWifi ? t.networkWifi : t.networkWired}
+          {isWifi && wifiPercent !== null ? <span className="num"> · {t.networkSignal(formatPercent(wifiPercent))}</span> : null}
         </p>
       </td>
       <td className={TABLE_CELL}>{state ? <StateLabel tone={tone}>{linkStateText(state)}</StateLabel> : pending}</td>
@@ -79,23 +83,24 @@ function NetworkRow({ row, wifiPercent, pending }: NetworkRowProps): React.JSX.E
 
 /** Schnittstellen mit Zustand, Adressen, Durchsatz und Gesamtvolumen seit dem Start. */
 export function NetworkTable({ system }: { readonly system: SystemStats }): React.JSX.Element {
+  const t = useT().device
   const info = useMiniPc((s) => s.info)
   const infoError = useMiniPc((s) => s.infoError)
   const rows = netRows(system.net, info?.addresses ?? [])
   const pending = info || infoError ? NO_VALUE : <ValueSkeleton className="w-20" />
   return (
-    <Section id="minipc-network" title="Netzwerk" description="Durchsatz je Schnittstelle, Volumen seit dem Start">
+    <Section id="minipc-network" title={t.sectionNetwork} description={t.networkDesc}>
       <div className="space-y-3">
         {rows.length > 0 ? (
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[30rem] border-separate border-spacing-0 text-[0.8125rem]">
               <thead>
                 <tr className="text-left text-xs text-ink-3">
-                  <th className={TABLE_HEAD}>Schnittstelle</th>
-                  <th className={TABLE_HEAD}>Zustand</th>
-                  <th className={TABLE_HEAD}>Adressen</th>
-                  <th className={`${TABLE_HEAD} text-right`}>Download</th>
-                  <th className={`${TABLE_HEAD} text-right`}>Upload</th>
+                  <th className={TABLE_HEAD}>{t.networkColInterface}</th>
+                  <th className={TABLE_HEAD}>{t.networkColState}</th>
+                  <th className={TABLE_HEAD}>{t.networkColAddresses}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.networkColDownload}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.networkColUpload}</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,7 +111,7 @@ export function NetworkTable({ system }: { readonly system: SystemStats }): Reac
             </table>
           </div>
         ) : (
-          <p className="text-[0.8125rem] text-ink-3">Keine Netzwerkschnittstelle gemeldet.</p>
+          <p className="text-[0.8125rem] text-ink-3">{t.networkNone}</p>
         )}
       </div>
     </Section>

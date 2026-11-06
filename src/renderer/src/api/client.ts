@@ -14,7 +14,7 @@ export const IS_MOCK = import.meta.env.VITE_USE_MOCK === '1'
 
 function resolveApi(): AiApi {
   if (IS_MOCK) return createMockApi()
-  if (!window.api) throw new Error('window.api fehlt: Der Preload wurde nicht geladen. App neu starten.')
+  if (!window.api) throw new Error('window.api fehlt: Der Preload wurde nicht geladen. App neu starten.') // i18n-ignore: Entwicklerfehler vor dem Start der Oberfläche
   return window.api
 }
 

@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowDown, ArrowUp, CloudDownload, GitBranch, Unlink } from 'lucide-react'
 import type { Favorite, GitState } from '@shared/types'
 import { Button } from '@renderer/components/Button'
+import { useT } from '@renderer/i18n/useT'
 import { ProjectMark } from '@renderer/components/ProjectMark'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { useMiniPc } from '@renderer/stores/miniPcStore'
@@ -24,16 +25,17 @@ function ProjectCell({ repo, favorite }: { readonly repo: GitState; readonly fav
 }
 
 function BranchCell({ repo }: { readonly repo: GitState }): React.JSX.Element {
+  const t = useT().device
   if (repo.branch === null) {
     return (
-      <span className="inline-flex h-5 items-center gap-1 rounded-full bg-warn-soft px-2 text-2xs font-[600] text-warn" title="Kein Branch ausgecheckt (detached HEAD)">
+      <span className="inline-flex h-5 items-center gap-1 rounded-full bg-warn-soft px-2 text-2xs font-[600] text-warn" title={t.gitDetachedTitle}>
         <Unlink className="size-3" aria-hidden />
-        losgelöst
+        {t.gitDetached}
       </span>
     )
   }
   return (
-    <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-ink-2" title={repo.upstream ? `Upstream: ${repo.upstream}` : 'Kein Upstream gesetzt'}>
+    <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-ink-2" title={repo.upstream ? t.gitUpstream(repo.upstream) : t.gitNoUpstreamTitle}>
       <GitBranch className="size-3 shrink-0 text-ink-3" aria-hidden />
       <span className="truncate">{repo.branch}</span>
     </span>
@@ -41,15 +43,16 @@ function BranchCell({ repo }: { readonly repo: GitState }): React.JSX.Element {
 }
 
 function SyncCell({ repo }: { readonly repo: GitState }): React.JSX.Element {
-  if (!repo.upstream) return <span className="text-xs text-ink-3">kein Upstream</span>
-  if (repo.ahead === 0 && repo.behind === 0) return <span className="text-xs text-ink-3">synchron</span>
+  const t = useT().device
+  if (!repo.upstream) return <span className="text-xs text-ink-3">{t.gitNoUpstream}</span>
+  if (repo.ahead === 0 && repo.behind === 0) return <span className="text-xs text-ink-3">{t.gitInSync}</span>
   return (
-    <span className="num inline-flex items-center gap-2.5 text-xs" aria-label={`${repo.ahead} voraus, ${repo.behind} zurück`}>
-      <span className={`inline-flex items-center gap-0.5 ${repo.ahead > 0 ? 'text-ink' : 'text-ink-3/70'}`} title="Commits, die noch nicht gepusht sind">
+    <span className="num inline-flex items-center gap-2.5 text-xs" aria-label={t.gitAheadBehind(repo.ahead, repo.behind)}>
+      <span className={`inline-flex items-center gap-0.5 ${repo.ahead > 0 ? 'text-ink' : 'text-ink-3/70'}`} title={t.gitAheadTitle}>
         <ArrowUp className="size-3" aria-hidden />
         {repo.ahead}
       </span>
-      <span className={`inline-flex items-center gap-0.5 ${repo.behind > 0 ? 'text-accent-text' : 'text-ink-3/70'}`} title="Commits auf dem Remote, die noch fehlen">
+      <span className={`inline-flex items-center gap-0.5 ${repo.behind > 0 ? 'text-accent-text' : 'text-ink-3/70'}`} title={t.gitBehindTitle}>
         <ArrowDown className="size-3" aria-hidden />
         {repo.behind}
       </span>
@@ -58,12 +61,14 @@ function SyncCell({ repo }: { readonly repo: GitState }): React.JSX.Element {
 }
 
 function ChangesCell({ repo }: { readonly repo: GitState }): React.JSX.Element {
+  const t = useT().device
   const parts = changeParts(repo)
-  if (!parts.length) return <span className="text-xs text-ink-3">sauber</span>
+  if (!parts.length) return <span className="text-xs text-ink-3">{t.gitClean}</span>
   return <span className="num text-xs text-ink-2">{parts.join(' · ')}</span>
 }
 
 function GitRow({ repo, favorite }: { readonly repo: GitState; readonly favorite: Favorite | undefined }): React.JSX.Element {
+  const t = useT().device
   const fetching = useMiniPc((s) => s.fetching.includes(repo.path))
   const fetchRepo = useMiniPc((s) => s.fetchRepo)
   const name = favorite?.name ?? repo.name
@@ -97,9 +102,9 @@ function GitRow({ repo, favorite }: { readonly repo: GitState; readonly favorite
             icon={CloudDownload}
             loading={fetching}
             onClick={() => void fetchRepo(repo.path)}
-            title="git fetch: Remote abfragen, ohne lokale Dateien zu ändern"
+            title={t.gitFetchTitle}
           >
-            {fetching ? 'Frage ab …' : 'Remote abfragen'}
+            {fetching ? t.gitFetching : t.gitFetch}
           </Button>
           <span className="mx-0.5 h-4 w-px bg-line" aria-hidden />
           <LaunchButtons path={repo.path} name={name} />
@@ -111,6 +116,7 @@ function GitRow({ repo, favorite }: { readonly repo: GitState; readonly favorite
 
 /** Git-Stand aller Projekte im Projektordner des Geräts. */
 export function GitTable({ repos }: { readonly repos: readonly GitState[] }): React.JSX.Element {
+  const t = useT().device
   const favorites = useFavorites((s) => s.favorites)
   const device = useMiniPc((s) => s.device)
   return (
@@ -118,12 +124,12 @@ export function GitTable({ repos }: { readonly repos: readonly GitState[] }): Re
       <table className="w-full min-w-[46rem] border-separate border-spacing-0 text-[0.8125rem]">
         <thead>
           <tr className="text-left text-xs text-ink-3">
-            <th className="px-2 pb-2 font-[520]">Projekt</th>
-            <th className="px-2 pb-2 font-[520]">Branch</th>
-            <th className="px-2 pb-2 font-[520]">Remote</th>
-            <th className="px-2 pb-2 font-[520]">Änderungen</th>
+            <th className="px-2 pb-2 font-[520]">{t.gitColProject}</th>
+            <th className="px-2 pb-2 font-[520]">{t.gitColBranch}</th>
+            <th className="px-2 pb-2 font-[520]">{t.gitColRemote}</th>
+            <th className="px-2 pb-2 font-[520]">{t.gitColChanges}</th>
             <th className="px-2 pb-2 text-right font-[520]">
-              <span className="sr-only">Aktionen</span>
+              <span className="sr-only">{t.gitColActions}</span>
             </th>
           </tr>
         </thead>

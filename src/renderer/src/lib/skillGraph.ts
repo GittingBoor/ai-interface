@@ -1,5 +1,7 @@
 import type { SkillEntry, SkillRelation, SkillRelationKind } from '@shared/types'
 import { compareEntries, PLUGIN_PREFIX, TOOL_PREFIX, stripPrefix } from './skills'
+import { messagesFor } from '@shared/i18n/messages'
+import { activeLocale, activeTag } from '../i18n/activeLocale'
 
 export type GraphColumn = 'source' | 'entry' | 'tool'
 
@@ -39,12 +41,20 @@ export const SOURCE_PROJECT = 'src:project'
 export const SOURCE_CODEX = 'src:codex'
 export const SOURCE_DISABLED = 'src:disabled'
 
-const SOURCE_LABEL: Readonly<Record<string, string>> = {
-  [SOURCE_USER]: 'Eigene',
-  [SOURCE_SYNCED]: 'claude.ai',
-  [SOURCE_PROJECT]: 'Projekte',
-  [SOURCE_CODEX]: 'Codex',
-  [SOURCE_DISABLED]: 'Deaktiviert'
+type SourceKey = 'user' | 'synced' | 'project' | 'codex' | 'disabled'
+
+const SOURCE_KEY: Readonly<Record<string, SourceKey>> = {
+  [SOURCE_USER]: 'user',
+  [SOURCE_SYNCED]: 'synced',
+  [SOURCE_PROJECT]: 'project',
+  [SOURCE_CODEX]: 'codex',
+  [SOURCE_DISABLED]: 'disabled'
+}
+
+/** Beschriftung eines Sammelknotens in der aktiven Sprache; Plugins tragen ihren eigenen Namen. */
+function sourceLabel(id: string): string {
+  const key = SOURCE_KEY[id]
+  return key ? messagesFor(activeLocale()).skills.graphSources[key] : stripPrefix(id, PLUGIN_PREFIX)
 }
 
 /** Sammelknoten links; Plugins stehen zwischen claude.ai und Projekte. */
@@ -83,7 +93,7 @@ const mean = (values: readonly number[]): number => values.reduce((s, v) => s + 
 export function buildGraph(entries: readonly SkillEntry[], relations: readonly SkillRelation[]): GraphLayout {
   const visible = new Map(entries.map((e) => [e.id, e]))
   const sourceIds = new Map(entries.map((e) => [e.id, sourceOf(e)]))
-  const plugins = [...new Set([...sourceIds.values()].filter(isPluginSource))].sort((a, b) => a.localeCompare(b, 'de-DE'))
+  const plugins = [...new Set([...sourceIds.values()].filter(isPluginSource))].sort((a, b) => a.localeCompare(b, activeTag()))
   const rank = (e: SkillEntry): number => sourceRank(sourceIds.get(e.id) ?? SOURCE_USER, plugins)
   const ordered = [...entries].sort((a, b) => rank(a) - rank(b) || compareEntries(a, b))
 
@@ -116,7 +126,7 @@ export function buildGraph(entries: readonly SkillEntry[], relations: readonly S
     ...sources.map<GraphNode>(([id, ys], i) => ({
       id,
       column: 'source',
-      label: SOURCE_LABEL[id] ?? stripPrefix(id, PLUGIN_PREFIX),
+      label: sourceLabel(id),
       y: sourceY[i] ?? PAD,
       count: ys.length,
       entry: null

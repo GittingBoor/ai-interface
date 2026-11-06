@@ -3,6 +3,7 @@ import type { UpdatePhase, UpdateState } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { attempt } from '@renderer/api/call'
 import { confirmAction } from '@renderer/stores/confirmStore'
+import { currentT } from '@renderer/i18n/useT'
 
 /** Abschnitt „Updates“ in den Einstellungen. */
 export const UPDATES_SETTINGS_ANCHOR = 'updates'
@@ -37,11 +38,8 @@ export const useUpdate = create<UpdateStore>((set) => ({
     set(state ? { state, checking: false } : { checking: false })
   },
   install: async () => {
-    const ok = await confirmAction({
-      title: 'Jetzt aktualisieren?',
-      message: 'Die neue Version wird gebaut (einige Minuten), danach schließt sich die App, installiert das Update und startet neu. Offene Terminals werden dabei beendet.',
-      confirmLabel: 'Aktualisieren'
-    })
+    const t = currentT().frame.update
+    const ok = await confirmAction({ title: t.confirmTitle, message: t.confirmMessage, confirmLabel: t.install })
     if (!ok) return
     await attempt(api.update.install())
   }

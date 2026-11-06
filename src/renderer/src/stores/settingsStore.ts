@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Settings, SettingsPatch } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { attempt, errorMessage, unwrap } from '@renderer/api/call'
+import { setActiveLanguage } from '@renderer/i18n/activeLocale'
 
 interface SettingsStore {
   readonly settings: Settings | null
@@ -32,3 +33,5 @@ export const useSettings = create<SettingsStore>((set) => ({
     return settings !== null
   }
 }))
+
+useSettings.subscribe((state) => setActiveLanguage(state.settings?.language))

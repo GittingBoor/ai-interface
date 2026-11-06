@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useElementSize } from '@renderer/lib/hooks'
+import { useT } from '@renderer/i18n/useT'
 import { ChartTooltip } from './ChartTooltip'
 
-const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const
-const WEEKDAYS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] as const
+const WEEKDAY_COUNT = 7
 const HOURS = 24
 const LABEL_WIDTH = 28
 const GAP = 3
@@ -36,6 +36,9 @@ interface HeatmapProps {
 
 /** Aktivität nach Wochentag × Stunde für eine Kennzahl. */
 export function Heatmap({ cells, format }: HeatmapProps): React.JSX.Element {
+  const t = useT().usage.charts.heatmap
+  const weekdays = t.weekdaysShort
+  const weekdaysLong = t.weekdaysLong
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [hover, setHover] = useState<HeatValue | null>(null)
   const grid = useMemo(() => {
@@ -45,19 +48,19 @@ export function Heatmap({ cells, format }: HeatmapProps): React.JSX.Element {
   }, [cells])
   const max = Math.max(0, ...grid.values())
   const cell = Math.max(8, Math.min(MAX_CELL, (width - LABEL_WIDTH - GAP * (HOURS - 1)) / HOURS))
-  const height = WEEKDAYS.length * (cell + GAP) + 18
+  const height = WEEKDAY_COUNT * (cell + GAP) + 18
   const peak = cells.reduce<HeatValue | null>((best, c) => (!best || c.value > best.value ? c : best), null)
 
   return (
     <div ref={ref} className="relative" onMouseLeave={() => setHover(null)}>
       {width > 0 ? (
-        <svg width={width} height={height} role="img" aria-label={peak ? `Aktivität je Wochentag und Stunde. Spitze: ${WEEKDAYS_LONG[peak.weekday]}, ${peak.hour} Uhr.` : 'Keine Aktivität'}>
-          {WEEKDAYS.map((label, d) => (
+        <svg width={width} height={height} role="img" aria-label={peak ? t.aria(weekdaysLong[peak.weekday] ?? '', t.hourAt(peak.hour)) : t.ariaEmpty}>
+          {weekdays.map((label, d) => (
             <text key={label} x={0} y={d * (cell + GAP) + cell / 2} dy="0.34em" className="fill-ink-3 text-[10.5px]">
               {label}
             </text>
           ))}
-          {WEEKDAYS.map((_, d) =>
+          {weekdays.map((_, d) =>
             Array.from({ length: HOURS }, (_, h) => {
               const value = grid.get(`${d}-${h}`) ?? 0
               const isHover = hover?.weekday === d && hover.hour === h
@@ -79,7 +82,7 @@ export function Heatmap({ cells, format }: HeatmapProps): React.JSX.Element {
             })
           )}
           {HOUR_LABELS.map((h) => (
-            <text key={h} x={LABEL_WIDTH + h * (cell + GAP)} y={WEEKDAYS.length * (cell + GAP) + 12} className="num fill-ink-3 text-[10.5px]">
+            <text key={h} x={LABEL_WIDTH + h * (cell + GAP)} y={WEEKDAY_COUNT * (cell + GAP) + 12} className="num fill-ink-3 text-[10.5px]">
               {String(h).padStart(2, '0')}
             </text>
           ))}
@@ -88,21 +91,21 @@ export function Heatmap({ cells, format }: HeatmapProps): React.JSX.Element {
         <div style={{ height: 220 }} />
       )}
       <div className="mt-2 flex max-w-full items-center justify-between gap-4 text-2xs text-ink-3" style={{ width: LABEL_WIDTH + HOURS * (cell + GAP) - GAP }}>
-        <span>{peak && peak.value > 0 ? `Meiste Aktivität: ${WEEKDAYS_LONG[peak.weekday]}, ${peak.hour}–${peak.hour + 1} Uhr` : 'Noch keine Aktivität'}</span>
+        <span>{peak && peak.value > 0 ? t.peak(weekdaysLong[peak.weekday] ?? '', t.hourSpan(peak.hour, peak.hour + 1)) : t.peakEmpty}</span>
         <span className="flex items-center gap-1.5" aria-hidden>
-          wenig
+          {t.low}
           {[-1, 0, 1, 2, 3, 4].map((l) => (
             <span key={l} className="size-2.5 rounded-[2px]" style={{ background: fillFor(l) }} />
           ))}
-          viel
+          {t.high}
         </span>
       </div>
       {hover ? (
         <ChartTooltip x={LABEL_WIDTH + hover.hour * (cell + GAP) + cell / 2} y={hover.weekday * (cell + GAP) + cell + 6} containerWidth={width}>
           <p className="font-[600] text-ink">
-            {WEEKDAYS_LONG[hover.weekday]}, {hover.hour}–{hover.hour + 1} Uhr
+            {t.slot(weekdaysLong[hover.weekday] ?? '', t.hourSpan(hover.hour, hover.hour + 1))}
           </p>
-          <p className="num mt-0.5 text-ink-2">{hover.value > 0 ? format(hover.value) : 'keine Aktivität'}</p>
+          <p className="num mt-0.5 text-ink-2">{hover.value > 0 ? format(hover.value) : t.noActivity}</p>
         </ChartTooltip>
       ) : null}
     </div>

@@ -11,32 +11,23 @@ import { useSettings } from '@renderer/stores/settingsStore'
 import { useFavorites } from '@renderer/stores/favoritesStore'
 import { useCategories } from '@renderer/stores/categoriesStore'
 import { notify } from '@renderer/stores/toastStore'
+import { currentT, useT } from '@renderer/i18n/useT'
 import { draftFromDetection, toSetupInput, type SetupDraft } from '@renderer/lib/setupDraft'
 import { DevicesStep, FinishStep, NotesStep, ProjectsStep, WelcomeStep } from './steps'
 
-interface StepDef {
-  readonly id: string
-  readonly label: string
-  readonly hint: string
-}
-
-const STEPS: readonly StepDef[] = [
-  { id: 'welcome', label: 'Willkommen', hint: 'Worum es geht' },
-  { id: 'projects', label: 'Projekte', hint: 'Ordner mit deinem Code' },
-  { id: 'notes', label: 'Notizen', hint: 'Obsidian, optional' },
-  { id: 'devices', label: 'Geräte', hint: 'Weitere Rechner, optional' },
-  { id: 'finish', label: 'Fertig', hint: 'Prüfen und starten' }
-]
-const LAST = STEPS.length - 1
+const STEP_IDS = ['welcome', 'projects', 'notes', 'devices', 'finish'] as const
+const LAST = STEP_IDS.length - 1
 
 function StepRail({ current, onJump }: { readonly current: number; onJump(index: number): void }): React.JSX.Element {
+  const steps = useT().setup.steps
   return (
     <ol className="space-y-1">
-      {STEPS.map((step, i) => {
+      {STEP_IDS.map((id, i) => {
+        const step = steps[id]
         const done = i < current
         const active = i === current
         return (
-          <li key={step.id}>
+          <li key={id}>
             <button
               type="button"
               disabled={i > current}
@@ -64,6 +55,8 @@ function StepRail({ current, onJump }: { readonly current: number; onJump(index:
 
 /** Erste Einrichtung: Projektordner, Notizen, Geräte. Läuft bei neuer Installation oder auf Wunsch erneut. */
 export function SetupWizard(): React.JSX.Element {
+  const t = useT()
+  const s = t.setup
   const settings = useSettings((s) => s.settings)
   const [detection, setDetection] = useState<SetupDetection | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -101,7 +94,7 @@ export function SetupWizard(): React.JSX.Element {
     useSettings.setState({ settings: saved })
     void useFavorites.getState().load()
     void useCategories.getState().load()
-    notify.success('Eingerichtet. Alles lässt sich später unter Einstellungen ändern.')
+    notify.success(currentT().setup.completed(currentT().frame.views.settings))
   }
 
   const canContinue = step !== 1 || (draft?.projectsRoot.trim() ?? '') !== ''
@@ -115,7 +108,7 @@ export function SetupWizard(): React.JSX.Element {
           <span className="text-[0.875rem] font-[660] tracking-[-0.01em] text-ink [font-stretch:110%]">AI Interface</span>
         </div>
         <StepRail current={step} onJump={setStep} />
-        <p className="mt-auto px-2.5 text-2xs leading-relaxed text-ink-3">Jede Angabe lässt sich später unter Einstellungen ändern.</p>
+        <p className="mt-auto px-2.5 text-2xs leading-relaxed text-ink-3">{s.changeLater(t.frame.views.settings)}</p>
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
@@ -124,7 +117,7 @@ export function SetupWizard(): React.JSX.Element {
             {error ? <ErrorState message={error} onRetry={() => void detect()} /> : null}
             {!error && (!draft || !detection) ? (
               <p className="flex items-center gap-2 text-[0.8125rem] text-ink-3" role="status">
-                <LoaderCircle className="size-4 animate-spin" aria-hidden /> Suche Projektordner, Vault und SSH-Schlüssel …
+                <LoaderCircle className="size-4 animate-spin" aria-hidden /> {s.detecting}
               </p>
             ) : null}
             {draft && detection ? (
@@ -149,21 +142,21 @@ export function SetupWizard(): React.JSX.Element {
 
         <footer className="flex shrink-0 items-center gap-3 border-t border-line/70 bg-canvas/60 px-10 py-4 max-md:px-6">
           <p className="num text-xs text-ink-3 md:hidden">
-            Schritt {step + 1} von {STEPS.length}
+            {s.stepOf(step + 1, STEP_IDS.length)}
           </p>
           <div className="flex-1" />
           {step > 0 ? (
             <Button variant="ghost" icon={ArrowLeft} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-              Zurück
+              {s.back}
             </Button>
           ) : null}
           {step === 2 || step === 3 ? (
             <Button variant="ghost" onClick={() => setStep((s) => s + 1)}>
-              Überspringen
+              {s.skip}
             </Button>
           ) : null}
           <Button variant="primary" icon={step === LAST ? Check : ArrowRight} loading={finishing} disabled={!draft || !canContinue} onClick={next}>
-            {step === 0 ? 'Einrichten' : step === LAST ? 'Einrichtung abschließen' : 'Weiter'}
+            {step === 0 ? s.begin : step === LAST ? s.complete : s.next}
           </Button>
         </footer>
       </main>

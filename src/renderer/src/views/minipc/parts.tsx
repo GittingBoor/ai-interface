@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { AlertTriangle } from 'lucide-react'
+import { useT } from '@renderer/i18n/useT'
 import { useMiniPc } from '@renderer/stores/miniPcStore'
 import type { MeterTone } from '@renderer/lib/miniPc'
 
@@ -131,20 +132,21 @@ export function ValueSkeleton({ className = 'w-24' }: { readonly className?: str
 
 /** Fehlermeldung, wenn die Gerätedaten fehlen; steht einmal oben, der Rest der Seite bleibt benutzbar. */
 export function InfoError({ message }: { readonly message: string }): React.JSX.Element {
+  const t = useT()
   const loading = useMiniPc((s) => s.infoLoading)
   const load = useMiniPc((s) => s.loadInfo)
   return (
     <p role="alert" className="flex items-start gap-1.5 text-xs leading-relaxed text-ink-2">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-danger-ink" aria-hidden />
       <span className="min-w-0">
-        Gerätedaten nicht gelesen: <span className="break-words text-ink-3">{message}</span>{' '}
+        {t.device.infoNotRead} <span className="break-words text-ink-3">{message}</span>{' '}
         <button
           type="button"
           disabled={loading}
           onClick={() => void load()}
           className="rounded-sm font-[560] text-accent-text underline decoration-accent-text/40 underline-offset-3 transition-colors hover:decoration-accent-text disabled:opacity-55"
         >
-          {loading ? 'Lädt …' : 'Erneut versuchen'}
+          {loading ? t.common.loading : t.common.retry}
         </button>
       </span>
     </p>

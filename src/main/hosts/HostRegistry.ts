@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { DeviceSettings, HostId, SshSettings } from '@shared/types'
 import { NotFoundError } from '../errors'
 import type { Host } from './Host'
@@ -5,7 +6,6 @@ import { LocalHost } from './LocalHost'
 import { SshConnection } from './SshConnection'
 import { SshHost } from './SshHost'
 
-export const LOCAL_LABEL = 'Dieser PC'
 
 interface Remote {
   readonly connection: SshConnection
@@ -36,7 +36,7 @@ export class HostRegistry {
   }
 
   label(id: HostId): string {
-    return id === 'local' ? LOCAL_LABEL : (this.device(id)?.name ?? id)
+    return id === 'local' ? mainT().main.thisPc : (this.device(id)?.name ?? id)
   }
 
   isEnabled(id: HostId): boolean {
@@ -75,7 +75,7 @@ export class HostRegistry {
     const existing = this.remotes.get(id)
     if (existing) return existing
     const device = this.device(id)
-    if (!device) throw new NotFoundError(`Gerät „${id}“`, 'In den Einstellungen unter Geräte anlegen oder das Projekt entfernen.')
+    if (!device) throw new NotFoundError(mainT().errors.what.device(id), mainT().errors.hints.createDevice)
     const label = (): string => this.label(id)
     const connection = new SshConnection(
       () => this.device(id) ?? { ...device, enabled: false },

@@ -1,6 +1,7 @@
 import type { AppErrorInfo } from '@shared/result'
+import { mainT } from './i18n'
 
-/** Basisklasse für erwartbare Fehler mit Code und Handlungshinweis. */
+/** Basisklasse für erwartbare Fehler mit Code und Handlungshinweis. Text und Hinweis kommen beim Erzeugen aus dem Wörterbuch (`mainT().errors`). */
 export class AppError extends Error {
   constructor(
     readonly code: string,
@@ -18,144 +19,185 @@ export class AppError extends Error {
 
 export class HostUnreachableError extends AppError {
   constructor(host: string, cause: string) {
-    super('HOST_UNREACHABLE', `${host} ist nicht erreichbar: ${cause}`, 'Netzwerk und SSH-Einstellungen prüfen.')
+    const t = mainT().errors.hostUnreachable
+    super('HOST_UNREACHABLE', t.message(host, cause), t.hint)
   }
 }
 
 export class NotFoundError extends AppError {
   constructor(what: string, hint?: string) {
-    super('NOT_FOUND', `${what} wurde nicht gefunden.`, hint)
+    super('NOT_FOUND', mainT().errors.notFound(what), hint)
   }
 }
 
 export class ValidationError extends AppError {
   constructor(message: string) {
-    super('VALIDATION', message, 'Eingabe korrigieren und erneut versuchen.')
+    super('VALIDATION', message, mainT().errors.validationHint)
   }
 }
 
 export class QuotaFormatError extends AppError {
   constructor(detail: string) {
-    super('QUOTA_FORMAT', `Format der Kontingent-Antwort unbekannt (${detail}).`, 'Claude Code aktualisieren; bis dahin zeigt die App keine Werte statt falscher.')
+    const t = mainT().errors.quotaFormat
+    super('QUOTA_FORMAT', t.message(detail), t.hint)
   }
 }
 
 export class SummaryError extends AppError {
   constructor(name: string, cause: string) {
-    super('SUMMARY_FAILED', `Zusammenfassung für „${name}“ fehlgeschlagen: ${cause}`, 'Claude Code prüfen (angemeldet, Kontingent frei) und erneut starten; fertige Zusammenfassungen bleiben erhalten.')
+    const t = mainT().errors.summaryFailed
+    super('SUMMARY_FAILED', t.message(name, cause), t.hint)
   }
 }
 
 export class ClaudeCliError extends AppError {
   constructor(detail: string) {
-    super('CLAUDE_CLI', `Claude Code konnte nicht ausgeführt werden (${detail}).`, 'Prüfen, ob Claude Code installiert und angemeldet ist (claude im Terminal starten).')
+    const t = mainT().errors.claudeCli
+    super('CLAUDE_CLI', t.message(detail), t.hint)
   }
 }
 
 export class GitCommandError extends AppError {
   constructor(action: string, cause: string) {
-    super('GIT_FAILED', `${action} fehlgeschlagen: ${cause}`, 'Prüfen, ob Git installiert ist und der Ordner beschreibbar ist.')
+    const t = mainT().errors.gitFailed
+    super('GIT_FAILED', t.message(action, cause), t.hint)
   }
 }
 
 export class SpeechUnsupportedError extends AppError {
   constructor() {
-    super('SPEECH_UNSUPPORTED', 'Spracheingabe ist nur unter Windows eingerichtet.', 'Unter Windows nutzen oder Win+H bzw. /voice in Claude Code verwenden.')
+    const t = mainT().errors.speechUnsupported
+    super('SPEECH_UNSUPPORTED', t.message, t.hint)
   }
 }
 
 export class WhisperNotInstalledError extends AppError {
   constructor(modelLabel: string) {
-    super('WHISPER_NOT_INSTALLED', `Spracherkennung „${modelLabel}“ ist nicht eingerichtet.`, 'Im Tab Steuerung das Modell herunterladen.')
+    const t = mainT().errors.whisperNotInstalled
+    super('WHISPER_NOT_INSTALLED', t.message(modelLabel), t.hint)
   }
 }
 
 export class WhisperStartError extends AppError {
   constructor(detail: string) {
-    super('WHISPER_START', `Spracherkennung konnte nicht gestartet werden (${detail}).`, 'Grafiktreiber aktualisieren oder in Steuerung ein kleineres Modell wählen; Details im Log.')
+    const t = mainT().errors.whisperStart
+    super('WHISPER_START', t.message(detail), t.hint)
   }
 }
 
 export class TranscriptionError extends AppError {
   constructor(detail: string) {
-    super('TRANSCRIPTION_FAILED', `Spracherkennung fehlgeschlagen (${detail}).`, 'Noch einmal sprechen; tritt es wieder auf, App neu starten.')
+    const t = mainT().errors.transcription
+    super('TRANSCRIPTION_FAILED', t.message(detail), t.hint)
   }
 }
 
 export class EmptyTranscriptError extends AppError {
   constructor() {
-    super('EMPTY_TRANSCRIPT', 'Nichts erkannt.', 'Näher ans Mikrofon gehen und etwas lauter sprechen.')
+    const t = mainT().errors.emptyTranscript
+    super('EMPTY_TRANSCRIPT', t.message, t.hint)
   }
 }
 
 export class DownloadError extends AppError {
   constructor(what: string, detail: string) {
-    super('DOWNLOAD_FAILED', `Download von ${what} fehlgeschlagen (${detail}).`, 'Internetverbindung prüfen und erneut versuchen.')
+    const t = mainT().errors.download
+    super('DOWNLOAD_FAILED', t.message(what, detail), t.hint)
   }
 }
 
 export class DownloadChecksumError extends AppError {
   constructor(what: string) {
-    super('DOWNLOAD_CHECKSUM', `Prüfsumme von ${what} stimmt nicht, Datei wurde gelöscht.`, 'Erneut herunterladen; bei Wiederholung ist die Quelle geändert worden.')
+    const t = mainT().errors.downloadChecksum
+    super('DOWNLOAD_CHECKSUM', t.message(what), t.hint)
   }
 }
 
 export class DownloadCancelledError extends AppError {
   constructor() {
-    super('DOWNLOAD_CANCELLED', 'Download abgebrochen.')
+    super('DOWNLOAD_CANCELLED', mainT().errors.downloadCancelled.message)
   }
 }
 
 export class SpeechBusyError extends AppError {
   constructor(model: string) {
-    super('SPEECH_BUSY', `Es wird bereits „${model}“ heruntergeladen.`, 'Warten, bis der Download fertig ist, oder ihn abbrechen.')
+    const t = mainT().errors.speechBusy
+    super('SPEECH_BUSY', t.message(model), t.hint)
   }
 }
 
 export class PrivacyLockedError extends AppError {
   constructor() {
-    super('PRIVACY_LOCKED', 'Der Privatmodus ist aktiv.', 'In den Einstellungen mit der PIN entsperren.')
+    const t = mainT().errors.privacyLocked
+    super('PRIVACY_LOCKED', t.message, t.hint)
   }
 }
 
 export class WrongPinError extends AppError {
   constructor(waitSec?: number) {
-    super('WRONG_PIN', waitSec ? `Zu viele Fehlversuche, bitte ${waitSec} s warten.` : 'PIN falsch.', 'PIN erneut eingeben.')
+    const t = mainT().errors.wrongPin
+    super('WRONG_PIN', waitSec ? t.tooMany(waitSec) : t.message, t.hint)
   }
 }
 
 export class InvalidPinError extends AppError {
   constructor() {
-    super('INVALID_PIN', 'Die PIN muss aus 4 bis 12 Ziffern bestehen.', 'Nur Ziffern verwenden.')
+    const t = mainT().errors.invalidPin
+    super('INVALID_PIN', t.message, t.hint)
   }
 }
 
 export class PinRequiredError extends AppError {
   constructor() {
-    super('PIN_REQUIRED', 'Für den Privatmodus ist noch keine PIN festgelegt.', 'Neue PIN festlegen, das entsperrt den Privatmodus.')
+    const t = mainT().errors.pinRequired
+    super('PIN_REQUIRED', t.message, t.hint)
   }
 }
 
 export class UpdateError extends AppError {
   constructor(step: string, detail: string) {
-    super('UPDATE_FAILED', `Update fehlgeschlagen bei „${step}“ (${detail}).`, 'Im Repo manuell git pull und npm run dist:win ausführen; Details im Log.')
+    const t = mainT().errors.updateFailed
+    super('UPDATE_FAILED', t.message(step, detail), t.hint)
   }
 }
 
 export class TerminalBusyError extends AppError {
   constructor(terminal: string) {
-    super('TERMINAL_BUSY', `${terminal} arbeitet noch.`, 'Warte auf die Statuszeile „[AI Interface] … fertig“ und sende dann erneut.')
+    const t = mainT().errors.terminalBusy
+    super('TERMINAL_BUSY', t.message(terminal), t.hint)
   }
 }
 
 export class OrchestratorUnavailableError extends AppError {
   constructor(detail: string) {
-    super('ORCHESTRATOR_UNAVAILABLE', `Orchestrator nicht verfügbar: ${detail}`, 'In den Einstellungen unter „Orchestrator“ prüfen, ob er eingeschaltet ist; Details stehen im Log.')
+    const t = mainT().errors.orchestratorUnavailable
+    super('ORCHESTRATOR_UNAVAILABLE', t.message(detail), t.hint)
+  }
+}
+
+export class AgentAssistError extends AppError {
+  constructor(detail: string) {
+    const t = mainT().errors.agentAssist
+    super('AGENT_ASSIST', t.message(detail), t.hint)
+  }
+}
+
+export class AgentExistsError extends AppError {
+  constructor(name: string) {
+    const t = mainT().errors.agentExists
+    super('AGENT_EXISTS', t.message(name), t.hint)
+  }
+}
+
+export class AutomationRunError extends AppError {
+  constructor(detail: string) {
+    const t = mainT().errors.automationRun
+    super('AUTOMATION_RUN', t.message(detail), t.hint)
   }
 }
 
 export function toErrorInfo(error: unknown): AppErrorInfo {
   if (error instanceof AppError) return error.toInfo()
   const message = error instanceof Error ? error.message : String(error)
-  return { code: 'UNEXPECTED', message, hint: 'Details stehen im Log (Einstellungen → Log öffnen).' }
+  return { code: 'UNEXPECTED', message, hint: mainT().errors.unexpectedHint }
 }

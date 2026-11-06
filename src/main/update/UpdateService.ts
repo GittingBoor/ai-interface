@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { UpdateMode, UpdatePhase, UpdateState } from '@shared/types'
 import type { UpdateCheck } from './StartupUpdater'
 
@@ -58,10 +59,10 @@ export class UpdateService {
     this.set('checking', null)
     try {
       const result = await this.deps.source.check()
-      this.deps.log(`Update-Prüfung: ${JSON.stringify(result)}`)
+      this.deps.log(`Update-Prüfung: ${JSON.stringify(result)}`) // i18n-ignore: Logtext
       this.set(result.kind, result.kind === 'skipped' ? result.reason : null, Date.now())
     } catch (error) {
-      this.fail('Update-Prüfung fehlgeschlagen', error)
+      this.fail('Update-Prüfung fehlgeschlagen', error) // i18n-ignore: Logtext
     }
     return this.current
   }
@@ -74,19 +75,19 @@ export class UpdateService {
       const installerPath = await this.deps.source.build()
       this.deps.log(`Update gebaut: ${installerPath}`)
       this.set('installing', null)
-      this.deps.notify('AI Interface wird aktualisiert', 'Neue Version ist gebaut, die App startet gleich neu.')
+      this.deps.notify(mainT().notify.updatingTitle, mainT().notify.updatingBody)
       this.deps.launchInstaller(installerPath)
       this.deps.quit()
     } catch (error) {
-      this.fail('Update fehlgeschlagen', error)
-      this.deps.notify('Update fehlgeschlagen', 'Die App läuft mit der alten Version weiter; Details in den Einstellungen.')
+      this.fail('Update fehlgeschlagen', error) // i18n-ignore: Logtext
+      this.deps.notify(mainT().notify.updateFailedTitle, mainT().notify.updateFailedBody)
     }
   }
 
   private notifyAvailable(): void {
     if (this.notified) return
     this.notified = true
-    this.deps.notify('Update verfügbar', 'Neue Version auf GitHub. In der Seitenleiste auf „Aktualisieren“ klicken.')
+    this.deps.notify(mainT().notify.updateAvailableTitle, mainT().notify.updateAvailableBody)
   }
 
   private busy(): boolean {

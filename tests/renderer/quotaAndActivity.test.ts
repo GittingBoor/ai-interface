@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { setActiveLanguage } from '../../src/renderer/src/i18n/activeLocale'
 import type { QuotaState } from '@shared/types'
 import { fiveHourAvailability, orderedWindows, quotaLevel, QUOTA_STALE_MS } from '../../src/renderer/src/lib/quota'
 import { formatAge, formatCountdown } from '../../src/renderer/src/lib/format'
+
+beforeAll(() => setActiveLanguage('de'))
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -51,7 +54,7 @@ describe('formatCountdown / formatAge', () => {
   })
 
   it('zeigt das Alter in der ersten Minute sekundengenau', () => {
-    expect(formatAge(0, 20_000)).toBe('vor 20 s')
+    expect(formatAge(0, 20_000)).toBe('vor 20 Sek.')
     expect(formatAge(0, 5 * MINUTE)).toBe('vor 5 Min.')
   })
 })

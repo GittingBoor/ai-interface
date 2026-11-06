@@ -2,8 +2,7 @@ import { create } from 'zustand'
 import type { QuotaState } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { errorMessage, unwrap } from '@renderer/api/call'
-
-const IPC_HINT = 'App neu starten; Details stehen im Log.'
+import { currentT } from '@renderer/i18n/useT'
 
 interface QuotaStore {
   readonly state: QuotaState
@@ -14,7 +13,7 @@ interface QuotaStore {
 }
 
 /** Ein fehlgeschlagener Aufruf wird zu „keine Quelle“, damit nie ein alter Wert als aktuell erscheint. */
-const failed = (cause: unknown): QuotaState => ({ status: 'unavailable', reason: errorMessage(cause), hint: IPC_HINT, fetchedAt: Date.now() })
+const failed = (cause: unknown): QuotaState => ({ status: 'unavailable', reason: errorMessage(cause), hint: currentT().frame.quota.ipcHint, fetchedAt: Date.now() })
 
 export const useQuota = create<QuotaStore>((set) => ({
   state: { status: 'loading' },

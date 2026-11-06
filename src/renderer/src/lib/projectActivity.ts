@@ -1,5 +1,7 @@
 import type { Favorite, HostId, ProjectActivity } from '@shared/types'
 import { findProjectFor } from '@shared/projectMatch'
+import { messagesFor } from '@shared/i18n/messages'
+import { activeLocale } from '../i18n/activeLocale'
 import { baseName, formatDuration, formatTokens, formatUsd } from './format'
 
 export type ComparisonMetric = 'tokens' | 'cost'
@@ -43,7 +45,11 @@ function toneFor(key: string): string {
   return UNASSIGNED_TONES[hash % UNASSIGNED_TONES.length] ?? REST_TONE
 }
 
-export const MEASURE_LABEL: Readonly<Record<ActivityMeasure, string>> = { time: 'Arbeitszeit', tokens: 'Token', cost: 'API-Gegenwert' }
+/** Beschriftung einer Größe in der aktiven Sprache. */
+export function measureLabel(measure: ActivityMeasure): string {
+  const t = messagesFor(activeLocale()).usage
+  return measure === 'time' ? t.time : t.metrics[measure]
+}
 
 export function formatMeasure(value: number, measure: ActivityMeasure): string {
   if (measure === 'time') return formatDuration(value)
@@ -91,7 +97,7 @@ export function topWithRest(groups: readonly ActivityGroup[], measure: ActivityM
     ...top,
     {
       key: REST_KEY,
-      label: 'Weitere',
+      label: messagesFor(activeLocale()).usage.restProjects,
       hosts,
       paths: rest.flatMap((g) => g.paths),
       activeMs: rest.reduce((sum, g) => sum + g.activeMs, 0),

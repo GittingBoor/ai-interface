@@ -1,13 +1,16 @@
+import { join } from 'node:path'
+import { mainT } from './i18n'
 import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, net, protocol, shell } from 'electron'
 import log from 'electron-log/main'
-import { NotFoundError } from './errors'
+import { NotFoundError, ValidationError } from './errors'
 import { API_CHANNELS, type AiApiCalls, type ApiHandlers, IMAGE_PROTOCOL, TERMINAL_RESIZE_CHANNEL, TERMINAL_WRITE_CHANNEL } from '@shared/api'
 import { applyAutostart } from './autostart'
 import type { Container } from './container'
 import type { UpdateService } from './update/UpdateService'
 import { wrapHandler } from './ipcWrap'
-import { filterFavorites, filterFolders, filterGit, filterImages, filterMiniPc, filterSkills, filterTerminals, isImageHidden, type HiddenCheck } from './privacy/filters'
+import { resolveOpenTarget } from './knowledge/openTarget'
+import { filterFavorites, filterFolders, filterGit, filterImages, filterMiniPc, filterSkills, filterSources, filterTerminals, isImageHidden, isSourceHidden, withoutBackground, type HiddenCheck } from './privacy/filters'
 
 type MissingChannels = {
   [NS in keyof AiApiCalls]: Exclude<keyof AiApiCalls[NS], (typeof API_CHANNELS)[NS][number]>
@@ -38,7 +41,7 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
   const hidden: HiddenCheck = (host, path) => c.privacy.isHidden(host, path)
   /** Verborgene Terminals verhalten sich wie nicht vorhanden. */
   const visibleTerminal = (id: string): string => {
-    if (c.terminalHidden(id)) throw new NotFoundError('Terminal')
+    if (c.terminalHidden(id)) throw new NotFoundError(mainT().errors.what.terminal)
     return id
   }
   return {
@@ -78,24 +81,25 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
     },
     terminal: {
       open: (request) => c.terminals.open(request),
-      list: () => filterTerminals(c.terminals.list(), hidden),
+      list: () => withoutBackground(filterTerminals(c.terminals.list(), hidden)),
       snapshot: (id) => c.terminals.snapshot(visibleTerminal(id)),
       close: (id) => c.terminals.close(id),
       pasteImage: async (id) => {
         const png = await readClipboardPng()
         return png ? c.pasteImages.paste(visibleTerminal(id), png) : null
       },
+      dropImages: (id, images) => c.pasteImages.pasteMany(visibleTerminal(id), images),
       setViewing: (ids, windowFocused) => {
         c.notifications.setViewing(ids, windowFocused)
         c.terminalStatus.setViewing(ids, windowFocused)
       },
-      statuses: () => Object.fromEntries(filterTerminals(c.terminals.list(), hidden).map((t) => [t.id, c.terminalStatus.status(t.id) ?? 'idle']))
+      statuses: () => Object.fromEntries(withoutBackground(filterTerminals(c.terminals.list(), hidden)).map((t) => [t.id, c.terminalStatus.status(t.id) ?? 'idle']))
     },
     orchestrator: {
       open: (mode) => c.orchestrator.open(mode),
       openClaudeMd: async () => {
         const failure = await shell.openPath(await c.orchestrator.claudeMdPath())
-        if (failure) throw new NotFoundError('Ein Programm zum Öffnen der CLAUDE.md', failure)
+        if (failure) throw new NotFoundError(mainT().errors.what.claudeMdOpener, failure)
       }
     },
     todos: {
@@ -109,11 +113,44 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
       update: (id, patch) => c.images.update(id, patch),
       remove: (id) => c.images.remove(id)
     },
+    sources: {
+      list: () => filterSources(c.sources.list(), hidden),
+      add: (input) => c.sources.add(input),
+      update: (id, patch) => {
+        if (isSourceHidden(c.sources.get(id), hidden)) throw new NotFoundError(mainT().errors.what.source(id))
+        return c.sources.update(id, patch)
+      },
+      remove: (id) => {
+        if (isSourceHidden(c.sources.get(id), hidden)) throw new NotFoundError(mainT().errors.what.source(id))
+        c.sources.remove(id)
+      }
+    },
     tasks: {
       list: () => c.visibleTasks(),
       check: (groupId, key) => c.tasks.check(groupId, key),
       uncheck: (groupId, key) => c.tasks.uncheck(groupId, key),
       review: () => c.taskReview.open()
+    },
+    knowledge: {
+      list: () => c.knowledge.list(),
+      plan: () => c.knowledge.plan(),
+      refresh: async (favoriteIds) => {
+        if (!Array.isArray(favoriteIds) || !favoriteIds.every(Number.isInteger)) throw new ValidationError(mainT().knowledge.invalidSelection)
+        await c.knowledge.refresh(favoriteIds)
+        return c.knowledge.progress()
+      },
+      progress: () => c.knowledge.progress(),
+      runs: () => c.knowledgeRuns(),
+      openFile: async (favoriteId, relative) => {
+        const project = c.visibleFavorite(favoriteId)
+        if (!project) throw new NotFoundError(mainT().knowledge.whatProject)
+        if (project.host !== 'local') throw new ValidationError(mainT().knowledge.onlyLocal)
+        const target = await resolveOpenTarget(project.path, relative)
+        // Ausführbares (Skripte, Programme) nur im Explorer zeigen: Die Verweise stammen von einem Agenten.
+        if (!target.direct) return shell.showItemInFolder(target.path)
+        const failure = await shell.openPath(target.path)
+        if (failure) throw new NotFoundError(mainT().knowledge.whatFile(relative), failure)
+      }
     },
     vault: { list: () => c.vault.list(), read: (path) => c.vault.read(path) },
     models: {
@@ -154,11 +191,29 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
       summaries: (hashes) => c.skills.summaries(hashes),
       summarize: (ids) => c.skills.summarize(ids)
     },
+    agents: {
+      read: (host, path) => {
+        if (hidden(host, path)) throw new NotFoundError('Agent')
+        return c.agents.read(host, path)
+      },
+      save: (input) => c.agents.save(input),
+      remove: (host, path) => c.agents.remove(host, path),
+      assist: (request) => c.agents.assist(request)
+    },
+    automations: {
+      list: () => c.automations.list().filter((a) => !hidden(a.host, a.cwd)),
+      runs: (id) => c.automations.runs(id),
+      create: (input) => c.automations.create(input),
+      update: (id, input) => c.automations.update(id, input),
+      remove: (id) => c.automations.remove(id),
+      runNow: (id) => c.automations.runNow(id)
+    },
     minipc: {
       snapshot: async (host) => filterMiniPc(host, await c.minipc.snapshot(host), hidden),
       info: (host) => c.minipc.info(host),
       git: async (host, dir) => filterGit(host, await c.minipc.git(host, dir), hidden),
-      fetch: (host, path) => c.minipc.fetch(host, path)
+      fetch: (host, path) => c.minipc.fetch(host, path),
+      claudeAuth: (host) => c.minipc.claudeAuth(host)
     },
     runs: {
       list: () => c.openRuns(),
@@ -190,7 +245,7 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
       home: (host) => c.folders.home(host),
       pickFile: async () => {
         const window = BrowserWindow.getFocusedWindow()
-        const options = { properties: ['openFile' as const], filters: [{ name: 'Start-Skripte', extensions: ['bat', 'cmd', 'sh'] }, { name: 'Alle Dateien', extensions: ['*'] }] }
+        const options = { properties: ['openFile' as const], filters: [{ name: mainT().main.dialogs.startScripts, extensions: ['bat', 'cmd', 'sh'] }, { name: mainT().main.dialogs.allFiles, extensions: ['*'] }] }
         const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
         return result.canceled ? null : (result.filePaths[0] ?? null)
       },
@@ -218,12 +273,12 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
 }
 
 export function registerIpc(c: Container, updates: UpdateService): void {
-  if (!allChannelsListed) throw new Error('API_CHANNELS unvollständig')
+  if (!allChannelsListed) throw new Error('API_CHANNELS unvollständig') // i18n-ignore: Entwicklerfehler
   const handlers = createHandlers(c, updates) as unknown as Record<string, Record<string, (...args: unknown[]) => unknown>>
   for (const [ns, methods] of Object.entries(API_CHANNELS)) {
     for (const method of methods) {
       const handler = handlers[ns]?.[method]
-      if (!handler) throw new Error(`Kein Handler für ${ns}.${method}`)
+      if (!handler) throw new Error(`Kein Handler für ${ns}.${method}`) // i18n-ignore: Entwicklerfehler
       const wrapped = wrapHandler(handler, (error) => log.error(`${ns}.${method}`, error))
       ipcMain.handle(`${ns}.${method}`, (_event, ...args: unknown[]) => wrapped(...args))
     }
@@ -258,18 +313,18 @@ export function handleImageProtocol(c: Container): void {
     try {
       if (url.hostname === 'image') {
         const id = Number(name)
-        if (isImageHidden(c.images.get(id), (host, path) => c.privacy.isHidden(host, path))) return new Response('Nicht gefunden', { status: 404 })
+        if (isImageHidden(c.images.get(id), (host, path) => c.privacy.isHidden(host, path))) return new Response('Nicht gefunden', { status: 404 }) // i18n-ignore: Antwort des Bildprotokolls
         return net.fetch(pathToFileURL(c.images.filePath(id)).toString())
       }
       if (url.hostname === 'vault') {
         const data = await c.vault.readAsset(name)
-        if (!data) return new Response('Nicht gefunden', { status: 404 })
+        if (!data) return new Response('Nicht gefunden', { status: 404 }) // i18n-ignore: Antwort des Bildprotokolls
         const type = MIME[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream'
         return new Response(new Uint8Array(data), { headers: { 'content-type': type } })
       }
     } catch (error) {
       log.warn('aiimg', request.url, error)
     }
-    return new Response('Nicht gefunden', { status: 404 })
+    return new Response('Nicht gefunden', { status: 404 }) // i18n-ignore: Antwort des Bildprotokolls
   })
 }

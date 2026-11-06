@@ -3,6 +3,7 @@ import { speechModelInfo, type SpeechModelId, type SpeechStatus } from '@shared/
 import type { PrivateProject } from '@shared/privacy'
 import { isInside } from '@shared/projectMatch'
 import type { AiApi, ApiEvents } from '@shared/api'
+import type { KnowledgeProgress, KnowledgeProject } from '@shared/knowledge'
 import { fail, ok, type Result } from '@shared/result'
 import type {
   GitState,
@@ -15,6 +16,7 @@ import type {
   HostStatus,
   ImageMeta,
   Settings,
+  Source,
   TerminalInfo,
   TerminalStatus,
   TodoChange,
@@ -24,6 +26,7 @@ import type {
 } from '@shared/types'
 import { registerImageResolver } from '@renderer/lib/imageUrl'
 import { hostIds } from '@renderer/lib/hosts'
+import { currentT } from '@renderer/i18n/useT'
 import { mockAnalytics } from './mockAnalytics'
 import {
   buildProtocols,
@@ -34,8 +37,10 @@ import {
   MOCK_DAILY,
   MOCK_CATEGORIES,
   MOCK_FAVORITES,
+  MOCK_KNOWLEDGE_PROJECTS,
   MOCK_HEATMAP,
   MOCK_IMAGE_SEEDS,
+  MOCK_SOURCES,
   MOCK_OLLAMA,
   MOCK_SESSIONS,
   MOCK_SETTINGS,
@@ -46,8 +51,11 @@ import {
 import { mockMiniPcInfo, mockSystemDetails } from './mockMiniPc'
 import { mockGalleryImage, mockVaultImage } from './mockImages'
 import { MOCK_SKILL_SUMMARIES, mockSkillCatalog, mockSummaryFor } from './mockSkills'
+import { createMockAgents } from './mockAgents'
 
 const LATENCY_MIN_MS = 120
+const MOCK_KNOWLEDGE_RUN_MS = 3_000
+const MOCK_KNOWLEDGE_PATH = '~/.config/AI Interface/projektwissen'
 const MOCK_STATUS_SEQUENCE: readonly (readonly [TerminalStatus, number])[] = [
   ['working', 800],
   ['question', 5_000],
@@ -76,9 +84,13 @@ class MockEvents {
 }
 
 const HOUR = 3_600_000
+/** Erkennt im Mock-Assistenten eine Frage nach einem neuen Projekt (alle Sprachen). */
+const PROJECT_WORDS = /projekt|project|projet|progetto|proyecto|项目|プロジェクト/i
 /** `?minipc-offline` in der URL simuliert einen nicht erreichbaren Mini-PC. */
 const MOCK_MINI_OFFLINE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('minipc-offline')
-const MINI_OFFLINE_MESSAGE = 'Mini-PC nicht erreichbar: connect ETIMEDOUT 192.168.1.20:22'
+const MINI_PC_NAME = 'Mini-PC'
+const MINI_OFFLINE_CAUSE = 'connect ETIMEDOUT 192.168.1.20:22'
+const miniOfflineMessage = (): string => currentT().errors.hostUnreachable.message(MINI_PC_NAME, MINI_OFFLINE_CAUSE)
 
 let mockRuns: InterruptedRun[] = [
   {
@@ -87,7 +99,7 @@ let mockRuns: InterruptedRun[] = [
     project: '/home/alex/projects/wetter-dashboard',
     hitAt: Date.now() - 2.5 * HOUR,
     message: "You've hit your session limit · resets 3:20pm (Europe/Berlin)",
-    lastPrompt: 'Pipeline für die Kuration fertig bauen und die Tests grün bekommen'
+    lastPrompt: 'Pipeline für die Kuration fertig bauen und die Tests grün bekommen' // i18n-ignore: Beispieldaten
   },
   {
     host: 'local',
@@ -95,7 +107,7 @@ let mockRuns: InterruptedRun[] = [
     project: 'C:\\Users\\Alex\\projects\\ai-interface',
     hitAt: Date.now() - 2.4 * HOUR,
     message: "You've hit your session limit · resets 3:20pm (Europe/Berlin)",
-    lastPrompt: 'Galerie: Filter nach KI-Bildern einbauen'
+    lastPrompt: 'Galerie: Filter nach KI-Bildern einbauen' // i18n-ignore: Beispieldaten
   }
 ]
 
@@ -106,10 +118,10 @@ function mockQuota(): QuotaState {
   const now = Date.now()
   const variant = new URLSearchParams(window.location.search).get('quota')
   if (variant === 'expired') {
-    return { status: 'expired', reason: 'Anmeldung von Claude Code abgelaufen.', hint: 'Im Terminal `claude` starten und neu anmelden.', fetchedAt: now - 20_000 }
+    return { status: 'expired', reason: currentT().errors.quota.loginExpired, hint: currentT().errors.quota.expiredHint, fetchedAt: now - 20_000 }
   }
   if (variant === 'unavailable') {
-    return { status: 'unavailable', reason: 'Keine Zugangsdaten gefunden (~/.claude/.credentials.json).', hint: 'Claude Code auf diesem PC einmal anmelden.', fetchedAt: now - 20_000 }
+    return { status: 'unavailable', reason: currentT().errors.quota.noLogin, hint: currentT().errors.quota.unavailableHint, fetchedAt: now - 20_000 }
   }
   if (variant === 'full') {
     return {
@@ -154,14 +166,15 @@ class MockTerminal {
   }
 
   start(): void {
-    const where = this.info.host === 'local' ? 'Dieser PC' : 'alex@homeserver'
+    const t = currentT()
+    const where = this.info.host === 'local' ? t.main.thisPc : 'alex@homeserver'
     if (this.info.mode === 'shell') {
-      this.emit(`\x1b[2mVerbunden mit ${where}\x1b[0m\r\n`)
+      this.emit(`\x1b[2m${t.mock.terminal.connectedTo(where)}\x1b[0m\r\n`)
     } else {
       this.emit(
-        `\x1b[38;2;251;147;68m✻\x1b[0m \x1b[1mClaude Code\x1b[0m \x1b[2m${this.info.mode === 'continue' || this.info.mode === 'resume' ? 'Sitzung fortgesetzt' : 'neue Sitzung'}\x1b[0m\r\n` +
+        `\x1b[38;2;251;147;68m✻\x1b[0m \x1b[1mClaude Code\x1b[0m \x1b[2m${this.info.mode === 'continue' || this.info.mode === 'resume' ? t.mock.terminal.sessionResumed : t.mock.terminal.sessionNew}\x1b[0m\r\n` +
           `\x1b[2m  cwd: ${this.info.path}\x1b[0m\r\n\r\n` +
-          `\x1b[2m  Mock-Terminal: Eingaben werden zurückgegeben, „exit“ beendet.\x1b[0m\r\n\r\n`
+          `\x1b[2m  ${t.mock.terminal.echoNote}\x1b[0m\r\n\r\n`
       )
     }
     setTimeout(() => this.prompt(), TERMINAL_PROMPT_DELAY_MS)
@@ -253,14 +266,20 @@ export function createMockApi(): AiApi {
   let todoItems: TodoItem[] = buildTodos()
   let todoExists = true
   const skillSummaries = new Map<string, string>(Object.entries(MOCK_SKILL_SUMMARIES))
+  const agents = createMockAgents(() => events.emit('automations:changed', { at: Date.now() }))
   const protocols = buildProtocols()
   const checkedTasks = new Set<string>()
+  let knowledgeProjects: readonly KnowledgeProject[] = MOCK_KNOWLEDGE_PROJECTS
+  let knowledgeProgress: KnowledgeProgress = { active: false, total: 0, done: 0, deferred: 0, runs: [] }
+  let knowledgeRunInfos: TerminalInfo[] = []
   const imageUrls = new Map<number, string>()
   let images: ImageMeta[] = MOCK_IMAGE_SEEDS.map((s) => {
     imageUrls.set(s.meta.id, mockGalleryImage(s.meta.id, s.width, s.height))
     return s.meta
   })
   let nextImageId = images.length + 1
+  let sources: Source[] = [...MOCK_SOURCES]
+  let nextSourceId = sources.length + 1
 
   /** Nur im Mock: simuliert von einer KI erzeugte Bilder (`window.__mockAiImages(3)` in der Konsole). */
   const simulateAiImages = (count: number, project: string = MOCK_FAVORITES[0]?.path ?? ''): void => {
@@ -324,7 +343,7 @@ export function createMockApi(): AiApi {
   })
 
   const hostStatus = (): HostStatus[] => [
-    { id: 'local', label: 'Dieser PC', enabled: true, online: true, error: null, lastCollect: { host: 'local', files: 214, newRecords: 38, skippedLines: 0, failedFiles: 0, finishedAt: Date.now() - 42_000 } },
+    { id: 'local', label: currentT().main.thisPc, enabled: true, online: true, error: null, lastCollect: { host: 'local', files: 214, newRecords: 38, skippedLines: 0, failedFiles: 0, finishedAt: Date.now() - 42_000 } },
     ...settings.devices.map((d) => ({ id: d.id, label: d.name, enabled: d.enabled, online: d.enabled, error: null, lastCollect: { host: d.id, files: 131, newRecords: 12, skippedLines: 2, failedFiles: 0, finishedAt: Date.now() - 44_000 } }))
   ]
 
@@ -378,14 +397,14 @@ export function createMockApi(): AiApi {
     categories: {
       list: () => reply([...categories].sort((a, b) => a.sortOrder - b.sortOrder)),
       add: (input) => {
-        if (categories.some((c) => c.name.toLowerCase() === input.name.trim().toLowerCase())) return replyError('VALIDATION', `Die Art „${input.name}“ gibt es schon.`)
+        if (categories.some((c) => c.name.toLowerCase() === input.name.trim().toLowerCase())) return replyError('VALIDATION', currentT().errors.favorites.categoryExists(input.name))
         const category: Category = { ...input, name: input.name.trim(), id: nextCategoryId++, sortOrder: categories.length }
         categories = [...categories, category]
         return reply(category)
       },
       update: (id, patch) => {
         const current = categories.find((c) => c.id === id)
-        if (!current) return replyError('NOT_FOUND', 'Art wurde nicht gefunden.')
+        if (!current) return replyError('NOT_FOUND', currentT().errors.notFound(currentT().errors.what.category(id)))
         const next: Category = { ...current, ...patch }
         categories = categories.map((c) => (c.id === id ? next : c))
         return reply(next)
@@ -405,7 +424,7 @@ export function createMockApi(): AiApi {
       list: () => reply([...favorites].filter((f) => !isPrivate(f.host, f.path)).sort((a, b) => a.sortOrder - b.sortOrder)),
       add: (input) => {
         if (favorites.some((f) => f.host === input.host && f.path === input.path)) {
-          return replyError('VALIDATION', 'Dieser Ordner ist bereits ein Favorit.', 'Wähle einen anderen Ordner oder benenne den vorhandenen Favoriten um.')
+          return replyError('VALIDATION', currentT().mock.favoriteExists.message, currentT().mock.favoriteExists.hint)
         }
         const fav: Favorite = { ...input, id: nextFavoriteId++, sortOrder: favorites.length, createdAt: Date.now(), categoryId: input.categoryId ?? null, starred: input.starred ?? true, icon: input.icon ?? null }
         favorites = [...favorites, fav]
@@ -413,7 +432,7 @@ export function createMockApi(): AiApi {
       },
       update: (id, patch) => {
         const current = favorites.find((f) => f.id === id)
-        if (!current) return replyError('NOT_FOUND', 'Favorit wurde nicht gefunden.')
+        if (!current) return replyError('NOT_FOUND', currentT().errors.notFound(currentT().errors.what.project(id)))
         const next: Favorite = { ...current, ...patch, name: patch.name?.trim() || current.name }
         favorites = favorites.map((f) => (f.id === id ? next : f))
         return reply(next)
@@ -439,6 +458,7 @@ export function createMockApi(): AiApi {
         return reply(undefined)
       },
       pasteImage: () => reply(null),
+      dropImages: () => reply([]),
       setViewing: () => reply(undefined),
       statuses: () => reply(Object.fromEntries([...terminals.keys()].map((id) => [id, terminalStatuses.get(id) ?? 'idle'])))
     },
@@ -456,7 +476,7 @@ export function createMockApi(): AiApi {
       load: () => reply(todoState()),
       apply: (change) => {
         const next = applyTodo(todoItems, change)
-        if (!next) return replyError('TODO_NOT_FOUND', 'Der Eintrag existiert in der TODO-Datei nicht mehr.', 'TODOs neu laden, die Datei wurde extern geändert.')
+        if (!next) return replyError('TODO_NOT_FOUND', currentT().errors.todoNotFound.message, currentT().errors.todoNotFound.hint)
         todoItems = next
         return reply(todoState())
       },
@@ -472,19 +492,39 @@ export function createMockApi(): AiApi {
         const id = nextImageId++
         const mime = input.extension === 'svg' ? 'image/svg+xml' : `image/${input.extension === 'jpg' ? 'jpeg' : input.extension}`
         imageUrls.set(id, URL.createObjectURL(new Blob([new Uint8Array(data)], { type: mime })))
-        const meta: ImageMeta = { id, fileName: `${id}.${input.extension}`, title: input.title.trim() || 'Ohne Titel', project: input.project, tags: input.tags, bytes: data.byteLength, createdAt: Date.now(), host: null, source: 'manual', sessionId: null }
+        const meta: ImageMeta = { id, fileName: `${id}.${input.extension}`, title: input.title.trim() || currentT().main.untitled, project: input.project, tags: input.tags, bytes: data.byteLength, createdAt: Date.now(), host: null, source: 'manual', sessionId: null }
         images = [meta, ...images]
         return reply(meta)
       },
       update: (id, patch) => {
         const current = images.find((i) => i.id === id)
-        if (!current) return replyError('NOT_FOUND', 'Bild wurde nicht gefunden.')
+        if (!current) return replyError('NOT_FOUND', currentT().errors.notFound(currentT().errors.what.image(id)))
         const next: ImageMeta = { ...current, ...patch }
         images = images.map((i) => (i.id === id ? next : i))
         return reply(next)
       },
       remove: (id) => {
         images = images.filter((i) => i.id !== id)
+        return reply(undefined)
+      }
+    },
+    sources: {
+      list: () => reply(sources),
+      add: (input) => {
+        if (!/^https?:\/\//.test(input.url)) return replyError('VALIDATION', currentT().errors.sources.urlInvalid)
+        const source: Source = { id: nextSourceId++, url: input.url, title: input.title.trim() || input.url, note: input.note.trim(), host: input.project === null ? null : input.host, project: input.project, origin: 'user', starred: false, sessionId: null, createdAt: Date.now() }
+        sources = [source, ...sources]
+        return reply(source)
+      },
+      update: (id, patch) => {
+        const current = sources.find((s) => s.id === id)
+        if (!current) return replyError('NOT_FOUND', currentT().errors.notFound(currentT().errors.what.source(id)))
+        const next: Source = { ...current, ...patch }
+        sources = sources.map((s) => (s.id === id ? next : s))
+        return reply(next)
+      },
+      remove: (id) => {
+        sources = sources.filter((s) => s.id !== id)
         return reply(undefined)
       }
     },
@@ -504,19 +544,49 @@ export function createMockApi(): AiApi {
         return reply(undefined)
       },
       review: async () => {
-        const info: TerminalInfo = { id: `mock-${++terminalCounter}`, host: 'local', path: MOCK_REVIEW_PATH, mode: 'new', title: 'Aufgaben-Prüfung', running: true, startedAt: Date.now() }
+        const info: TerminalInfo = { id: `mock-${++terminalCounter}`, host: 'local', path: MOCK_REVIEW_PATH, mode: 'new', title: currentT().main.taskReviewTitle, running: true, startedAt: Date.now() }
         const result = await startMockTerminal(info)
         setTimeout(() => {
           const group = MOCK_PROJECT_TASKS.find((p) => p.tasks.some((t) => !checkedTasks.has(`${p.groupId}|${t.key}`)))
           const task = group?.tasks.find((t) => !checkedTasks.has(`${group.groupId}|${t.key}`))
           if (group && task) checkedTasks.add(`${group.groupId}|${task.key}`)
           const checked = group && task ? [{ groupId: group.groupId, key: task.key, text: task.text, label: group.label, reason: 'Commit abc1234' }] : []
-          events.emit('tasks:reviewed', { checked, summary: 'Beispiel-Prüfung beendet.', finished: true })
+          events.emit('tasks:reviewed', { checked, summary: currentT().mock.reviewDone, finished: true })
           terminals.delete(info.id)
           events.emit('terminal:closed', { id: info.id })
         }, MOCK_REVIEW_MS)
         return result
       }
+    },
+    knowledge: {
+      list: () => reply(knowledgeProjects.filter((p) => settings.knowledge.projects.includes(p.favoriteId))),
+      plan: () => {
+        const enabled = knowledgeProjects.filter((p) => settings.knowledge.projects.includes(p.favoriteId))
+        const items = enabled.flatMap((p) => (p.status === 'stale' || p.status === 'missing' ? [{ favoriteId: p.favoriteId, name: p.name, status: p.status, estimate: p.status === 'missing' ? 6 : 3.5 }] : []))
+        return reply({ items, enabled: enabled.length, quotaPercent: 42, stopPercent: 95 })
+      },
+      refresh: (favoriteIds) => {
+        if (knowledgeProgress.active) return reply(knowledgeProgress)
+        const pending = knowledgeProjects.filter((p) => favoriteIds.includes(p.favoriteId) && (p.status === 'stale' || p.status === 'missing'))
+        knowledgeRunInfos = pending.map((p) => ({ id: `knowledge-${p.favoriteId}`, host: 'local', path: MOCK_KNOWLEDGE_PATH, mode: 'new', title: `Projektwissen: ${p.name}`, running: true, startedAt: Date.now(), background: 'knowledge' }))
+        const publish = (next: KnowledgeProgress): void => {
+          knowledgeProgress = next
+          events.emit('knowledge:progress', next)
+        }
+        const runs = pending.map((p) => ({ favoriteId: p.favoriteId, terminalId: `knowledge-${p.favoriteId}` }))
+        publish({ active: true, total: pending.length, done: 0, deferred: 0, runs })
+        setTimeout(() => {
+          const ids = new Set(pending.map((p) => p.favoriteId))
+          knowledgeProjects = knowledgeProjects.map((p) => (ids.has(p.favoriteId) ? { ...p, status: 'current', knowledge: p.knowledge ?? MOCK_KNOWLEDGE_PROJECTS[0]?.knowledge ?? null, error: null } : p))
+          knowledgeRunInfos = []
+          publish({ active: false, total: pending.length, done: pending.length, deferred: 0, runs: [] })
+          for (const id of ids) events.emit('knowledge:updated', { favoriteId: id })
+        }, MOCK_KNOWLEDGE_RUN_MS)
+        return reply(knowledgeProgress)
+      },
+      progress: () => reply(knowledgeProgress),
+      runs: () => reply([...knowledgeRunInfos]),
+      openFile: () => reply(undefined)
     },
     vault: {
       list: () =>
@@ -531,7 +601,7 @@ export function createMockApi(): AiApi {
         ),
       read: (path) => {
         const doc = protocols.find((p) => p.path === path)
-        return doc ? reply(doc) : replyError('NOT_FOUND', `Protokoll „${path}“ wurde nicht gefunden.`)
+        return doc ? reply(doc) : replyError('NOT_FOUND', currentT().errors.notFound(path))
       }
     },
     models: {
@@ -581,16 +651,16 @@ export function createMockApi(): AiApi {
           }))
         ),
       scanVault: () => reply({ todoFiles: ['Programmieren/Server/TODO.md', 'Privat/TODO.md'], protocolDirs: ['Programmieren/Server/homeserver/Protokoll'], topDirs: ['Programmieren', 'Privat', 'Uni'] }),
-      testDevice: (device) => reply(device.host.startsWith('192.') ? { ok: true, message: `Verbunden mit ${device.user}@${device.host}.` } : { ok: false, message: `${device.name} ist nicht erreichbar: Timed out while waiting for handshake` }),
+      testDevice: (device) => reply(device.host.startsWith('192.') ? { ok: true, message: currentT().errors.setup.connected(device.user, device.host) } : { ok: false, message: currentT().errors.hostUnreachable.message(device.name, 'Timed out while waiting for handshake') }),
       prerequisites: () =>
         reply([
           { id: 'claude', label: 'Claude Code', ok: true, detail: 'C:\\Users\\Alex\\.local\\bin\\claude.exe', required: true, fixCommand: null, helpUrl: null },
-          { id: 'login', label: 'Bei Claude angemeldet', ok: true, detail: 'C:\\Users\\Alex\\.claude\\.credentials.json', required: true, fixCommand: null, helpUrl: null },
+          { id: 'login', label: currentT().main.prerequisites.loginLabel, ok: true, detail: 'C:\\Users\\Alex\\.claude\\.credentials.json', required: true, fixCommand: null, helpUrl: null },
           {
             id: 'gitBash',
             label: 'Git Bash',
             ok: false,
-            detail: 'Ohne Git Bash keine Desktop-Meldungen und kein Status (arbeitet, fertig, Frage) in den Terminals.',
+            detail: currentT().main.prerequisites.gitBashMissing,
             required: false,
             fixCommand: 'winget install Git.Git',
             helpUrl: 'https://git-scm.com/downloads/win'
@@ -616,21 +686,21 @@ export function createMockApi(): AiApi {
           events.emit('assistant:event', { type: 'text', turnId, text: chunk })
         }
         events.emit('assistant:event', { type: 'tool', turnId, name: 'list_projects', summary: '{}' })
-        if (/projekt/i.test(text)) {
-          await say('Ich lege das Projekt **Beat Lab** unter `D:\\GitHub\\Projects` an: Ordner mit CLAUDE.md, Plan, README und .gitignore, danach `git init`.')
+        if (PROJECT_WORDS.test(text)) {
+          await say(currentT().mock.assistant.createProject)
           const requestId = `req-${Date.now()}`
           const decision = new Promise<boolean>((resolve) => (mockConfirms[requestId] = resolve))
           events.emit('assistant:event', {
             type: 'confirm',
             requestId,
             tool: 'create_project_folder',
-            preview: 'Ordner: D:\\GitHub\\Projects\\Beat Lab\nDateien:\n- CLAUDE.md\n- docs\\PLAN.md\n- README.md\n- .gitignore\nDanach: git init -b main'
+            preview: currentT().mock.assistant.preview
           })
           const allowed = await decision
           events.emit('assistant:event', { type: 'confirm-resolved', requestId, allowed })
-          await say(allowed ? 'Erledigt. Soll ich das Projekt auch in der App eintragen?' : 'Okay, ich lege nichts an. Was soll ich anders machen?')
+          await say(allowed ? currentT().mock.assistant.done : currentT().mock.assistant.declined)
         } else {
-          await say('Dein 5-Stunden-Kontingent liegt bei **32 %**, das Wochenkontingent bei **84 %**.')
+          await say(currentT().mock.assistant.quota)
         }
         events.emit('assistant:event', { type: 'done', turnId })
         return reply(undefined)
@@ -648,7 +718,7 @@ export function createMockApi(): AiApi {
       summarize: async (ids) => {
         for (const [i, id] of ids.entries()) {
           const entry = hostIds().flatMap((h) => mockSkillCatalog(h).entries).find((e) => e.id === id)
-          if (!entry) return replyError('NOT_FOUND', `Eintrag ${id} nicht gefunden`, 'Katalog neu laden und erneut versuchen.')
+          if (!entry) return replyError('NOT_FOUND', currentT().errors.notFound(currentT().errors.what.entry(id)), currentT().errors.hints.reloadCatalog)
           events.emit('skills:progress', { done: i, total: ids.length, current: entry.name })
           await delay(null)
           skillSummaries.set(entry.hash, mockSummaryFor(entry.name))
@@ -657,10 +727,30 @@ export function createMockApi(): AiApi {
         return reply(ids.length)
       }
     },
+    agents: {
+      read: (host, path) => reply(agents.read(host, path)),
+      save: (input) => reply(agents.save(input)),
+      remove: (_host, path) => reply(agents.remove(path)),
+      assist: async (request) => ok(await agents.assist(request))
+    },
+    automations: {
+      list: () => reply(agents.list()),
+      runs: (id) => reply(agents.runs(id)),
+      create: (input) => {
+        const result = agents.create(input)
+        return typeof result === 'string' ? replyError('VALIDATION', result) : reply(result)
+      },
+      update: (id, input) => {
+        const result = agents.update(id, input)
+        return typeof result === 'string' ? replyError('VALIDATION', result) : reply(result)
+      },
+      remove: (id) => reply(agents.removeAutomation(id)),
+      runNow: (id) => reply(agents.runNow(id))
+    },
     minipc: {
       snapshot: () =>
         MOCK_MINI_OFFLINE
-          ? reply({ online: false, error: MINI_OFFLINE_MESSAGE, system: null, claude: [], fetchedAt: Date.now() })
+          ? reply({ online: false, error: miniOfflineMessage(), system: null, claude: [], fetchedAt: Date.now() })
           : reply({
           online: true,
           error: null,
@@ -680,17 +770,19 @@ export function createMockApi(): AiApi {
             { pid: 1830901, cwd: '/home/alex/projects/wetter-dashboard', status: 'busy', startedAt: Date.now() - 0.4 * HOUR, name: 'wetter' }
           ]
         }),
-      info: () => (MOCK_MINI_OFFLINE ? replyError<MiniPcInfo>('HOST_UNREACHABLE', MINI_OFFLINE_MESSAGE) : reply({ ...mockMiniPcInfo, fetchedAt: Date.now() })),
+      info: () => (MOCK_MINI_OFFLINE ? replyError<MiniPcInfo>('HOST_UNREACHABLE', miniOfflineMessage()) : reply({ ...mockMiniPcInfo, fetchedAt: Date.now() })),
       git: () =>
         MOCK_MINI_OFFLINE
-          ? replyError<GitState[]>('HOST_UNREACHABLE', MINI_OFFLINE_MESSAGE)
+          ? replyError<GitState[]>('HOST_UNREACHABLE', miniOfflineMessage())
           : reply([
           { path: '/home/alex/projects/ai-interface', name: 'ai-interface', branch: 'feature/app', upstream: 'origin/feature/app', ahead: 0, behind: 2, staged: 0, unstaged: 0, untracked: 0, error: null },
           { path: '/home/alex/projects/wetter-dashboard', name: 'wetter-dashboard', branch: 'main', upstream: 'origin/main', ahead: 1, behind: 0, staged: 0, unstaged: 42, untracked: 3, error: null },
           { path: '/home/alex/projects/old-experiment', name: 'old-experiment', branch: null, upstream: null, ahead: 0, behind: 0, staged: 1, unstaged: 0, untracked: 0, error: 'fatal: unable to access remote: Could not resolve host: github.com' },
           { path: '/home/alex/projects/Playlist_Builder_v2', name: 'Playlist_Builder_v2', branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, unstaged: 0, untracked: 0, error: null }
         ]),
-      fetch: (path) => reply({ path, name: path.split('/').pop() ?? path, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, unstaged: 0, untracked: 0, error: null })
+      fetch: (path) => reply({ path, name: path.split('/').pop() ?? path, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, unstaged: 0, untracked: 0, error: null }),
+      claudeAuth: () =>
+        reply(MOCK_MINI_OFFLINE ? { state: 'unknown', reason: miniOfflineMessage(), checkedAt: Date.now() } : { state: 'signedIn', expiresAt: Date.now() + 123 * HOUR, checkedAt: Date.now() })
     },
     runs: {
       list: () => reply(mockRuns),
@@ -729,7 +821,7 @@ export function createMockApi(): AiApi {
         check: () => reply(updateState),
         install: () => {
           setUpdate({ ...updateState, phase: 'building' })
-          setTimeout(() => setUpdate({ ...updateState, phase: 'failed', detail: 'Im Browser-Modus wird nichts installiert.' }), 2500)
+          setTimeout(() => setUpdate({ ...updateState, phase: 'failed', detail: currentT().mock.browserNoInstall }), 2500)
           return reply(undefined)
         }
       }
@@ -764,15 +856,15 @@ export function createMockApi(): AiApi {
         },
         transcribe: async () => {
           await new Promise((r) => setTimeout(r, 600))
-          return reply('Das ist ein diktierter Beispieltext.')
+          return reply(currentT().mock.dictationSample)
         }
       }
     })(),
     privacy: {
       status: () => reply(privacyStatus()),
       unlock: (pin) => {
-        if (!privacyHasPin) return replyError('PIN_REQUIRED', 'Für den Privatmodus ist noch keine PIN festgelegt.')
-        if (pin !== MOCK_PIN) return replyError('WRONG_PIN', 'PIN falsch.', 'PIN erneut eingeben (Mock: 1234).')
+        if (!privacyHasPin) return replyError('PIN_REQUIRED', currentT().errors.pinRequired.message, currentT().errors.pinRequired.hint)
+        if (pin !== MOCK_PIN) return replyError('WRONG_PIN', currentT().errors.wrongPin.message, currentT().mock.pinHint)
         privacyLocked = false
         return privacyChanged()
       },
@@ -781,13 +873,13 @@ export function createMockApi(): AiApi {
         return privacyChanged()
       },
       setPin: (current, next) => {
-        if (privacyHasPin && current !== MOCK_PIN) return replyError('WRONG_PIN', 'PIN falsch.')
-        if (!/^d{4,12}$/.test(next)) return replyError('INVALID_PIN', 'Die PIN muss aus 4 bis 12 Ziffern bestehen.')
+        if (privacyHasPin && current !== MOCK_PIN) return replyError('WRONG_PIN', currentT().errors.wrongPin.message)
+        if (!/^\d{4,12}$/.test(next)) return replyError('INVALID_PIN', currentT().errors.invalidPin.message, currentT().errors.invalidPin.hint)
         privacyHasPin = true
         privacyLocked = false
         return privacyChanged()
       },
-      list: () => (privacyLocked ? replyError('PRIVACY_LOCKED', 'Der Privatmodus ist aktiv.') : reply(privateProjects)),
+      list: () => (privacyLocked ? replyError('PRIVACY_LOCKED', currentT().errors.privacyLocked.message, currentT().errors.privacyLocked.hint) : reply(privateProjects)),
       add: (input) => {
         const added = { id: nextPrivateId++, ...input }
         privateProjects = [...privateProjects, added]

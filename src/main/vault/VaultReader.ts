@@ -1,3 +1,4 @@
+import { mainT } from '../i18n'
 import type { Favorite, ProtocolDocument, ProtocolEntry, ProtocolGroup, Settings } from '@shared/types'
 import { ValidationError } from '../errors'
 import { type Host, joinPath } from '../hosts/Host'
@@ -17,7 +18,7 @@ const ABSOLUTE_PATH = /^(?:[A-Za-z]:)?\//
 function safeSegments(relative: string): string[] {
   const segments = relative.split(/[\\/]/)
   if (segments.some((s) => s === '' || s === '.' || s === '..') || /^[A-Za-z]:/.test(relative)) {
-    throw new ValidationError(`Ungültiger Dateiname „${relative}“.`)
+    throw new ValidationError(mainT().errors.vault.invalidName(relative))
   }
   return segments
 }
@@ -61,7 +62,7 @@ export class VaultReader {
     const dir = segments.slice(0, -1).join('/')
     const host = this.host()
     const known = (await this.sources(host)).some((s) => s.dir === dir)
-    if (!known || !name.endsWith(MARKDOWN)) throw new ValidationError(`„${path}“ ist kein Protokoll aus einem Protokollordner.`)
+    if (!known || !name.endsWith(MARKDOWN)) throw new ValidationError(mainT().errors.vault.notProtocol(path))
     const relative = segments.join('/')
     const file = this.absolute(host, relative)
     const [data, stat] = await Promise.all([host.readFile(file), host.stat(file)])

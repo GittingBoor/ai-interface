@@ -1,5 +1,7 @@
+import { mainT } from '../i18n'
 import { randomUUID } from 'node:crypto'
-import type { HostId, TerminalInfo } from '@shared/types'
+import { type DroppedImage, type HostId, PASTE_IMAGE_EXTENSIONS, type TerminalInfo } from '@shared/types'
+import { ValidationError } from '../errors'
 import { type Host, joinPath } from '../hosts/Host'
 
 const PASTE_DIR_NAME = 'ai-interface-paste'
@@ -20,7 +22,7 @@ interface TerminalAccess {
 
 const isMissing = (error: unknown): boolean => (error as { code?: unknown }).code === 'ENOENT'
 
-/** Legt Bilder aus der Zwischenablage auf dem Host des Terminals ab und fügt den Pfad ein. */
+/** Legt eingefügte und hereingezogene Bilder auf dem Host des Terminals ab und fügt den Pfad ein. */
 export class PasteImageService {
   constructor(
     private readonly hosts: (id: HostId) => Host,
@@ -29,12 +31,21 @@ export class PasteImageService {
   ) {}
 
   async paste(terminalId: string, png: Uint8Array): Promise<string> {
-    const host = this.hosts(this.terminals.info(terminalId).host)
-    const name = `${this.now()}-${randomUUID().slice(0, RANDOM_SUFFIX_LENGTH)}.png`
-    const path = joinPath(host, await this.dir(host), name)
-    await host.writeFileBytes(path, png)
+    const path = await this.store(this.hosts(this.terminals.info(terminalId).host), png, 'png')
     this.terminals.write(terminalId, bracketedPath(path))
     return path
+  }
+
+  /** Fügt erst ein, wenn alle Bilder liegen, damit die Reihenfolge stimmt und nichts halb ankommt. */
+  async pasteMany(terminalId: string, images: readonly DroppedImage[]): Promise<string[]> {
+    const host = this.hosts(this.terminals.info(terminalId).host)
+    const paths: string[] = []
+    for (const { data, extension } of images) {
+      if (!PASTE_IMAGE_EXTENSIONS.includes(extension)) throw new ValidationError(mainT().errors.images.pasteUnsupported(extension, PASTE_IMAGE_EXTENSIONS.join(', ')))
+      paths.push(await this.store(host, data, extension))
+    }
+    for (const path of paths) this.terminals.write(terminalId, bracketedPath(path))
+    return paths
   }
 
   /** Löscht abgelegte Bilder, die älter als `maxAgeMs` sind; liefert die Anzahl. */
@@ -57,6 +68,13 @@ export class PasteImageService {
       removed++
     }
     return removed
+  }
+
+  private async store(host: Host, data: Uint8Array, extension: string): Promise<string> {
+    const name = `${this.now()}-${randomUUID().slice(0, RANDOM_SUFFIX_LENGTH)}.${extension}`
+    const path = joinPath(host, await this.dir(host), name)
+    await host.writeFileBytes(path, data)
+    return path
   }
 
   private async dir(host: Host): Promise<string> {

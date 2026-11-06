@@ -1,5 +1,6 @@
 import type { DiskIoRate, DriveInfo, SystemStats } from '@shared/types'
 import { Section } from '@renderer/components/Section'
+import { useT } from '@renderer/i18n/useT'
 import { useMiniPc } from '@renderer/stores/miniPcStore'
 import { formatBytes } from '@renderer/lib/format'
 import { NO_VALUE, formatRate } from '@renderer/lib/miniPcFormat'
@@ -19,22 +20,23 @@ function driveRows(drives: readonly DriveInfo[], diskIo: readonly DiskIoRate[]):
 
 /** Laufwerke mit Modell, Größe und aktueller Lese- und Schreibrate. */
 export function DriveList({ system }: { readonly system: SystemStats }): React.JSX.Element {
+  const t = useT().device
   const info = useMiniPc((s) => s.info)
   const infoError = useMiniPc((s) => s.infoError)
   const rows = driveRows(info?.drives ?? [], system.diskIo)
   const pending = info ? null : infoError ? NO_VALUE : <ValueSkeleton />
   return (
-    <Section id="minipc-drives" title="Datenträger" description="Modell, Größe und aktueller Durchsatz">
+    <Section id="minipc-drives" title={t.sectionDrives} description={t.drivesDesc}>
       <div className="space-y-3">
         {rows.length > 0 ? (
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[26rem] border-separate border-spacing-0 text-[0.8125rem]">
               <thead>
                 <tr className="text-left text-xs text-ink-3">
-                  <th className={TABLE_HEAD}>Laufwerk</th>
-                  <th className={`${TABLE_HEAD} text-right`}>Größe</th>
-                  <th className={`${TABLE_HEAD} text-right`}>Lesen</th>
-                  <th className={`${TABLE_HEAD} text-right`}>Schreiben</th>
+                  <th className={TABLE_HEAD}>{t.drivesColDrive}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.drivesColSize}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.drivesColRead}</th>
+                  <th className={`${TABLE_HEAD} text-right`}>{t.drivesColWrite}</th>
                 </tr>
               </thead>
               <tbody>
@@ -42,7 +44,7 @@ export function DriveList({ system }: { readonly system: SystemStats }): React.J
                   <tr key={row.name}>
                     <td className={TABLE_CELL}>
                       <p className="font-mono text-xs text-ink">{row.name}</p>
-                      <p className="mt-0.5 text-2xs text-ink-3">{pending ?? (row.drive?.model || 'Modell unbekannt')}</p>
+                      <p className="mt-0.5 text-2xs text-ink-3">{pending ?? (row.drive?.model || t.drivesModelUnknown)}</p>
                     </td>
                     <td className={`${TABLE_CELL} num text-right text-ink-2`}>{pending ?? (row.drive ? formatBytes(row.drive.sizeBytes) : NO_VALUE)}</td>
                     <td className={`${TABLE_CELL} num text-right text-ink-2`}>{formatRate(row.io?.readRate ?? null)}</td>
@@ -53,7 +55,7 @@ export function DriveList({ system }: { readonly system: SystemStats }): React.J
             </table>
           </div>
         ) : info ? (
-          <p className="text-[0.8125rem] text-ink-3">Keine Laufwerke gemeldet.</p>
+          <p className="text-[0.8125rem] text-ink-3">{t.drivesNone}</p>
         ) : infoError ? null : (
           <ValueSkeleton className="w-48" />
         )}

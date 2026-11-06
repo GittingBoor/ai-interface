@@ -19,6 +19,7 @@ const entry = (name: string, over: Partial<SkillEntry> = {}): SkillEntry => ({
   skills: [],
   hash: `h-${name}`,
   bodyExcerpt: '',
+  color: null,
   ...over
 })
 

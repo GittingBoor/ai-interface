@@ -3,22 +3,26 @@ import { Search, X } from 'lucide-react'
 import { IconButton } from '@renderer/components/Button'
 import { Kbd } from '@renderer/components/Controls'
 import { ViewHeader } from '@renderer/components/Section'
-import { filterHowTo, HOWTO_ENTRIES, HOWTO_GROUPS } from '@renderer/lib/howto'
+import { useT } from '@renderer/i18n/useT'
+import { filterHowTo, howToEntries, howToGroups } from '@renderer/lib/howto'
 import { SpeechPanel } from './SpeechPanel'
 
 export function HowToView(): React.JSX.Element {
+  const t = useT()
   const [query, setQuery] = useState('')
-  const visible = useMemo(() => filterHowTo(HOWTO_ENTRIES, query), [query])
+  const entries = useMemo(() => howToEntries(t), [t])
+  const groups = useMemo(() => howToGroups(t), [t])
+  const visible = useMemo(() => filterHowTo(entries, query), [entries, query])
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Steuerung" />
+      <ViewHeader title={t.frame.views.howto} />
       <div className="@container/main min-h-0 flex-1 overflow-y-auto px-8 pb-12">
         <div className="grid items-start gap-8 @min-[90rem]/main:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] @min-[90rem]/main:gap-12">
           <SpeechPanel />
-          <section aria-label="Kürzel und Tricks">
+          <section aria-label={t.howto.sectionAria}>
             <label className="relative block max-w-sm">
-              <span className="sr-only">Kürzel suchen</span>
+              <span className="sr-only">{t.howto.searchLabel}</span>
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-3" aria-hidden />
               <input
                 type="search"
@@ -30,13 +34,13 @@ export function HowToView(): React.JSX.Element {
                     setQuery('')
                   }
                 }}
-                placeholder="Kürzel suchen …"
+                placeholder={t.howto.searchPlaceholder}
                 className="field pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
               />
-              {query ? <IconButton size="sm" icon={X} label="Suche leeren" className="absolute top-0.5 right-0.5 size-7" onClick={() => setQuery('')} /> : null}
+              {query ? <IconButton size="sm" icon={X} label={t.howto.clearSearch} className="absolute top-0.5 right-0.5 size-7" onClick={() => setQuery('')} /> : null}
             </label>
             <div className="grid gap-x-10 @min-[120rem]/main:grid-cols-2">
-              {HOWTO_GROUPS.map((group) => {
+              {groups.map((group) => {
                 const entries = visible.filter((e) => e.group === group.id)
                 if (!entries.length) return null
                 return (
@@ -44,7 +48,7 @@ export function HowToView(): React.JSX.Element {
                     <h2 className="text-xs font-[620] text-ink-2">{group.label}</h2>
                     <ul className="mt-2 divide-y divide-line border-y border-line">
                       {entries.map((e) => (
-                        <li key={`${e.group}-${e.title}`} className="grid grid-cols-[11rem_1fr] items-baseline gap-4 py-2.5">
+                        <li key={e.id} className="grid grid-cols-[11rem_1fr] items-baseline gap-4 py-2.5">
                           <span className="flex flex-wrap gap-0.5">
                             {e.keys.map((k, i) => (
                               <Kbd key={`${i}-${k}`}>{k}</Kbd>
@@ -61,7 +65,7 @@ export function HowToView(): React.JSX.Element {
                 )
               })}
             </div>
-            {visible.length === 0 ? <p className="mt-6 text-xs text-ink-3">Nichts gefunden für „{query}“.</p> : null}
+            {visible.length === 0 ? <p className="mt-6 text-xs text-ink-3">{t.howto.nothingFound(query)}</p> : null}
           </section>
         </div>
       </div>
