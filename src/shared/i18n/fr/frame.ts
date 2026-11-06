@@ -53,7 +53,14 @@ export const frame: Messages['frame'] = {
   },
   toast: { dismiss: 'Fermer la notification' },
   confirm: { fallbackTitle: 'Confirmer' },
-  states: { loadFailed: 'Échec du chargement', loadingAria: 'Chargement en cours' },
+  states: {
+    loadFailed: 'Échec du chargement',
+    loadingAria: 'Chargement en cours',
+    crashTitle: 'Un problème est survenu ici',
+    crashBody: 'Cette section a rencontré une erreur et a été arrêtée. Vos réglages sont enregistrés. L’erreur figure dans le journal.',
+    reload: 'Recharger',
+    openLog: 'Ouvrir le journal'
+  },
   noVault: {
     title: 'Aucun coffre Obsidian connecté',
     action: 'Choisir un coffre',

@@ -60,6 +60,7 @@ import { useSkills } from '@renderer/stores/skillsStore'
 import { useTaskReview } from '@renderer/stores/taskReviewStore'
 import { hotkeyTarget, isDictationHotkey } from '@renderer/lib/speechText'
 import { ASSISTANT_PANEL_ID } from '@renderer/components/assistant/AssistantPanel'
+import { ErrorBoundary } from '@renderer/components/ErrorBoundary'
 
 const USAGE_POLL_MS = 60_000
 /** Mindestabstand zwischen zwei Neuladungen beim Fensterfokus. */
@@ -263,7 +264,9 @@ export function App(): React.JSX.Element {
         <div className="flex h-full flex-col">
           <TitleBar />
           <div className="min-h-0 flex-1">
-            <SetupWizard />
+            <ErrorBoundary>
+              <SetupWizard />
+            </ErrorBoundary>
           </div>
         </div>
         <ConfirmDialog />
@@ -289,13 +292,17 @@ export function App(): React.JSX.Element {
                   exit={{ opacity: 0, transition: { duration: 0.08 } }}
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <Page />
+                  <ErrorBoundary>
+                    <Page />
+                  </ErrorBoundary>
                 </motion.div>
               ) : null}
             </AnimatePresence>
             <LinkPages />
             <div className={`absolute inset-0 ${view === 'terminal' ? '' : 'invisible pointer-events-none'}`} aria-hidden={view !== 'terminal'}>
-              <TerminalView visible={view === 'terminal'} />
+              <ErrorBoundary>
+                <TerminalView visible={view === 'terminal'} />
+              </ErrorBoundary>
             </div>
           </main>
           <AssistantPanel />

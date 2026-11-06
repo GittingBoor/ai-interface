@@ -53,7 +53,14 @@ export const frame: Messages['frame'] = {
   },
   toast: { dismiss: '关闭通知' },
   confirm: { fallbackTitle: '确认' },
-  states: { loadFailed: '加载失败', loadingAria: '正在加载' },
+  states: {
+    loadFailed: '加载失败',
+    loadingAria: '正在加载',
+    crashTitle: '这里出了问题',
+    crashBody: '此区域发生错误，已停止运行。你的设置已保存。错误已记录在日志中。',
+    reload: '重新加载',
+    openLog: '打开日志'
+  },
   noVault: {
     title: '未连接 Obsidian 库',
     action: '选择库',

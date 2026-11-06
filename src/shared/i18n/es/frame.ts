@@ -53,7 +53,14 @@ export const frame: Messages['frame'] = {
   },
   toast: { dismiss: 'Cerrar notificación' },
   confirm: { fallbackTitle: 'Confirmar' },
-  states: { loadFailed: 'Error al cargar', loadingAria: 'Cargando' },
+  states: {
+    loadFailed: 'Error al cargar',
+    loadingAria: 'Cargando',
+    crashTitle: 'Algo ha fallado aquí',
+    crashBody: 'Esta sección ha tenido un error y se ha detenido. Tus ajustes están guardados. El error figura en el registro.',
+    reload: 'Recargar',
+    openLog: 'Abrir registro'
+  },
   noVault: {
     title: 'No hay ningún vault de Obsidian conectado',
     action: 'Elegir vault',

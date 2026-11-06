@@ -14,6 +14,8 @@ import { guardWebviews } from './webLinks'
 const WINDOW_SIZE = { width: 1440, height: 900, minWidth: 640, minHeight: 480 } as const
 const BACKGROUND_COLOR = '#0c0d10'
 const APP_TITLE = 'AI Interface'
+/** Nach so vielen Abstürzen der Oberfläche nicht mehr automatisch neu laden (sonst Endlosschleife). */
+const MAX_CRASH_RELOADS = 3
 /** Fensterknöpfe über der eigenen Titelleiste: Fläche wie `--color-canvas`, Symbole wie `--color-ink-2`. */
 const TITLE_BAR_OVERLAY = { color: '#0f0e0c', symbolColor: '#bab7b2', height: TITLE_BAR_HEIGHT } as const
 /** Muss zu `appId` in electron-builder.yml passen, sonst ordnet Windows die Benachrichtigungen nicht zu. */
@@ -83,6 +85,16 @@ function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
   window.webContents.on('will-navigate', (event) => event.preventDefault())
+  // Abgestürzte Oberfläche sonst nur als schwarzes Fenster sichtbar: Grund ins Log, dann neu laden.
+  let crashReloads = 0
+  window.webContents.on('render-process-gone', (_event, details) => {
+    log.error(`Oberfläche abgestürzt: ${details.reason} (Code ${details.exitCode})`) // i18n-ignore: Logtext
+    if (details.reason === 'clean-exit' || window.isDestroyed() || crashReloads >= MAX_CRASH_RELOADS) return
+    crashReloads++
+    window.webContents.reload()
+  })
+  window.webContents.on('preload-error', (_event, path, error) => log.error(`Preload fehlgeschlagen: ${path}`, error)) // i18n-ignore: Logtext
+  window.on('unresponsive', () => log.warn('Oberfläche reagiert nicht')) // i18n-ignore: Logtext
   window.on('focus', () => void container?.quota.refreshSoon())
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) void window.loadURL(devUrl)

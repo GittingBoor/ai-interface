@@ -53,7 +53,14 @@ export const frame: Messages['frame'] = {
   },
   toast: { dismiss: '通知を閉じる' },
   confirm: { fallbackTitle: '確認' },
-  states: { loadFailed: '読み込みに失敗しました', loadingAria: '読み込み中' },
+  states: {
+    loadFailed: '読み込みに失敗しました',
+    loadingAria: '読み込み中',
+    crashTitle: '問題が発生しました',
+    crashBody: 'このセクションでエラーが発生したため停止しました。設定は保存されています。エラーの詳細はログにあります。',
+    reload: '再読み込み',
+    openLog: 'ログを開く'
+  },
   noVault: {
     title: 'Obsidian の Vault が接続されていません',
     action: 'Vault を選択',

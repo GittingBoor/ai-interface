@@ -51,7 +51,14 @@ export const frame = {
   },
   toast: { dismiss: 'Meldung schließen' },
   confirm: { fallbackTitle: 'Bestätigen' },
-  states: { loadFailed: 'Laden fehlgeschlagen', loadingAria: 'Wird geladen' },
+  states: {
+    loadFailed: 'Laden fehlgeschlagen',
+    loadingAria: 'Wird geladen',
+    crashTitle: 'Hier ist etwas schiefgegangen',
+    crashBody: 'Dieser Bereich hat einen Fehler und wurde angehalten. Deine Einstellungen sind gespeichert. Der Fehler steht im Log.',
+    reload: 'Neu laden',
+    openLog: 'Log öffnen'
+  },
   noVault: {
     title: 'Kein Obsidian-Vault verbunden',
     action: 'Vault wählen',

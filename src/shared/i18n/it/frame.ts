@@ -53,7 +53,14 @@ export const frame: Messages['frame'] = {
   },
   toast: { dismiss: 'Chiudi notifica' },
   confirm: { fallbackTitle: 'Conferma' },
-  states: { loadFailed: 'Caricamento non riuscito', loadingAria: 'Caricamento in corso' },
+  states: {
+    loadFailed: 'Caricamento non riuscito',
+    loadingAria: 'Caricamento in corso',
+    crashTitle: 'Qui qualcosa è andato storto',
+    crashBody: 'Questa sezione ha avuto un errore ed è stata interrotta. Le tue impostazioni sono salvate. L’errore è nel log.',
+    reload: 'Ricarica',
+    openLog: 'Apri log'
+  },
   noVault: {
     title: 'Nessun vault Obsidian collegato',
     action: 'Scegli vault',

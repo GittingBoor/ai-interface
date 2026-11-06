@@ -53,7 +53,14 @@ export const frame: Messages['frame'] = {
   },
   toast: { dismiss: 'Dismiss notification' },
   confirm: { fallbackTitle: 'Confirm' },
-  states: { loadFailed: 'Failed to load', loadingAria: 'Loading' },
+  states: {
+    loadFailed: 'Failed to load',
+    loadingAria: 'Loading',
+    crashTitle: 'Something went wrong here',
+    crashBody: 'This section ran into an error and was stopped. Your settings are saved. The error is in the log.',
+    reload: 'Reload',
+    openLog: 'Open log'
+  },
   noVault: {
     title: 'No Obsidian vault connected',
     action: 'Choose vault',

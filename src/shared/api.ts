@@ -1,4 +1,5 @@
 import type { Result } from './result'
+import type { CrashReport } from './crashReport'
 import type { AgentAssistRequest, AgentAssistResult, AgentDocument, AgentSaveInput, AgentSaveResult } from './agents'
 import type { Automation, AutomationInput, AutomationRun } from './automations'
 import type { KnowledgePlan, KnowledgeProgress, KnowledgeProject } from './knowledge'
@@ -265,6 +266,8 @@ export interface AiApiCalls {
     info(): Promise<Result<AppInfo>>
     openLog(): Promise<Result<void>>
     showInFolder(path: string): Promise<Result<void>>
+    /** Fehler aus der Oberfläche ins Log des Hauptprozesses schreiben. */
+    logError(report: CrashReport): Promise<Result<void>>
   }
 }
 
@@ -358,7 +361,7 @@ export const API_CHANNELS = {
   privacy: ['status', 'unlock', 'lock', 'setPin', 'list', 'add', 'remove'],
   fs: ['list', 'home', 'pickFile', 'exists'],
   update: ['state', 'check', 'install'],
-  app: ['info', 'openLog', 'showInFolder']
+  app: ['info', 'openLog', 'showInFolder', 'logError']
 } as const satisfies { readonly [NS in keyof AiApiCalls]: readonly (keyof AiApiCalls[NS])[] }
 
 export const TERMINAL_WRITE_CHANNEL = 'terminal.write'

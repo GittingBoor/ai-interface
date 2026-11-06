@@ -10,6 +10,7 @@ import type { Container } from './container'
 import type { UpdateService } from './update/UpdateService'
 import { wrapHandler } from './ipcWrap'
 import { resolveOpenTarget } from './knowledge/openTarget'
+import { crashReport } from '@shared/crashReport'
 import { filterFavorites, filterFolders, filterGit, filterImages, filterMiniPc, filterSkills, filterSources, filterTerminals, isImageHidden, isSourceHidden, withoutBackground, type HiddenCheck } from './privacy/filters'
 
 type MissingChannels = {
@@ -267,7 +268,11 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
       openLog: async () => {
         await shell.openPath(log.transports.file.getFile().path)
       },
-      showInFolder: (path) => shell.showItemInFolder(path)
+      showInFolder: (path) => shell.showItemInFolder(path),
+      logError: (report) => {
+        const { source, message, stack } = crashReport(report.source, report.message, report.stack)
+        log.error(`Oberfläche (${source}): ${message}\n${stack}`) // i18n-ignore: Logtext
+      }
     }
   }
 }

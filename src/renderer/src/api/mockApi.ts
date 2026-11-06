@@ -829,7 +829,8 @@ export function createMockApi(): AiApi {
     app: {
       info: () => reply({ version: '0.1.0', platform: 'win32', dataDir: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface', logFile: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface\\logs\\main.log', packaged: false }),
       openLog: () => reply(undefined),
-      showInFolder: () => reply(undefined)
+      showInFolder: () => reply(undefined),
+      logError: () => reply(undefined)
     },
     speech: (() => {
       let speechStatus: SpeechStatus = { supported: true, binariesInstalled: true, installedModels: ['large-v3-turbo-q5_0'], model: 'large-v3-turbo-q5_0', installing: null }
