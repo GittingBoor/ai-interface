@@ -144,12 +144,12 @@ export const settings: Messages['settings'] = {
   },
   updates: {
     title: '更新',
-    description: '新版本来自 GitHub。在本地仓库中构建，安装前会备份数据库。',
+    description: '新版本来自 GitHub。可一键安装，或在登录时自动安装。',
     modeLabel: '安装更新',
     modeManual: '手动 – 显示带按钮的提示',
     modeAuto: '登录时自动',
     hintManual: (label) => `有新版本时，侧边栏会显示“${label}”。点击后才会安装。`,
-    hintAuto: '登录时会直接构建并安装新版本，不再询问；之后应用会重新启动。',
+    hintAuto: '登录时会直接安装新版本，不再询问；之后应用会重新启动。',
     savedManual: '更新将以带按钮的提示出现。',
     savedAuto: '更新将在登录时自动安装。',
     phases: {
@@ -159,7 +159,7 @@ export const settings: Messages['settings'] = {
       'up-to-date': '已是最新',
       available: '有新版本',
       skipped: '已跳过',
-      building: '正在构建 …',
+      building: '正在准备 …',
       installing: '正在安装，应用将重新启动',
       failed: '失败'
     },

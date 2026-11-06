@@ -144,12 +144,12 @@ export const settings: Messages['settings'] = {
   },
   updates: {
     title: 'Updates',
-    description: 'New versions come from GitHub. They are built in the local repo, and the database is backed up before installing.',
+    description: 'New versions come from GitHub. They are installed at the click of a button or automatically at sign-in.',
     modeLabel: 'Install updates',
     modeManual: 'Manually – notice with button',
     modeAuto: 'Automatically at sign-in',
     hintManual: (label) => `When a new version exists, “${label}” appears in the sidebar. It is only installed after you click.`,
-    hintAuto: 'At sign-in a new version is built and installed without asking; the app restarts afterwards.',
+    hintAuto: 'At sign-in a new version is installed without asking; the app restarts afterwards.',
     savedManual: 'Updates arrive as a notice with a button.',
     savedAuto: 'Updates are installed automatically at sign-in.',
     phases: {
@@ -159,7 +159,7 @@ export const settings: Messages['settings'] = {
       'up-to-date': 'Up to date',
       available: 'New version available',
       skipped: 'Skipped',
-      building: 'Building …',
+      building: 'Preparing …',
       installing: 'Installing, app restarts',
       failed: 'Failed'
     },

@@ -35,3 +35,8 @@ linux:
   target: [AppImage]
   icon: build/icon.png
   category: Development
+# Für electron-updater: schreibt app-update.yml ins Paket und latest.yml neben den Installer (Releases prüfen darauf).
+publish:
+  provider: github
+  owner: GittingBoor
+  repo: ai-interface

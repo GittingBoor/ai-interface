@@ -6,7 +6,7 @@ export const notify: Messages['notify'] = {
   quotaFreeTitle: 'Cuota disponible de nuevo',
   quotaFreeBody: (open) => (open === 1 ? '1 ejecución espera a continuar.' : `${open} ejecuciones esperan a continuar.`),
   updatingTitle: 'AI Interface se está actualizando',
-  updatingBody: 'La nueva versión está compilada; la app se reiniciará en breve.',
+  updatingBody: 'La nueva versión está lista; la app se reiniciará en breve.',
   updateFailedTitle: 'Falló la actualización',
   updateFailedBody: 'La app sigue con la versión anterior; detalles en los ajustes.',
   updateAvailableTitle: 'Actualización disponible',

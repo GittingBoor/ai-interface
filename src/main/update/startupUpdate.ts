@@ -3,7 +3,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { app } from 'electron'
+import electronUpdater from 'electron-updater'
+import log from 'electron-log/main'
 import { installCommandLine } from './installCommand'
+import { type ReleaseClient, ReleaseUpdater } from './ReleaseUpdater'
 import { type CommandResult, type CommandRunner, StartupUpdater } from './StartupUpdater'
 import { UpdateService, type UpdateServiceDeps } from './UpdateService'
 
@@ -33,17 +36,29 @@ class ProcessRunner implements CommandRunner {
   }
 }
 
-/** Dienst für die laufende App: prüft gegen den Repo-Ordner, aus dem sie gebaut wurde. */
+/**
+ * Dienst für die laufende App. Selbst gebaute Apps prüfen gegen den Repo-Ordner, aus dem sie gebaut wurden;
+ * installierte Releases (ohne Repo-Ordner) gegen das neueste GitHub-Release.
+ */
 export function createUpdateService(hooks: UpdateHooks): UpdateService {
+  const base = { ...hooks, supported: app.isPackaged && process.platform === 'win32', quit: () => app.quit(), waitForNetwork: () => sleep(NETWORK_WAIT_MS) }
+  if (!__BUILD_REPO__) return new UpdateService({ ...base, source: new ReleaseUpdater(releaseClient()), launchInstaller: installRelease })
   const files = { exists: existsSync, readText: (path: string) => readFileSync(path, 'utf8') }
-  return new UpdateService({
-    ...hooks,
-    supported: app.isPackaged && process.platform === 'win32',
-    source: new StartupUpdater(__BUILD_REPO__, __BUILD_COMMIT__, new ProcessRunner(), files),
-    launchInstaller,
-    quit: () => app.quit(),
-    waitForNetwork: () => sleep(NETWORK_WAIT_MS)
-  })
+  return new UpdateService({ ...base, source: new StartupUpdater(__BUILD_REPO__, __BUILD_COMMIT__, new ProcessRunner(), files), launchInstaller })
+}
+
+/** `electron-updater` liest Repo und Kanal aus der beim Build erzeugten `app-update.yml`. */
+function releaseClient(): ReleaseClient {
+  const { autoUpdater } = electronUpdater
+  autoUpdater.logger = log
+  // Herunterladen erst auf Knopfdruck bzw. im Modus „automatisch“ (UpdateService entscheidet).
+  autoUpdater.autoDownload = false
+  return autoUpdater
+}
+
+/** Installer still ausführen und die App danach wieder starten. */
+function installRelease(): void {
+  electronUpdater.autoUpdater.quitAndInstall(true, true)
 }
 
 function launchInstaller(installerPath: string): void {

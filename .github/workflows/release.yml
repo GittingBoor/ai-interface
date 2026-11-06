@@ -45,4 +45,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$TAG" release/*.exe --title "AI Interface $TAG" --generate-notes
+          # latest.yml und .blockmap braucht die Update-Prüfung der installierten App (electron-updater).
+          gh release create "$TAG" release/*.exe release/*.exe.blockmap release/latest.yml --title "AI Interface $TAG" --generate-notes

@@ -1,7 +1,7 @@
 {
   "name": "ai-interface",
   "productName": "AI Interface",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Desktop-App zur Verwaltung der KI-Arbeit: Verbrauch, Projekte, Claude-Terminals, Modelle, TODOs, Protokolle",
   "main": "./out/main/index.js",
   "author": "GittingBoor",
@@ -46,6 +46,7 @@
     "better-sqlite3": "^13.0.3",
     "dompurify": "^3.4.16",
     "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.11",
     "lucide-react": "^1.48.0",
     "marked": "^18.0.14",
     "motion": "^13.4.4",

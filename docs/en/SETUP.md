@@ -199,8 +199,10 @@ In Obsidian `Projects/<project name>/Protokoll/YYYY-MM-DD.md`, one file per day,
 
 ## 7. Updates
 
-- **Ready-made installer:** Download new versions from [Releases](https://github.com/GittingBoor/ai-interface/releases)
-  and install over the existing one; data and settings are kept.
+- **Ready-made installer (from 0.2.0):** On launch the app checks the latest
+  [release](https://github.com/GittingBoor/ai-interface/releases). If there is a newer version, "Update available"
+  appears in the sidebar; one click downloads it, installs it and restarts the app. Data and settings are kept.
+  Version 0.1.0 cannot do this yet: install over it once by hand.
 - **Built from source (Windows):** On launch the app checks whether GitHub has a newer version. Under
   Settings → Updates you choose what happens then:
   - **Manual (default):** An "Update available" notice appears in the sidebar; clicking "Update now" builds the

@@ -142,12 +142,12 @@ export const settings = {
   },
   updates: {
     title: 'Updates',
-    description: 'Neue Stände kommen von GitHub. Gebaut wird im lokalen Repo, vor der Installation wird die Datenbank gesichert.',
+    description: 'Neue Versionen kommen von GitHub. Installiert wird auf Knopfdruck oder automatisch beim Anmelden.',
     modeLabel: 'Updates einspielen',
     modeManual: 'Manuell – Hinweis mit Knopf',
     modeAuto: 'Automatisch beim Anmelden',
     hintManual: (label: string): string => `Gibt es einen neuen Stand, erscheint in der Seitenleiste „${label}“. Installiert wird erst nach deinem Klick.`,
-    hintAuto: 'Beim Anmelden wird ein neuer Stand ohne Nachfrage gebaut und installiert; die App startet danach neu.',
+    hintAuto: 'Beim Anmelden wird eine neue Version ohne Nachfrage installiert; die App startet danach neu.',
     savedManual: 'Updates kommen als Hinweis mit Knopf.',
     savedAuto: 'Updates werden beim Anmelden automatisch installiert.',
     phases: {
@@ -157,7 +157,7 @@ export const settings = {
       'up-to-date': 'Aktuell',
       available: 'Neuer Stand verfügbar',
       skipped: 'Übersprungen',
-      building: 'Wird gebaut …',
+      building: 'Wird vorbereitet …',
       installing: 'Wird installiert, App startet neu',
       failed: 'Fehlgeschlagen'
     },

@@ -6,7 +6,7 @@ export const notify: Messages['notify'] = {
   quotaFreeTitle: '使用枠が回復しました',
   quotaFreeBody: (open) => `${open} 件の実行が再開を待っています。`,
   updatingTitle: 'AI Interface を更新しています',
-  updatingBody: '新しいバージョンのビルドが完了しました。まもなくアプリが再起動します。',
+  updatingBody: '新しいバージョンの準備ができました。まもなくアプリが再起動します。',
   updateFailedTitle: 'アップデートに失敗しました',
   updateFailedBody: 'アプリは古いバージョンのまま動作します。詳細は設定をご覧ください。',
   updateAvailableTitle: 'アップデートがあります',

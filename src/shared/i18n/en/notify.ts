@@ -6,7 +6,7 @@ export const notify: Messages['notify'] = {
   quotaFreeTitle: 'Quota available again',
   quotaFreeBody: (open) => (open === 1 ? '1 run is waiting to be resumed.' : `${open} runs are waiting to be resumed.`),
   updatingTitle: 'AI Interface is updating',
-  updatingBody: 'The new version is built, the app restarts shortly.',
+  updatingBody: 'The new version is ready, the app restarts shortly.',
   updateFailedTitle: 'Update failed',
   updateFailedBody: 'The app keeps running with the old version; details in the settings.',
   updateAvailableTitle: 'Update available',

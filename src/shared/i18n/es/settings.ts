@@ -144,12 +144,12 @@ export const settings: Messages['settings'] = {
   },
   updates: {
     title: 'Actualizaciones',
-    description: 'Las versiones nuevas vienen de GitHub. Se compilan en el repositorio local y antes de instalar se hace una copia de la base de datos.',
+    description: 'Las versiones nuevas vienen de GitHub. Se instalan con un clic o automáticamente al iniciar sesión.',
     modeLabel: 'Instalar actualizaciones',
     modeManual: 'Manualmente – aviso con botón',
     modeAuto: 'Automáticamente al iniciar sesión',
     hintManual: (label) => `Cuando hay una versión nueva, en la barra lateral aparece «${label}». Solo se instala tras tu clic.`,
-    hintAuto: 'Al iniciar sesión se compila e instala una versión nueva sin preguntar; después la app se reinicia.',
+    hintAuto: 'Al iniciar sesión se instala una versión nueva sin preguntar; después la app se reinicia.',
     savedManual: 'Las actualizaciones llegan como aviso con botón.',
     savedAuto: 'Las actualizaciones se instalan automáticamente al iniciar sesión.',
     phases: {
@@ -159,7 +159,7 @@ export const settings: Messages['settings'] = {
       'up-to-date': 'Al día',
       available: 'Versión nueva disponible',
       skipped: 'Omitida',
-      building: 'Compilando …',
+      building: 'Preparando …',
       installing: 'Instalando, la app se reiniciará',
       failed: 'Fallida'
     },

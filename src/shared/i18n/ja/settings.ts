@@ -144,12 +144,12 @@ export const settings: Messages['settings'] = {
   },
   updates: {
     title: 'アップデート',
-    description: '新しいバージョンは GitHub から取得します。ローカルのリポジトリでビルドし、インストール前にデータベースをバックアップします。',
+    description: '新しいバージョンは GitHub から取得します。ボタンで、またはサインイン時に自動でインストールします。',
     modeLabel: 'アップデートの適用',
     modeManual: '手動 – ボタン付きの通知',
     modeAuto: 'サインイン時に自動',
     hintManual: (label) => `新しいバージョンがあると、サイドバーに「${label}」と表示されます。クリックするまでインストールされません。`,
-    hintAuto: 'サインイン時に、確認なしで新しいバージョンをビルドしてインストールします。その後アプリが再起動します。',
+    hintAuto: 'サインイン時に、確認なしで新しいバージョンをインストールします。その後アプリが再起動します。',
     savedManual: 'アップデートはボタン付きの通知で届きます。',
     savedAuto: 'アップデートはサインイン時に自動でインストールされます。',
     phases: {
@@ -159,7 +159,7 @@ export const settings: Messages['settings'] = {
       'up-to-date': '最新です',
       available: '新しいバージョンがあります',
       skipped: 'スキップしました',
-      building: 'ビルド中 …',
+      building: '準備中 …',
       installing: 'インストール中、アプリが再起動します',
       failed: '失敗しました'
     },

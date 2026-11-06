@@ -197,8 +197,10 @@ In Obsidian `Projekte/<Projektname>/Protokoll/JJJJ-MM-TT.md`, eine Datei pro Tag
 
 ## 7. Updates
 
-- **Fertiger Installer:** Neue Versionen unter [Releases](https://github.com/GittingBoor/ai-interface/releases)
-  herunterladen und darüber installieren; Daten und Einstellungen bleiben erhalten.
+- **Fertiger Installer (ab 0.2.0):** Beim Start prüft die App das neueste
+  [Release](https://github.com/GittingBoor/ai-interface/releases). Gibt es eine neuere Version, erscheint
+  „Update verfügbar“ in der Seitenleiste; ein Klick lädt sie herunter, installiert sie und startet die App neu.
+  Daten und Einstellungen bleiben erhalten. Version 0.1.0 kann das noch nicht: einmal von Hand darüber installieren.
 - **Aus dem Quellcode gebaut (Windows):** Beim Start prüft die App, ob GitHub einen neueren Stand hat. Unter
   Einstellungen → Updates wählst du, was dann passiert:
   - **Manuell (Standard):** Hinweis „Update verfügbar“ in der Seitenleiste; ein Klick auf „Aktualisieren“ baut den
