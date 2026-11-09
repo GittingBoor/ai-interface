@@ -7,7 +7,7 @@ import { attempt, reportError } from '@renderer/api/call'
 import { notify } from '@renderer/stores/toastStore'
 import { currentT } from '@renderer/i18n/useT'
 import { pasteExtensionOf, shouldPasteImage } from './pasteImage'
-import { isNewlineCombo, isPasteCombo, mapTerminalKey } from './terminalKeys'
+import { isCopyCombo, isNewlineCombo, isPasteCombo, mapTerminalKey } from './terminalKeys'
 
 const SCROLLBACK_LINES = 8000
 const FONT_SIZE = 13
@@ -41,6 +41,28 @@ const THEME: ITheme = {
   brightMagenta: '#dcc0f7',
   brightCyan: '#a4e3e1',
   brightWhite: '#f2f0ec'
+}
+
+/**
+ * Öffnet Links mit Ziel-URL. Der Standard-Handler von xterm ruft `window.open()` ohne URL auf;
+ * der Fenster-Handler im Main-Prozess sieht dann nur `about:blank` und öffnet nichts.
+ */
+function openLink(_event: MouseEvent, uri: string): void {
+  window.open(uri, '_blank')
+}
+
+/** Kopiert die Auswahl und hebt sie auf, damit das nächste Strg+C wieder abbricht. */
+function copySelection(term: Terminal): void {
+  const text = term.getSelection()
+  if (!text) return
+  navigator.clipboard.writeText(text).then(() => term.clearSelection(), reportError)
+}
+
+/** Kopier-Kombination abfangen (alle Ereignistypen, sonst sendet xterm zusätzlich ^C). */
+function handleCopyKey(term: Terminal, event: KeyboardEvent): boolean {
+  if (!isCopyCombo(event, term.hasSelection())) return false
+  if (event.type === 'keydown') copySelection(term)
+  return true
 }
 
 interface Session {
@@ -111,22 +133,26 @@ class TerminalRegistry {
       disableStdin: readOnly,
       scrollback: SCROLLBACK_LINES,
       allowProposedApi: false,
-      macOptionIsMeta: true
+      macOptionIsMeta: true,
+      // OSC-8-Links (z. B. von Claude Code); der Standard fragt per confirm() und öffnet dann nichts.
+      linkHandler: { activate: openLink }
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
-    term.loadAddon(new WebLinksAddon())
+    term.loadAddon(new WebLinksAddon(openLink))
     const element = document.createElement('div')
     element.style.width = '100%'
     element.style.height = '100%'
     this.sessions.set(info.id, { term, fit, element, readOnly, opened: false, opening: false, cols: 0, rows: 0 })
-    if (!readOnly) this.wireInput(info.id, term, element)
+    if (readOnly) term.attachCustomKeyEventHandler((event) => !handleCopyKey(term, event))
+    else this.wireInput(info.id, term, element)
     return term
   }
 
   private wireInput(id: string, term: Terminal, element: HTMLDivElement): void {
     term.onData((data) => api.terminalInput.write(id, data))
     term.attachCustomKeyEventHandler((event) => {
+      if (handleCopyKey(term, event)) return false
       const sequence = mapTerminalKey(event)
       if (sequence !== null) api.terminalInput.write(id, sequence)
       // Alle Ereignistypen der Kombination blockieren, sonst sendet xterm zusätzlich ein Enter.

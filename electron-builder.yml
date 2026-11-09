@@ -9,6 +9,11 @@ files:
   - package.json
   - build/icon.png
   - build/icon.ico
+  # Claude-Binary des Agent SDK (~230 MB) nicht mitliefern: Der Assistent nutzt immer das installierte
+  # Claude Code (pathToClaudeCodeExecutable), das SDK sucht die eigene Binary nur ohne diese Angabe.
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
+# Nur Chromium-Sprachdateien der App-Sprachen; app.getLocale() bestimmt daraus die Systemsprache.
+electronLanguages: [de, en-US, en-GB, zh-CN, zh-TW, ja, it, es, es-419, fr]
 # Windows liest das Taskleisten-Symbol nur aus echten Dateien, nicht aus dem asar-Archiv.
 extraResources:
   - from: build/icon.ico

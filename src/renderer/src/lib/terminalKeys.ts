@@ -17,6 +17,10 @@ export const isNewlineCombo = (e: KeyInfo): boolean => e.key === 'Enter' && !e.a
 /** Strg+V: xterm würde nur `\x16` senden; der Browser soll ein paste-Ereignis auslösen (Text oder Bild). */
 export const isPasteCombo = (e: KeyInfo): boolean => e.key.toLowerCase() === 'v' && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey
 
+/** Strg+C mit Auswahl oder Strg+Umschalt+C kopiert (wie Windows Terminal); Strg+C ohne Auswahl bleibt Abbruch. */
+export const isCopyCombo = (e: KeyInfo, hasSelection: boolean): boolean =>
+  e.key.toLowerCase() === 'c' && e.ctrlKey && !e.altKey && !e.metaKey && (e.shiftKey || hasSelection)
+
 /** Liefert die zu sendende Sequenz, wenn die Taste abweichend von xterm behandelt werden soll. */
 export function mapTerminalKey(e: KeyInfo): string | null {
   return e.type === 'keydown' && isNewlineCombo(e) ? NEWLINE_SEQUENCE : null

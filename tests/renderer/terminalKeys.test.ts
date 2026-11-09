@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPasteCombo, mapTerminalKey, NEWLINE_SEQUENCE } from '../../src/renderer/src/lib/terminalKeys'
+import { isCopyCombo, isPasteCombo, mapTerminalKey, NEWLINE_SEQUENCE } from '../../src/renderer/src/lib/terminalKeys'
 
 type KeyInfo = Parameters<typeof mapTerminalKey>[0]
 
@@ -39,5 +39,20 @@ describe('isPasteCombo', () => {
     expect(isPasteCombo(key({ key: 'v', ctrlKey: true, altKey: true }))).toBe(false)
     expect(isPasteCombo(key({ key: 'v', ctrlKey: true, shiftKey: true }))).toBe(false)
     expect(isPasteCombo(key({ key: 'c', ctrlKey: true }))).toBe(false)
+  })
+})
+
+describe('isCopyCombo', () => {
+  it('Strg+C mit Auswahl und Strg+Umschalt+C kopieren', () => {
+    expect(isCopyCombo(key({ key: 'c', ctrlKey: true }), true)).toBe(true)
+    expect(isCopyCombo(key({ key: 'C', ctrlKey: true, shiftKey: true }), false)).toBe(true)
+    expect(isCopyCombo(key({ type: 'keyup', key: 'c', ctrlKey: true }), true)).toBe(true)
+  })
+
+  it('Strg+C ohne Auswahl bleibt Abbruch, andere Kombinationen bleiben bei xterm', () => {
+    expect(isCopyCombo(key({ key: 'c', ctrlKey: true }), false)).toBe(false)
+    expect(isCopyCombo(key({ key: 'c' }), true)).toBe(false)
+    expect(isCopyCombo(key({ key: 'c', ctrlKey: true, altKey: true }), true)).toBe(false)
+    expect(isCopyCombo(key({ key: 'v', ctrlKey: true }), true)).toBe(false)
   })
 })
