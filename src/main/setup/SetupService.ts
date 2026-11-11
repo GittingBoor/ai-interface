@@ -127,6 +127,7 @@ export class SetupService {
     const current = this.deps.settings()
     this.deps.updateSettings({
       projectsRoot: input.projectsRoot.trim(),
+      storage: input.vault.path.trim() ? 'obsidian' : 'app',
       vault: { host: 'local', path: input.vault.path.trim() },
       todoFile: input.vault.todoFile.trim() || current.todoFile,
       protocolDir: input.vault.protocolDir.trim() || current.protocolDir,

@@ -57,7 +57,7 @@ export const setup: Messages['setup'] = {
   },
   notes: {
     title: 'Usi Obsidian?',
-    intro: 'Con un vault l’app mostra la tua lista di TODO (formato Obsidian Tasks) e i log da file Markdown. Senza vault mancano solo queste due aree.',
+    intro: 'Con un vault l’app legge la tua lista di TODO (formato Obsidian Tasks) e i log dal vault. Senza vault salva entrambi nella propria cartella dati.',
     connect: 'Collega il vault di Obsidian',
     connectDescription: 'L’app legge e scrive solo il file dei TODO; i log vengono solo letti.',
     vaultFolder: 'Cartella del vault',
@@ -91,7 +91,7 @@ export const setup: Messages['setup'] = {
     projectsSummary: (count, names, more) => `Adotta ${count}: ${names}${more ? ' …' : ''}`,
     projectsNone: (projects) => `nessuno, più tardi in «${projects}»`,
     obsidian: 'Obsidian',
-    notConnected: 'non collegato',
+    notConnected: 'non collegato, note nell’app',
     devices: 'Dispositivi',
     onlyThisPc: 'solo questo PC',
     launchLabel: 'Avvia all’accesso',

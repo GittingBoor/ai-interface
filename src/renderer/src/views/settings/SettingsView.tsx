@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { FileText, FolderOpen, Wand2 } from 'lucide-react'
-import type { AppInfo, HostId, NotificationSettings, OrchestratorSettings, Settings, SourceOpenMode } from '@shared/types'
+import type { AppInfo, HostId, NotesStorageMode, NotificationSettings, OrchestratorSettings, Settings, SourceOpenMode } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { attempt } from '@renderer/api/call'
 import { Button } from '@renderer/components/Button'
@@ -8,6 +8,7 @@ import { Field, Segmented, Switch } from '@renderer/components/Controls'
 import { ViewHeader } from '@renderer/components/Section'
 import { ErrorState, SkeletonRows } from '@renderer/components/States'
 import { useSettings } from '@renderer/stores/settingsStore'
+import { useTodos } from '@renderer/stores/todoStore'
 import { confirmAction } from '@renderer/stores/confirmStore'
 import { useNav } from '@renderer/stores/navStore'
 import { notify } from '@renderer/stores/toastStore'
@@ -26,6 +27,7 @@ import { UPDATES_SETTINGS_ANCHOR } from '@renderer/stores/updateStore'
 import { Group, SaveBar, useDraft } from './parts'
 
 interface VaultDraft {
+  readonly storage: NotesStorageMode
   readonly host: HostId
   readonly path: string
   readonly todoFile: string
@@ -40,6 +42,7 @@ function VaultGroup({ settings }: { readonly settings: Settings }): React.JSX.El
   const update = useSettings((s) => s.update)
   const source = useMemo<VaultDraft>(
     () => ({
+      storage: settings.storage,
       host: settings.vault.host,
       path: settings.vault.path,
       todoFile: settings.todoFile,
@@ -52,11 +55,17 @@ function VaultGroup({ settings }: { readonly settings: Settings }): React.JSX.El
   )
   const { draft, setDraft, dirty, reset } = useDraft<VaultDraft>(source)
   const [saving, setSaving] = useState(false)
+  const [appNotesDir, setAppNotesDir] = useState<string | null>(null)
+  useEffect(() => {
+    void attempt(api.app.info()).then((info) => setAppNotesDir(info?.notesDir ?? null))
+  }, [])
   const set = <K extends keyof VaultDraft>(key: K, value: VaultDraft[K]): void => setDraft({ ...draft, [key]: value })
 
   const save = async (): Promise<void> => {
     setSaving(true)
+    const storageChanged = draft.storage !== settings.storage || draft.path.trim() !== settings.vault.path || draft.host !== settings.vault.host
     const ok = await update({
+      storage: draft.storage,
       vault: { host: draft.host, path: draft.path.trim() },
       todoFile: draft.todoFile.trim(),
       protocolDir: draft.protocolDir.trim(),
@@ -67,6 +76,7 @@ function VaultGroup({ settings }: { readonly settings: Settings }): React.JSX.El
     setSaving(false)
     if (ok) {
       reset()
+      if (storageChanged) void useTodos.getState().load()
       notify.success(currentT().settings.vault.saved)
     }
   }
@@ -89,32 +99,62 @@ function VaultGroup({ settings }: { readonly settings: Settings }): React.JSX.El
             </div>
           )}
         </Field>
-        {hostIds().length > 1 ? (
-          <Field label={v.host} className="col-span-2">
-            {() => <Segmented<HostId> label={v.host} value={draft.host} onChange={(v) => set('host', v)} options={hostIds().map((h) => ({ value: h, label: hostLabel(h) }))} />}
-          </Field>
-        ) : null}
-        <Field label={v.vault} className="col-span-2" hint={v.vaultHint}>
-          {(id, d) => (
-            <div className="flex gap-2">
-              <input id={id} aria-describedby={d} value={draft.path} onChange={(e) => set('path', e.target.value)} className="field font-mono text-xs" spellCheck={false} placeholder={v.vaultPlaceholder} />
-              {draft.host === 'local' ? (
-                <Button size="md" icon={FolderOpen} onClick={() => void pick('path')}>
-                  {v.choose}
-                </Button>
-              ) : null}
-            </div>
+        <Field label={v.storage} className="col-span-2">
+          {() => (
+            <Segmented<NotesStorageMode>
+              label={v.storage}
+              value={draft.storage}
+              onChange={(value) => set('storage', value)}
+              options={[
+                { value: 'app', label: v.storageApp },
+                { value: 'obsidian', label: v.storageObsidian }
+              ]}
+            />
           )}
         </Field>
-        <Field label={v.todoFile} hint={v.relativeToVault}>
-          {(id, d) => <input id={id} aria-describedby={d} value={draft.todoFile} onChange={(e) => set('todoFile', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
-        </Field>
-        <Field label={v.protocolDir} hint={v.relativeToVault}>
-          {(id, d) => <input id={id} aria-describedby={d} value={draft.protocolDir} onChange={(e) => set('protocolDir', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
-        </Field>
-        <Field label={v.notesDir} hint={v.notesDirHint}>
-          {(id, d) => <input id={id} aria-describedby={d} value={draft.notesDir} onChange={(e) => set('notesDir', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
-        </Field>
+        {draft.storage === 'app' ? (
+          <Field label={v.appFolder} className="col-span-2" hint={v.appFolderHint}>
+            {(id, d) => (
+              <div className="flex gap-2">
+                <input id={id} aria-describedby={d} value={appNotesDir ?? ''} readOnly className="field font-mono text-xs text-ink-2" spellCheck={false} />
+                {appNotesDir ? (
+                  <Button size="md" icon={FolderOpen} onClick={() => void attempt(api.app.showInFolder(appNotesDir))}>
+                    {v.showFolder}
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </Field>
+        ) : (
+          <>
+          {hostIds().length > 1 ? (
+            <Field label={v.host} className="col-span-2">
+              {() => <Segmented<HostId> label={v.host} value={draft.host} onChange={(v) => set('host', v)} options={hostIds().map((h) => ({ value: h, label: hostLabel(h) }))} />}
+            </Field>
+          ) : null}
+          <Field label={v.vault} className="col-span-2" hint={v.vaultHint}>
+            {(id, d) => (
+              <div className="flex gap-2">
+                <input id={id} aria-describedby={d} value={draft.path} onChange={(e) => set('path', e.target.value)} className="field font-mono text-xs" spellCheck={false} placeholder={v.vaultPlaceholder} />
+                {draft.host === 'local' ? (
+                  <Button size="md" icon={FolderOpen} onClick={() => void pick('path')}>
+                    {v.choose}
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </Field>
+          <Field label={v.todoFile} hint={v.relativeToVault}>
+            {(id, d) => <input id={id} aria-describedby={d} value={draft.todoFile} onChange={(e) => set('todoFile', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
+          </Field>
+          <Field label={v.protocolDir} hint={v.relativeToVault}>
+            {(id, d) => <input id={id} aria-describedby={d} value={draft.protocolDir} onChange={(e) => set('protocolDir', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
+          </Field>
+          <Field label={v.notesDir} hint={v.notesDirHint}>
+            {(id, d) => <input id={id} aria-describedby={d} value={draft.notesDir} onChange={(e) => set('notesDir', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
+          </Field>
+          </>
+        )}
         <Field label={v.claudeCommand} hint={v.claudeCommandHint}>
           {(id, d) => <input id={id} aria-describedby={d} value={draft.claudeCommand} onChange={(e) => set('claudeCommand', e.target.value)} className="field font-mono text-xs" spellCheck={false} />}
         </Field>

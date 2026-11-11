@@ -62,9 +62,10 @@ export const frame: Messages['frame'] = {
     openLog: 'Open log'
   },
   noVault: {
-    title: 'No Obsidian vault connected',
+    title: 'No storage for notes',
     action: 'Choose vault',
-    body: (what: string): string => `${what} come from an Obsidian vault. In Settings under “Folders and notes”, choose the vault folder and they will appear here.`
+    useApp: 'Store in the app',
+    body: (what: string): string => `${what} live in an Obsidian vault or directly in the app. Store them in the app or choose a vault in Settings under “Folders and notes”.`
   },
   palette: {
     dialog: 'Command palette',

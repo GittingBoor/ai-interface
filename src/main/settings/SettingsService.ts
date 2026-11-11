@@ -23,6 +23,7 @@ export function defaultSettings(homeDir: string, platform: NodeJS.Platform): Set
     setupDone: false,
     devices: [],
     links: [],
+    storage: 'obsidian',
     vault: { host: 'local', path: '' },
     todoFile: 'TODO.md',
     protocolDir: 'Protokolle',

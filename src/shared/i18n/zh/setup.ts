@@ -57,7 +57,7 @@ export const setup: Messages['setup'] = {
   },
   notes: {
     title: '你使用 Obsidian 吗？',
-    intro: '有了库，应用会显示你的 TODO 列表（Obsidian Tasks 格式）以及 Markdown 文件中的日志。没有库时只会缺少这两个部分。',
+    intro: '有库时，应用会从库中读取你的 TODO 列表（Obsidian Tasks 格式）和日志。没有库时，应用会把两者保存在自己的数据文件夹中。',
     connect: '连接 Obsidian 库',
     connectDescription: '应用只读写 TODO 文件；日志仅读取。',
     vaultFolder: '库文件夹',
@@ -91,7 +91,7 @@ export const setup: Messages['setup'] = {
     projectsSummary: (count, names, more) => `采用 ${count} 个：${names}${more ? ' …' : ''}`,
     projectsNone: (projects) => `无，稍后在“${projects}”中添加`,
     obsidian: 'Obsidian',
-    notConnected: '未连接',
+    notConnected: '未连接（笔记保存在应用中）',
     devices: '设备',
     onlyThisPc: '仅本机',
     launchLabel: '登录时启动',

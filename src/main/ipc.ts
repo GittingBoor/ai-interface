@@ -81,7 +81,7 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
       reorder: (ids) => c.categories.reorder(ids)
     },
     terminal: {
-      open: (request) => c.terminals.open(request),
+      open: (request) => c.openTerminal(request),
       list: () => withoutBackground(filterTerminals(c.terminals.list(), hidden)),
       snapshot: (id) => c.terminals.snapshot(visibleTerminal(id)),
       close: (id) => c.terminals.close(id),
@@ -262,6 +262,7 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
         version: app.getVersion(),
         platform: process.platform,
         dataDir: app.getPath('userData'),
+        notesDir: c.notesStorage.appDir,
         logFile: log.transports.file.getFile().path,
         packaged: app.isPackaged
       }),

@@ -62,9 +62,10 @@ export const frame: Messages['frame'] = {
     openLog: 'Ouvrir le journal'
   },
   noVault: {
-    title: 'Aucun coffre Obsidian connecté',
+    title: 'Aucun emplacement pour les notes',
     action: 'Choisir un coffre',
-    body: (what: string): string => `${what} proviennent d’un coffre Obsidian. Dans les Paramètres, sous « Dossiers et notes », choisissez le dossier du coffre et ils apparaîtront ici.`
+    useApp: 'Enregistrer dans l’app',
+    body: (what: string): string => `${what} sont stockés dans un coffre Obsidian ou directement dans l’app. Enregistrez-les dans l’app ou choisissez un coffre dans les Paramètres, sous « Dossiers et notes ».`
   },
   palette: {
     dialog: 'Palette de commandes',

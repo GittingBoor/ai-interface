@@ -314,6 +314,7 @@ export function buildTodos(): TodoItem[] {
 export const MOCK_SETTINGS: Settings = {
   // Vorschau: `?setup` in der Adresse zeigt die erste Einrichtung.
   setupDone: !new URLSearchParams(globalThis.location?.search ?? '').has('setup'),
+  storage: 'obsidian',
   devices: [
     {
       id: 'mini-pc',

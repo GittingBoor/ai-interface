@@ -62,9 +62,10 @@ export const frame: Messages['frame'] = {
     openLog: 'ログを開く'
   },
   noVault: {
-    title: 'Obsidian の Vault が接続されていません',
+    title: 'ノートの保存先がありません',
     action: 'Vault を選択',
-    body: (what: string): string => `${what}は Obsidian の Vault から読み込まれます。設定の「フォルダーとノート」で Vault フォルダーを選択すると、ここに表示されます。`
+    useApp: 'アプリ内に保存',
+    body: (what: string): string => `${what}は Obsidian の Vault か、アプリ内に直接保存されます。アプリ内に保存するか、設定の「フォルダーとノート」で Vault を選択してください。`
   },
   palette: {
     dialog: 'コマンドパレット',

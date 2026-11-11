@@ -57,7 +57,7 @@ export const setup: Messages['setup'] = {
   },
   notes: {
     title: 'Obsidian を使っていますか？',
-    intro: 'Vault があると、アプリは TODO リスト（Obsidian Tasks 形式）と Markdown ファイルのログを表示します。Vault がなければ、この2つの機能だけが使えません。',
+    intro: 'Vault があると、アプリは TODO リスト（Obsidian Tasks 形式）とログを Vault から読み込みます。Vault がなければ、どちらもアプリのデータフォルダーに保存します。',
     connect: 'Obsidian Vault を接続',
     connectDescription: 'アプリが読み書きするのは TODO ファイルだけです。ログは読み取り専用です。',
     vaultFolder: 'Vault フォルダー',
@@ -91,7 +91,7 @@ export const setup: Messages['setup'] = {
     projectsSummary: (count, names, more) => `${count} 件を取り込み：${names}${more ? ' …' : ''}`,
     projectsNone: (projects) => `なし（あとから「${projects}」で追加）`,
     obsidian: 'Obsidian',
-    notConnected: '未接続',
+    notConnected: '未接続（ノートはアプリ内）',
     devices: 'デバイス',
     onlyThisPc: 'この PC のみ',
     launchLabel: 'サインイン時に起動',

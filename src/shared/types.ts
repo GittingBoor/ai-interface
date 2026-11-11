@@ -374,6 +374,8 @@ export interface Settings {
   readonly devices: readonly DeviceSettings[]
   /** Webseiten als eigene Ansichten; Anmeldungen passieren in der Seite, die App speichert keine Zugangsdaten. */
   readonly links: readonly WebLinkSettings[]
+  /** `app`: TODOs und Protokolle liegen im Notizordner der App statt im Obsidian-Vault. */
+  readonly storage: NotesStorageMode
   /** Leerer Pfad = kein Obsidian-Vault eingerichtet. */
   readonly vault: { readonly host: HostId; readonly path: string }
   /** Relativ zum Vault. */
@@ -872,10 +874,15 @@ export type AssistantEvent =
   | { readonly type: 'done'; readonly turnId: string }
   | { readonly type: 'error'; readonly message: string; readonly hint: string }
 
+/** Wo TODOs und Protokolle liegen. */
+export type NotesStorageMode = 'obsidian' | 'app'
+
 export interface AppInfo {
   readonly version: string
   readonly platform: 'win32' | 'linux' | 'darwin' | string
   readonly dataDir: string
+  /** Notizordner der App (TODOs und Protokolle im App-Modus). */
+  readonly notesDir: string
   readonly logFile: string
   readonly packaged: boolean
 }

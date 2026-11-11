@@ -57,7 +57,7 @@ export const setup: Messages['setup'] = {
   },
   notes: {
     title: 'Utilisez-vous Obsidian ?',
-    intro: 'Avec un coffre, l’app affiche votre liste de TODO (format Obsidian Tasks) et les journaux issus de fichiers Markdown. Sans coffre, seules ces deux zones manquent.',
+    intro: 'Avec un coffre, l’app lit votre liste de TODO (format Obsidian Tasks) et les journaux depuis celui-ci. Sans coffre, elle stocke les deux dans son propre dossier de données.',
     connect: 'Connecter le coffre Obsidian',
     connectDescription: 'L’app lit et écrit uniquement le fichier de TODO ; les journaux sont en lecture seule.',
     vaultFolder: 'Dossier du coffre',
@@ -91,7 +91,7 @@ export const setup: Messages['setup'] = {
     projectsSummary: (count, names, more) => `Reprendre ${count} : ${names}${more ? ' …' : ''}`,
     projectsNone: (projects) => `aucun, plus tard dans « ${projects} »`,
     obsidian: 'Obsidian',
-    notConnected: 'non connecté',
+    notConnected: 'non connecté, notes dans l’app',
     devices: 'Appareils',
     onlyThisPc: 'ce PC uniquement',
     launchLabel: 'Lancer à l’ouverture de session',

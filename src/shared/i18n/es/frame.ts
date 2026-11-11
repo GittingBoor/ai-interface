@@ -62,9 +62,10 @@ export const frame: Messages['frame'] = {
     openLog: 'Abrir registro'
   },
   noVault: {
-    title: 'No hay ningún vault de Obsidian conectado',
+    title: 'Sin ubicación para las notas',
     action: 'Elegir vault',
-    body: (what: string): string => `${what} proceden de un vault de Obsidian. En Ajustes, en «Carpetas y notas», elige la carpeta del vault y aparecerán aquí.`
+    useApp: 'Guardar en la app',
+    body: (what: string): string => `${what} se guardan en un vault de Obsidian o directamente en la app. Guárdalos en la app o elige un vault en Ajustes, en «Carpetas y notas».`
   },
   palette: {
     dialog: 'Paleta de comandos',

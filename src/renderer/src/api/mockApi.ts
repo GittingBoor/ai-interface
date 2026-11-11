@@ -827,7 +827,7 @@ export function createMockApi(): AiApi {
       }
     })(),
     app: {
-      info: () => reply({ version: '0.1.0', platform: 'win32', dataDir: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface', logFile: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface\\logs\\main.log', packaged: false }),
+      info: () => reply({ version: '0.1.0', platform: 'win32', dataDir: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface', notesDir: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface\\Notizen', logFile: 'C:\\Users\\Alex\\AppData\\Roaming\\ai-interface\\logs\\main.log', packaged: false }),
       openLog: () => reply(undefined),
       showInFolder: () => reply(undefined),
       logError: () => reply(undefined)

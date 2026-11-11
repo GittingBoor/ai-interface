@@ -62,9 +62,10 @@ export const frame: Messages['frame'] = {
     openLog: 'Apri log'
   },
   noVault: {
-    title: 'Nessun vault Obsidian collegato',
+    title: 'Nessuna posizione per le note',
     action: 'Scegli vault',
-    body: (what: string): string => `${what} provengono da un vault Obsidian. Nelle Impostazioni, sotto “Cartelle e note”, scegli la cartella del vault e compariranno qui.`
+    useApp: 'Salva nell’app',
+    body: (what: string): string => `${what} si trovano in un vault Obsidian o direttamente nell’app. Salvali nell’app oppure scegli un vault nelle Impostazioni, sotto “Cartelle e note”.`
   },
   palette: {
     dialog: 'Riquadro comandi',

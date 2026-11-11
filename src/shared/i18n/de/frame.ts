@@ -60,9 +60,10 @@ export const frame = {
     openLog: 'Log öffnen'
   },
   noVault: {
-    title: 'Kein Obsidian-Vault verbunden',
+    title: 'Kein Speicherort für Notizen',
     action: 'Vault wählen',
-    body: (what: string): string => `${what} kommen aus einem Obsidian-Vault. Wähle in den Einstellungen unter „Ordner und Notizen“ den Vault-Ordner, dann erscheinen sie hier.`
+    useApp: 'In der App speichern',
+    body: (what: string): string => `${what} liegen in einem Obsidian-Vault oder direkt in der App. Speichere sie in der App oder wähle in den Einstellungen unter „Ordner und Notizen“ einen Vault.`
   },
   palette: {
     dialog: 'Befehlspalette',

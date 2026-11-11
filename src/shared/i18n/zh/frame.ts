@@ -62,9 +62,10 @@ export const frame: Messages['frame'] = {
     openLog: '打开日志'
   },
   noVault: {
-    title: '未连接 Obsidian 库',
+    title: '没有笔记保存位置',
     action: '选择库',
-    body: (what: string): string => `${what}来自 Obsidian 库。请在设置的“文件夹和笔记”中选择库文件夹，之后它们会显示在这里。`
+    useApp: '保存在应用中',
+    body: (what: string): string => `${what}保存在 Obsidian 库中，或直接保存在应用中。可以保存在应用中，或在设置的“文件夹和笔记”中选择一个库。`
   },
   palette: {
     dialog: '命令面板',

@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { ApiEvents } from '@shared/api'
 import { KNOWLEDGE_VERSION, type KnowledgeDraft, type KnowledgeStats, type ProjectKnowledge } from '@shared/knowledge'
-import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, Favorite, PrerequisiteStatus, ProjectTasks, ProtocolEntry, Settings, SettingsPatch, TerminalInfo } from '@shared/types'
+import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, Favorite, PrerequisiteStatus, ProjectTasks, ProtocolEntry, Settings, SettingsPatch, TerminalInfo, TerminalOpenRequest } from '@shared/types'
 import { DbChangeWatcher } from './db/DbChangeWatcher'
 import { openDatabase } from './db/Database'
 import { CategoriesRepo } from './favorites/CategoriesRepo'
@@ -21,7 +22,7 @@ import { SourceRepo } from './sources/SourceRepo'
 import { SessionSourceScanner } from './sources/SessionSourceScanner'
 import { CustomModelRepo } from './models/CustomModelRepo'
 import { OllamaSource } from './models/OllamaSource'
-import { setMainLanguage } from './i18n'
+import { mainLocale, setMainLanguage } from './i18n'
 import { defaultSettings, SettingsService } from './settings/SettingsService'
 import { HookBridge } from './notify/HookBridge'
 import { TerminalStatusTracker } from './terminal/TerminalStatusTracker'
@@ -40,13 +41,14 @@ import { InterruptedRunsRepo } from './runs/InterruptedRunsRepo'
 import { QuotaFreeNotifier } from './runs/QuotaFreeNotifier'
 import { RunScanner } from './runs/RunScanner'
 import { PasteImageService } from './terminal/PasteImageService'
-import { TerminalService } from './terminal/TerminalService'
+import { type LaunchExtras, TerminalService } from './terminal/TerminalService'
 import { TodoMarkdownStore } from './todos/TodoMarkdownStore'
 import { UsageCollector } from './usage/UsageCollector'
 import { UsageRepo } from './usage/UsageRepo'
 import { UsageService } from './usage/UsageService'
 import { UsageAnalytics } from './usage/UsageAnalytics'
 import { VaultReader } from './vault/VaultReader'
+import { APP_NOTES_DIR_NAME, NotesStorage, protocolDirective } from './storage/NotesStorage'
 import { OpenTasksService } from './tasks/OpenTasksService'
 import { TaskChecksRepo } from './tasks/TaskChecksRepo'
 import { TaskReviewService } from './tasks/TaskReviewService'
@@ -140,6 +142,7 @@ export class Container {
   readonly ollama = new OllamaSource(fetchJson)
   readonly todos: TodoMarkdownStore
   readonly vault: VaultReader
+  readonly notesStorage: NotesStorage
   readonly tasks: OpenTasksService
   readonly terminals: TerminalService
   readonly pasteImages: PasteImageService
@@ -222,9 +225,12 @@ export class Container {
     )
     this.sources = new SourceRepo(db)
     this.sourceScanner = new SessionSourceScanner(new ScanOffsets(db, 'source_offsets'), this.sources, () => this.favorites.list())
-    const vaultHost = (): ReturnType<HostRegistry['get']> => this.hosts.get(this.settings.get().vault.host)
-    this.todos = new TodoMarkdownStore(vaultHost, () => this.settings.get(), localDate)
-    this.vault = new VaultReader(vaultHost, () => this.settings.get(), () => this.favorites.list())
+    this.notesStorage = new NotesStorage(() => this.settings.get(), join(dataDir, APP_NOTES_DIR_NAME))
+    mkdirSync(this.notesStorage.appDir, { recursive: true })
+    const notesSettings = (): Settings => this.notesStorage.effective()
+    const vaultHost = (): ReturnType<HostRegistry['get']> => this.hosts.get(notesSettings().vault.host)
+    this.todos = new TodoMarkdownStore(vaultHost, notesSettings, localDate)
+    this.vault = new VaultReader(vaultHost, notesSettings, () => this.favorites.list())
     this.tasks = new OpenTasksService(this.vault, new TaskChecksRepo(db), logError)
     this.notifications = new NotificationService({
       settings: () => this.settings.get().notifications,
@@ -342,7 +348,7 @@ export class Container {
     this.assistant = createAssistant({
       hosts: (id) => this.hosts.get(id),
       hostIds: () => this.hosts.ids().filter((id) => this.isEnabled(id)),
-      settings: () => this.settings.get(),
+      settings: () => this.notesStorage.effective(),
       favorites: this.favorites,
       privacy: { filterFavorites: (items) => filterFavorites(items, hidden), filterSkills: (result) => filterSkills(result, hidden), filterMiniPc: (host, snapshot) => filterMiniPc(host, snapshot, hidden), filterGit: (host, items) => filterGit(host, items, hidden) },
       categories: this.categories,
@@ -408,7 +414,7 @@ export class Container {
       snapshot: (id) => this.terminals.snapshot(id),
       openTerminal: async (project, task) => {
         const request = { host: project.host, path: project.path, mode: 'new' as const, title: project.name, cols: TASK_TERMINAL_COLS, rows: TASK_TERMINAL_ROWS }
-        const info = await this.terminals.open(request, { initialPrompt: task })
+        const info = await this.terminals.open(request, { initialPrompt: task, ...this.protocolExtras(request) })
         this.emit('terminal:opened', info)
         return info
       },
@@ -431,6 +437,18 @@ export class Container {
       openTerminal: (request, extras) => this.terminals.open(request, extras),
       terminal: (id) => this.terminals.list().find((t) => t.id === id)
     })
+  }
+
+  /** Terminal aus der Oberfläche; im App-Modus erfährt Claude, wohin das Protokoll gehört. */
+  openTerminal(request: TerminalOpenRequest): Promise<TerminalInfo> {
+    return this.terminals.open(request, this.protocolExtras(request))
+  }
+
+  private protocolExtras(request: TerminalOpenRequest): LaunchExtras {
+    const project = this.notesStorage.projectFor(this.favorites.list(), request.host, request.path, process.platform)
+    const dir = project ? this.notesStorage.protocolDir(project) : null
+    if (!project || !dir) return {}
+    return { extraArgs: ['--append-system-prompt', protocolDirective(dir, project.name, mainLocale())] }
   }
 
   /** Offene Aufgaben ohne die verborgener Projekte. */
@@ -716,7 +734,7 @@ export class Container {
 
   /** Erkennt Änderungen an der TODO-Datei (Obsidian, OneDrive, andere Geräte) und meldet sie dem Renderer. */
   private scheduleTodoPoll(): void {
-    const interval = this.settings.get().vault.host === 'local' ? LOCAL_TODO_POLL_MS : REMOTE_TODO_POLL_MS
+    const interval = this.notesStorage.effective().vault.host === 'local' ? LOCAL_TODO_POLL_MS : REMOTE_TODO_POLL_MS
     this.todoTimer = setTimeout(() => {
       void this.pollTodos().finally(() => this.scheduleTodoPoll())
     }, interval)
