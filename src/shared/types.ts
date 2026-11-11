@@ -574,12 +574,14 @@ export interface TerminalOpenRequest {
 }
 
 /** Bildformate, die Claude Code als eingefügten Pfad annimmt. */
-export const PASTE_IMAGE_EXTENSIONS: readonly string[] = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+/** Größte Datei, die für ein Terminal auf einem Gerät übertragen wird (lokale Dateien bleiben, wo sie sind). */
+export const MAX_DROPPED_FILE_BYTES = 100 * 1024 * 1024
 
-/** Ins Terminal gezogenes Bild; `extension` stammt aus `PASTE_IMAGE_EXTENSIONS`. */
-export interface DroppedImage {
-  readonly data: Uint8Array
-  readonly extension: string
+/** Ins Terminal gezogene Datei: lokaler Pfad, wenn bekannt; Inhalt nur, wenn sie erst auf den Host des Terminals muss. */
+export interface DroppedFile {
+  readonly name: string
+  readonly path: string | null
+  readonly data: Uint8Array | null
 }
 
 export interface TerminalInfo {

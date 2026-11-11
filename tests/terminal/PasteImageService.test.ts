@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TerminalInfo } from '@shared/types'
+import { MAX_DROPPED_FILE_BYTES, type TerminalInfo } from '@shared/types'
 import { ValidationError } from '../../src/main/errors'
 import { bracketedPath, PasteImageService } from '../../src/main/terminal/PasteImageService'
 import { FakeHost } from '../helpers/FakeHost'
@@ -27,25 +27,34 @@ describe('PasteImageService', () => {
     expect(written).toEqual([bracketedPath(path)])
   })
 
-  it('legt hereingezogene Bilder ab und fügt die Pfade in Reihenfolge ein', async () => {
+  it('fügt lokale Dateien mit ihrem eigenen Pfad ein, ohne sie zu kopieren', async () => {
     const host = new FakeHost('local', '/home/l')
     const written: string[] = []
     const service = new PasteImageService(() => host, { info: () => terminal('local'), write: (_id, data) => written.push(data) })
-    const paths = await service.pasteMany('t1', [
-      { data: PNG, extension: 'jpg' },
-      { data: PNG, extension: 'webp' }
+    const paths = await service.pasteFiles('t1', [
+      { name: 'Bericht.pdf', path: 'C:\\Docs\\Bericht.pdf', data: null },
+      { name: 'Song.mp3', path: '/music/Song.mp3', data: null }
     ])
-    expect(paths[0]?.endsWith('.jpg')).toBe(true)
-    expect(paths[1]?.endsWith('.webp')).toBe(true)
-    expect(host.files.size).toBe(2)
+    expect(paths).toEqual(['C:\\Docs\\Bericht.pdf', '/music/Song.mp3'])
+    expect(host.files.size).toBe(0)
     expect(written).toEqual(paths.map(bracketedPath))
   })
 
-  it('lehnt fremde Endungen ab, ohne etwas einzufügen', async () => {
-    const host = new FakeHost('local', '/home/l')
+  it('überträgt Dateien für Terminals auf Geräten und behält einen sicheren Dateinamen', async () => {
+    const mini = new FakeHost('mini-pc', '/home/alex')
+    const service = new PasteImageService(() => mini, { info: () => terminal('mini-pc'), write: () => undefined }, () => 1_700_000_000_000)
+    const [path] = await service.pasteFiles('t1', [{ name: '../Mein Bericht?.pdf', path: 'C:\\x.pdf', data: PNG }])
+    expect(path?.startsWith('/tmp/ai-interface-paste/1700000000000-')).toBe(true)
+    expect(path?.endsWith('-.._Mein_Bericht_.pdf')).toBe(true)
+    expect([...(mini.files.get(path ?? '')?.data ?? [])]).toEqual([...PNG])
+  })
+
+  it('fügt nichts ein, wenn eine Datei fehlt oder zu groß ist', async () => {
+    const mini = new FakeHost('mini-pc', '/home/alex')
     const written: string[] = []
-    const service = new PasteImageService(() => host, { info: () => terminal('local'), write: (_id, data) => written.push(data) })
-    await expect(service.pasteMany('t1', [{ data: PNG, extension: 'png' }, { data: PNG, extension: '/../x' }])).rejects.toBeInstanceOf(ValidationError)
+    const service = new PasteImageService(() => mini, { info: () => terminal('mini-pc'), write: (_id, data) => written.push(data) })
+    await expect(service.pasteFiles('t1', [{ name: 'a.png', path: null, data: PNG }, { name: 'Ordner', path: '/x', data: null }])).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.pasteFiles('t1', [{ name: 'gross.bin', path: null, data: new Uint8Array(MAX_DROPPED_FILE_BYTES + 1) }])).rejects.toBeInstanceOf(ValidationError)
     expect(written).toEqual([])
   })
 

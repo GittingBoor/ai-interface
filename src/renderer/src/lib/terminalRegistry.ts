@@ -1,12 +1,15 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal, type ITheme } from '@xterm/xterm'
-import type { TerminalInfo } from '@shared/types'
+import { type DroppedFile, type HostId, MAX_DROPPED_FILE_BYTES, type TerminalInfo } from '@shared/types'
 import { api } from '@renderer/api/client'
 import { attempt, reportError } from '@renderer/api/call'
 import { notify } from '@renderer/stores/toastStore'
+import { type TerminalAttachment, useAttachments } from '@renderer/stores/attachmentStore'
 import { currentT } from '@renderer/i18n/useT'
-import { pasteExtensionOf, shouldPasteImage } from './pasteImage'
+import { shouldPasteImage } from './pasteImage'
+import { fileKindOf } from './fileKind'
+import { formatBytes } from './format'
 import { isCopyCombo, isNewlineCombo, isPasteCombo, mapTerminalKey } from './terminalKeys'
 
 const SCROLLBACK_LINES = 8000
@@ -81,6 +84,19 @@ interface Session {
  * Hält die xterm-Instanzen unabhängig von React am Leben. Daten, die vor dem
  * Anlegen einer Sitzung eintreffen, werden gepuffert und dann eingespielt.
  */
+/** Ordner und Dateien ohne lesbaren Inhalt gehen ohne `data`; der Main-Prozess meldet das für Geräte. */
+async function dropped(file: File, host: HostId): Promise<DroppedFile> {
+  const path = api.files.pathFor(file) || null
+  if (host === 'local' && path) return { name: file.name, path, data: null }
+  const data = await file.arrayBuffer().then((buffer) => new Uint8Array(buffer), () => null)
+  return { name: file.name, path, data }
+}
+
+function attachment(file: File, path: string): TerminalAttachment {
+  const kind = fileKindOf(file.name, file.type, file.size)
+  return { key: `${path}-${crypto.randomUUID()}`, name: file.name, path, size: file.size, kind, previewUrl: kind === 'image' ? URL.createObjectURL(file) : null }
+}
+
 class TerminalRegistry {
   private readonly sessions = new Map<string, Session>()
   private readonly pending = new Map<string, string[]>()
@@ -150,7 +166,11 @@ class TerminalRegistry {
   }
 
   private wireInput(id: string, term: Terminal, element: HTMLDivElement): void {
-    term.onData((data) => api.terminalInput.write(id, data))
+    term.onData((data) => {
+      api.terminalInput.write(id, data)
+      // Enter schickt die Eingabe ab; die Vorschau der eingefügten Dateien gehört dann nicht mehr dazu.
+      if (data.includes('\r')) useAttachments.getState().clear(id)
+    })
     term.attachCustomKeyEventHandler((event) => {
       if (handleCopyKey(term, event)) return false
       const sequence = mapTerminalKey(event)
@@ -218,19 +238,17 @@ class TerminalRegistry {
   }
 
   /** Legt hereingezogene Bilder im Terminal ab; andere Dateien werden gemeldet und übersprungen. */
-  dropFiles(id: string, files: readonly File[]): void {
-    const images = files.flatMap((file) => {
-      const extension = pasteExtensionOf(file.name)
-      return extension ? [{ file, extension }] : []
-    })
-    if (images.length < files.length) {
-      const t = currentT().terminal
-      notify.error(t.notImage, t.imageTypes)
+  /** Lokal zählt der Pfad der Datei; für Geräte wird der Inhalt mitgeschickt. Danach zeigt die Vorschau, was eingefügt wurde. */
+  dropFiles(id: string, host: HostId, files: readonly File[]): void {
+    const tooLarge = host === 'local' ? undefined : files.find((file) => file.size > MAX_DROPPED_FILE_BYTES)
+    if (tooLarge) {
+      notify.error(currentT().errors.images.dropTooLarge(tooLarge.name, formatBytes(MAX_DROPPED_FILE_BYTES)))
+      return
     }
-    if (!images.length) return
-    void Promise.all(images.map(async ({ file, extension }) => ({ data: new Uint8Array(await file.arrayBuffer()), extension })))
-      .then(async (dropped) => {
-        await attempt(api.terminal.dropImages(id, dropped))
+    void Promise.all(files.map((file) => dropped(file, host)))
+      .then(async (payload) => {
+        const paths = await attempt(api.terminal.dropFiles(id, payload))
+        if (paths) useAttachments.getState().add(id, files.map((file, i) => attachment(file, paths[i] ?? file.name)))
         this.focus(id)
       })
       .catch(reportError)
@@ -242,6 +260,7 @@ class TerminalRegistry {
 
   dispose(id: string): void {
     this.pending.delete(id)
+    useAttachments.getState().clear(id)
     const session = this.sessions.get(id)
     if (!session) return
     session.term.dispose()

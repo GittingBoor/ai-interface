@@ -119,7 +119,8 @@ export const errors = {
   },
   images: {
     extensionUnsupported: (extension: string, allowed: string): string => `Dateityp .${extension} wird nicht unterstützt (erlaubt: ${allowed}).`,
-    pasteUnsupported: (extension: string, allowed: string): string => `Bildformat „${extension}“ wird nicht unterstützt; erlaubt: ${allowed}`
+    dropTooLarge: (name: string, limit: string): string => `„${name}“ ist zu groß für die Übertragung (höchstens ${limit}).`,
+    dropUnreadable: (name: string): string => `„${name}“ ließ sich nicht lesen. Ordner lassen sich nur in lokale Terminals ziehen.`
   },
   models: {
     nameRequired: 'Das Modell braucht einen Namen.',

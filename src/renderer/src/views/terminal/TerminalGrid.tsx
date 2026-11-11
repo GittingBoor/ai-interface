@@ -7,6 +7,7 @@ import { terminalRegistry } from '@renderer/lib/terminalRegistry'
 import { hostLabel } from '@renderer/lib/hosts'
 import { useTerminals } from '@renderer/stores/terminalStore'
 import { TerminalPane } from './TerminalPane'
+import { AttachmentStrip } from './AttachmentStrip'
 import { StatusDot, useTerminalStatus } from '@renderer/components/StatusDot'
 import { useT } from '@renderer/i18n/useT'
 
@@ -86,19 +87,22 @@ function Slot({ index, id, framed, visible, dragId, onDropped }: SlotProps): Rea
         if (!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget))) setFilesOver(false)
       }}
       onDrop={(e) => {
-        if (!id || !acceptsFiles(e)) return
+        if (!id || !info || !acceptsFiles(e)) return
         e.preventDefault()
         setFilesOver(false)
         activate(id)
-        terminalRegistry.dropFiles(id, [...e.dataTransfer.files])
+        terminalRegistry.dropFiles(id, info.host, [...e.dataTransfer.files])
       }}
       className={`relative flex h-full w-full flex-col overflow-hidden ${frame}`}
     >
       {framed && info ? <SlotHeader info={info} exitCode={exitCode} /> : null}
       {id ? (
-        <div className={`min-h-0 flex-1 ${framed ? 'px-3 pt-2 pb-1.5' : 'px-4 pt-3 pb-2'}`}>
-          <TerminalPane id={id} active={active} visible={visible} />
-        </div>
+        <>
+          <div className={`min-h-0 flex-1 ${framed ? 'px-3 pt-2 pb-1.5' : 'px-4 pt-3 pb-2'}`}>
+            <TerminalPane id={id} active={active} visible={visible} />
+          </div>
+          <AttachmentStrip terminalId={id} />
+        </>
       ) : (
         <div className={`grid flex-1 place-items-center p-6 transition-opacity duration-150 ${dragId ? 'opacity-0' : ''}`}>
           <p className="flex max-w-[16rem] items-center gap-2 text-center text-xs text-ink-3">
@@ -131,7 +135,7 @@ function Slot({ index, id, framed, visible, dragId, onDropped }: SlotProps): Rea
       ) : null}
       {info?.running ? (
         <div aria-hidden className={`pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[inherit] transition-opacity duration-150 ${DROP_TARGET_ACTIVE} ${filesOver ? '' : 'opacity-0'}`}>
-          <span className={DROP_TARGET_LABEL}>{t.pasteImage}</span>
+          <span className={DROP_TARGET_LABEL}>{t.dropFiles}</span>
         </div>
       ) : null}
     </div>

@@ -121,7 +121,8 @@ export const errors: Messages['errors'] = {
   },
   images: {
     extensionUnsupported: (extension, allowed) => `File type .${extension} is not supported (allowed: ${allowed}).`,
-    pasteUnsupported: (extension, allowed) => `Image format “${extension}” is not supported; allowed: ${allowed}`
+    dropTooLarge: (name, limit) => `“${name}” is too large to transfer (at most ${limit}).`,
+    dropUnreadable: (name) => `Could not read “${name}”. Folders can only be dropped into local terminals.`
   },
   models: {
     nameRequired: 'The model needs a name.',

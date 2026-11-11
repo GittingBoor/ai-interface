@@ -14,7 +14,7 @@ import type {
   DetectedProject,
   DeviceSettings,
   DeviceTestResult,
-  DroppedImage,
+  DroppedFile,
   PrerequisiteStatus,
   SetupDetection,
   SetupInput,
@@ -100,7 +100,8 @@ export interface AiApiCalls {
     close(id: string): Promise<Result<void>>
     /** Bild aus der Zwischenablage ablegen und den Pfad einfügen; `null`, wenn kein Bild vorhanden ist. */
     pasteImage(id: string): Promise<Result<string | null>>
-    dropImages(id: string, images: readonly DroppedImage[]): Promise<Result<string[]>>
+    /** Hereingezogene Dateien ablegen (falls nötig) und ihre Pfade einfügen. */
+    dropFiles(id: string, files: readonly DroppedFile[]): Promise<Result<string[]>>
     /** Welche Terminals gerade sichtbar sind (unterdrückt Benachrichtigungen für diese). */
     setViewing(ids: string[], windowFocused: boolean): Promise<Result<void>>
     /** Aktueller Status je Terminal (danach Ereignis `terminal:status`). */
@@ -319,6 +320,10 @@ export interface AiApi extends AiApiCalls {
     write(id: string, data: string): void
     resize(id: string, cols: number, rows: number): void
   }
+  /** Lokaler Pfad einer hereingezogenen Datei; leer, wenn sie keinen hat. */
+  readonly files: {
+    pathFor(file: File): string
+  }
   on<E extends keyof ApiEvents>(event: E, listener: (payload: ApiEvents[E]) => void): () => void
 }
 
@@ -339,7 +344,7 @@ export const API_CHANNELS = {
   hosts: ['status'],
   favorites: ['list', 'add', 'update', 'remove', 'reorder', 'pickFolder', 'checkPath'],
   categories: ['list', 'add', 'update', 'remove', 'reorder'],
-  terminal: ['open', 'list', 'snapshot', 'close', 'pasteImage', 'dropImages', 'setViewing', 'statuses'],
+  terminal: ['open', 'list', 'snapshot', 'close', 'pasteImage', 'dropFiles', 'setViewing', 'statuses'],
   orchestrator: ['open', 'openClaudeMd'],
   todos: ['load', 'apply', 'create'],
   images: ['list', 'add', 'update', 'remove'],
