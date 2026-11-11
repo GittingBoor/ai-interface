@@ -106,7 +106,8 @@ export const errors: Messages['errors'] = {
   },
   images: {
     extensionUnsupported: (extension, allowed) => `ファイル形式 .${extension} には対応していません（対応: ${allowed}）。`,
-    pasteUnsupported: (extension, allowed) => `画像形式「${extension}」には対応していません。対応: ${allowed}`
+    dropTooLarge: (name, limit) => `「${name}」は大きすぎて転送できません（上限 ${limit}）。`,
+    dropUnreadable: (name) => `「${name}」を読み込めませんでした。フォルダーはローカルのターミナルにのみドロップできます。`
   },
   models: { nameRequired: 'モデルには名前が必要です。', ollamaNoAnswer: (code) => `Ollama が応答しません（${code}）` },
   minipc: { authMissing: 'デバイスの応答にログイン情報がありません。', gitError: 'エラー' },

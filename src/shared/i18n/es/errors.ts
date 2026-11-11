@@ -121,7 +121,8 @@ export const errors: Messages['errors'] = {
   },
   images: {
     extensionUnsupported: (extension, allowed) => `No se admite el tipo de archivo .${extension} (permitidos: ${allowed}).`,
-    pasteUnsupported: (extension, allowed) => `No se admite el formato de imagen «${extension}»; permitidos: ${allowed}`
+    dropTooLarge: (name, limit) => `«${name}» es demasiado grande para transferirlo (máximo ${limit}).`,
+    dropUnreadable: (name) => `No se pudo leer «${name}». Las carpetas solo se pueden soltar en terminales locales.`
   },
   models: { nameRequired: 'El modelo necesita un nombre.', ollamaNoAnswer: (code) => `Ollama no responde (${code})` },
   minipc: { authMissing: 'La respuesta del dispositivo no incluye datos de inicio de sesión.', gitError: 'Error' },

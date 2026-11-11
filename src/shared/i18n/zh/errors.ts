@@ -106,7 +106,8 @@ export const errors: Messages['errors'] = {
   },
   images: {
     extensionUnsupported: (extension, allowed) => `不支持 .${extension} 文件类型（支持：${allowed}）。`,
-    pasteUnsupported: (extension, allowed) => `不支持“${extension}”图片格式；支持：${allowed}`
+    dropTooLarge: (name, limit) => `“${name}”太大，无法传输（最多 ${limit}）。`,
+    dropUnreadable: (name) => `无法读取“${name}”。文件夹只能拖入本地终端。`
   },
   models: { nameRequired: '模型需要一个名称。', ollamaNoAnswer: (code) => `Ollama 没有响应（${code}）` },
   minipc: { authMissing: '设备的响应中没有登录数据。', gitError: '错误' },

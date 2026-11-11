@@ -458,7 +458,7 @@ export function createMockApi(): AiApi {
         return reply(undefined)
       },
       pasteImage: () => reply(null),
-      dropImages: () => reply([]),
+      dropFiles: () => reply([]),
       setViewing: () => reply(undefined),
       statuses: () => reply(Object.fromEntries([...terminals.keys()].map((id) => [id, terminalStatuses.get(id) ?? 'idle'])))
     },
@@ -897,6 +897,7 @@ export function createMockApi(): AiApi {
       write: (id, data) => terminals.get(id)?.write(data),
       resize: () => undefined
     },
+    files: { pathFor: () => '' },
     on: (event, listener) => events.on(event, listener)
   }
 }

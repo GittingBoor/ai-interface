@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent, webUtils } from 'electron'
 import { type AiApi, API_CHANNELS, type ApiEvents, EVENT_CHANNEL_PREFIX, TERMINAL_RESIZE_CHANNEL, TERMINAL_WRITE_CHANNEL } from '@shared/api'
 
 function buildCalls(): Record<string, Record<string, (...args: unknown[]) => Promise<unknown>>> {
@@ -14,6 +14,9 @@ const api = {
   terminalInput: {
     write: (id: string, data: string) => ipcRenderer.send(TERMINAL_WRITE_CHANNEL, id, data),
     resize: (id: string, cols: number, rows: number) => ipcRenderer.send(TERMINAL_RESIZE_CHANNEL, id, cols, rows)
+  },
+  files: {
+    pathFor: (file: File) => webUtils.getPathForFile(file)
   },
   on: <E extends keyof ApiEvents>(event: E, listener: (payload: ApiEvents[E]) => void) => {
     const channel = `${EVENT_CHANNEL_PREFIX}${event}`

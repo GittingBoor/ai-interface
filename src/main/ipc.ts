@@ -89,7 +89,7 @@ function createHandlers(c: Container, updates: UpdateService): ApiHandlers {
         const png = await readClipboardPng()
         return png ? c.pasteImages.paste(visibleTerminal(id), png) : null
       },
-      dropImages: (id, images) => c.pasteImages.pasteMany(visibleTerminal(id), images),
+      dropFiles: (id, files) => c.pasteImages.pasteFiles(visibleTerminal(id), files),
       setViewing: (ids, windowFocused) => {
         c.notifications.setViewing(ids, windowFocused)
         c.terminalStatus.setViewing(ids, windowFocused)
