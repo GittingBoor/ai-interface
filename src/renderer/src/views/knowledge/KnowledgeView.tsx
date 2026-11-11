@@ -85,7 +85,7 @@ export function KnowledgeView(): React.JSX.Element {
               <ProjectKnowledgeList projects={projects} selectedId={selectedId} onSelect={select} />
             )}
           </nav>
-          <div ref={scroller} className="min-w-0 flex-1 overflow-y-auto px-6 pt-6 pb-12 lg:px-10">
+          <div ref={scroller} data-knowledge-scroll className="min-w-0 flex-1 overflow-y-auto px-6 pt-6 pb-16 lg:px-10">
             <AnimatePresence mode="wait" initial={false}>
               {selected ? (
                 <motion.div key={selected.favoriteId} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: SWITCH_EASE }}>

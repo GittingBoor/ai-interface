@@ -4,7 +4,7 @@ import type { Favorite, ProtocolEntry } from '@shared/types'
 import { NotFoundError } from '../../src/main/errors'
 import type { InspectedProject } from '../../src/main/knowledge/KnowledgeInspector'
 import { createKnowledgeTools } from '../../src/main/knowledge/knowledgeTools'
-import { KNOWLEDGE_CLAUDE_MD, knowledgeStartPrompt } from '../../src/main/knowledge/knowledgePrompt'
+import { KNOWLEDGE_CLAUDE_MD, KNOWLEDGE_FORMAT_MD, knowledgeStartPrompt } from '../../src/main/knowledge/knowledgePrompt'
 import { FakeHost } from '../helpers/FakeHost'
 
 const HEAD = 'abc1234def5678'
@@ -16,7 +16,8 @@ const VALID_DRAFT: KnowledgeDraft = {
   features: [{ name: 'Liste', where: 'src/list.ts', status: 'fertig' }],
   timeline: [{ date: '2026-10-19', title: 'Start', links: [{ kind: 'commit', ref: 'abc1234' }] }],
   concepts: [],
-  gaps: []
+  gaps: [],
+  flows: [], orientation: { start: [], readFirst: [] }, pitfalls: [], resources: []
 }
 
 function favorite(): Favorite {
@@ -55,6 +56,7 @@ function setup(project: InspectedProject = inspected()) {
       if (!PROTOCOLS.some((p) => p.path === path)) throw new NotFoundError(`Protokoll ${path}`)
       return 'Protokolltext'
     },
+    stats: async () => null,
     save: async (draft) => {
       saved.push(draft)
     },
@@ -80,6 +82,7 @@ describe('Werkzeuge des Projektwissens', () => {
       'git_show_stat',
       'git_grep',
       'list_files',
+      'project_stats',
       'read_project_file',
       'save_knowledge',
       'finish'
@@ -179,7 +182,7 @@ describe('Werkzeuge des Projektwissens', () => {
 describe('Startprompt und CLAUDE.md', () => {
   it('nennt ersten Lauf oder Folgelauf', () => {
     expect(knowledgeStartPrompt(inspected(), 'de')).toMatch(/Erster Lauf/)
-    const knowledge: ProjectKnowledge = { version: 1, generatedAt: 0, basedOn: { head: HEAD, protocolDate: '2026-10-01' }, ...VALID_DRAFT }
+    const knowledge: ProjectKnowledge = { version: 2, generatedAt: 0, basedOn: { head: HEAD, protocolDate: '2026-10-01' }, ...VALID_DRAFT }
     const followUp = knowledgeStartPrompt(inspected(knowledge), 'de')
     expect(followUp).toMatch(/Folgelauf seit abc1234\/2026-10-01/)
     expect(followUp).toContain('App')
@@ -191,10 +194,11 @@ describe('Startprompt und CLAUDE.md', () => {
     expect(knowledgeStartPrompt(inspected(), 'ja')).toMatch(/in Japanese/)
   })
 
-  it('KNOWLEDGE_CLAUDE_MD contains no personal data', () => {
-    expect(KNOWLEDGE_CLAUDE_MD).not.toMatch(/Users\\|192\.168\.|benni/i)
-    for (const tool of ['project_info', 'read_knowledge', 'save_knowledge', 'finish', 'git_show_stat', 'list_files']) {
-      expect(KNOWLEDGE_CLAUDE_MD).toContain(tool)
+  it('CLAUDE.md and FORMAT.md contain no personal data and name all tools and fields', () => {
+    for (const text of [KNOWLEDGE_CLAUDE_MD, KNOWLEDGE_FORMAT_MD]) expect(text).not.toMatch(/Users\\|192\.168\.|benni/i)
+    for (const tool of ['project_info', 'read_knowledge', 'project_stats', 'save_knowledge', 'finish', 'git_show_stat', 'list_files', 'WebSearch']) {
+      expect(KNOWLEDGE_FORMAT_MD).toContain(tool)
     }
+    for (const field of ['flows', 'orientation', 'pitfalls', 'resources', 'concepts']) expect(KNOWLEDGE_FORMAT_MD).toContain(`\`${field}\``)
   })
 })

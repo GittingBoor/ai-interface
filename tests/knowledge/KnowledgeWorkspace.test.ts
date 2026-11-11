@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KnowledgeWorkspace } from '../../src/main/knowledge/KnowledgeWorkspace'
-import { KNOWLEDGE_CLAUDE_MD } from '../../src/main/knowledge/knowledgePrompt'
+import { KNOWLEDGE_CLAUDE_MD, KNOWLEDGE_FORMAT_FILE, KNOWLEDGE_FORMAT_MD } from '../../src/main/knowledge/knowledgePrompt'
 import { KNOWLEDGE_SERVER } from '../../src/main/knowledge/knowledgeTools'
 
 const endpoint = { url: 'http://127.0.0.1:4711/mcp', token: 'geheim' }
@@ -20,6 +20,15 @@ describe('KnowledgeWorkspace', () => {
     await writeFile(path, 'eigene Regeln', 'utf8')
     await ws.ensureClaudeMd()
     expect(await readFile(path, 'utf8')).toBe('eigene Regeln')
+  })
+
+  it('ensureClaudeMd überschreibt die FORMAT.md jedes Mal', async () => {
+    const ws = await workspace()
+    await ws.ensureClaudeMd()
+    const format = join(ws.dir, KNOWLEDGE_FORMAT_FILE)
+    await writeFile(format, 'alt', 'utf8')
+    await ws.ensureClaudeMd()
+    expect(await readFile(format, 'utf8')).toBe(KNOWLEDGE_FORMAT_MD)
   })
 
   it('writeMcpConfig writes bearer header', async () => {

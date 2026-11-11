@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { ApiEvents } from '@shared/api'
-import type { KnowledgeDraft, ProjectKnowledge } from '@shared/knowledge'
+import { KNOWLEDGE_VERSION, type KnowledgeDraft, type KnowledgeStats, type ProjectKnowledge } from '@shared/knowledge'
 import type { DeviceSettings, HostId, ImageMeta, InterruptedRun, Favorite, PrerequisiteStatus, ProjectTasks, ProtocolEntry, Settings, SettingsPatch, TerminalInfo } from '@shared/types'
 import { DbChangeWatcher } from './db/DbChangeWatcher'
 import { openDatabase } from './db/Database'
@@ -53,6 +53,7 @@ import { TaskReviewService } from './tasks/TaskReviewService'
 import { KnowledgeInspector } from './knowledge/KnowledgeInspector'
 import { KnowledgeService, type KnowledgeRunServer } from './knowledge/KnowledgeService'
 import { KnowledgeStore } from './knowledge/KnowledgeStore'
+import { KnowledgeStatsCollector } from './knowledge/KnowledgeStatsCollector'
 import { KnowledgeWorkspace } from './knowledge/KnowledgeWorkspace'
 import { ClaudeTrust } from './claude/claudeTrust'
 import { assertOwnProtocol } from './knowledge/protocolGuard'
@@ -471,6 +472,7 @@ export class Container {
   /** Claude erstellt je Projekt das Projektwissen über eigene Werkzeuge; Verborgenes bleibt außen vor. */
   private createKnowledge(hidden: (host: HostId, path: string | null) => boolean): KnowledgeService {
     const store = new KnowledgeStore()
+    const stats = new KnowledgeStatsCollector(this.logError)
     const inspector = new KnowledgeInspector({ host: (id) => this.hosts.get(id), store, protocols: () => this.vault.list() })
     return new KnowledgeService({
       // Nur Projekte, bei denen Projektwissen eingeschaltet ist; jeder Lauf kostet Kontingent.
@@ -483,10 +485,10 @@ export class Container {
         // Scheitert das, läuft der Lauf trotzdem; im schlimmsten Fall endet er am Zeitlimit.
         await new ClaudeTrust(join(homedir(), CLAUDE_CONFIG_FILE)).ensure(dir).catch((error: unknown) => this.logError('Projektwissen-Ordner als vertraut eintragen', error)) // i18n-ignore: Logtext
       },
-      createServer: (project, hooks) => this.createKnowledgeServer(project, hooks),
+      createServer: (project, hooks) => this.createKnowledgeServer(project, hooks, () => this.collectStats(stats, project)),
       openTerminal: (request, extras) => this.terminals.open(request, extras),
       closeTerminal: (id) => this.closeAppTerminal(id),
-      write: (project, draft) => this.writeKnowledge(store, project, draft),
+      write: async (project, draft) => this.writeKnowledge(store, project, draft, await this.collectStats(stats, project)),
       schedule: (run, ms) => {
         const timer = setTimeout(run, ms)
         return () => clearTimeout(timer)
@@ -495,7 +497,21 @@ export class Container {
     })
   }
 
-  private createKnowledgeServer(project: InspectedProject, hooks: { save(draft: KnowledgeDraft): Promise<void>; finish(summary: string): void }): KnowledgeRunServer {
+  /** Kennzahlen sind Beiwerk: Scheitern sie, wird das Wissen trotzdem gespeichert. */
+  private async collectStats(collector: KnowledgeStatsCollector, project: InspectedProject): Promise<KnowledgeStats | null> {
+    try {
+      return await collector.collect(this.hosts.get(project.favorite.host), project.favorite.path)
+    } catch (error) {
+      this.logError(`Kennzahlen für ${project.favorite.name} berechnen`, error) // i18n-ignore: Logtext
+      return null
+    }
+  }
+
+  private createKnowledgeServer(
+    project: InspectedProject,
+    hooks: { save(draft: KnowledgeDraft): Promise<void>; finish(summary: string): void },
+    stats: () => Promise<KnowledgeStats | null>
+  ): KnowledgeRunServer {
     const protocols = async (): Promise<ProtocolEntry[]> =>
       (await this.vault.list()).filter((group) => group.favoriteId === project.favorite.id).flatMap((group) => [...group.entries])
     const tools = createKnowledgeTools({
@@ -507,6 +523,7 @@ export class Container {
         assertOwnProtocol(await protocols(), path)
         return (await this.vault.read(path)).content
       },
+      stats,
       save: hooks.save,
       finish: hooks.finish
     })
@@ -514,8 +531,8 @@ export class Container {
     return { tools, start: () => server.start(), stop: () => server.stop() }
   }
 
-  private async writeKnowledge(store: KnowledgeStore, project: InspectedProject, draft: KnowledgeDraft): Promise<void> {
-    const knowledge: ProjectKnowledge = { version: 1, generatedAt: Date.now(), basedOn: project.current, ...draft }
+  private async writeKnowledge(store: KnowledgeStore, project: InspectedProject, draft: KnowledgeDraft, stats: KnowledgeStats | null): Promise<void> {
+    const knowledge: ProjectKnowledge = { version: KNOWLEDGE_VERSION, generatedAt: Date.now(), basedOn: project.current, ...draft, ...(stats ? { stats } : {}) }
     const { favorite } = project
     await store.write(this.hosts.get(favorite.host), favorite.path, knowledge)
     this.emit('knowledge:updated', { favoriteId: favorite.id })

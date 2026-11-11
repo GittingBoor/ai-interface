@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { KnowledgeDraft } from '@shared/knowledge'
+import type { KnowledgeDraft, KnowledgeStats } from '@shared/knowledge'
 import type { ProtocolEntry } from '@shared/types'
 import { ValidationError } from '../errors'
 import { joinPath, type Host } from '../hosts/Host'
@@ -25,6 +25,8 @@ export interface KnowledgeToolDeps {
   protocols(): Promise<readonly ProtocolEntry[]>
   /** Lehnt Pfade außerhalb dieser Gruppe mit `NotFoundError` ab. */
   readProtocol(path: string): Promise<string>
+  /** Von der App berechnete Kennzahlen; `null` ohne Git. */
+  stats(): Promise<KnowledgeStats | null>
   save(draft: KnowledgeDraft): Promise<void>
   finish(summary: string): void
 }
@@ -123,6 +125,13 @@ export function createKnowledgeTools(deps: KnowledgeToolDeps): OrchestratorTool[
       }
     }),
     defineTool({
+      name: 'project_stats',
+      description: 'Von der App berechnete Kennzahlen: Zeilen und Dateien, Sprachen, größte Ordner, Commits je Monat, Mitwirkende, oft geänderte Dateien (Hotspots), Abhängigkeiten aus den Manifesten. null ohne Git.',
+      schema: {},
+      mutating: false,
+      run: async () => clip(json(await deps.stats()))
+    }),
+    defineTool({
       name: 'read_project_file',
       description: 'Liest eine Datei im Projektordner (Pfad relativ zum Projekt, ohne ..). Lange Dateien werden gekürzt.',
       schema: { path: z.string().trim().min(1) },
@@ -131,7 +140,7 @@ export function createKnowledgeTools(deps: KnowledgeToolDeps): OrchestratorTool[
     }),
     defineTool({
       name: 'save_knowledge',
-      description: 'Prüft und speichert das Projektwissen (summary, architecture, features, timeline, concepts, gaps). Bei Fehlern kommen alle Probleme zurück.',
+      description: 'Prüft und speichert das Projektwissen (summary, architecture, features, flows, orientation, pitfalls, concepts, resources, timeline, gaps). Bei Fehlern kommen alle Probleme zurück.',
       schema: { knowledge: z.record(z.string(), z.unknown()) },
       mutating: true,
       run: async ({ knowledge }) => {

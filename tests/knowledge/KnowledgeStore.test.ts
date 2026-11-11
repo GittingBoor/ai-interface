@@ -8,7 +8,7 @@ const FILE = '/p/.ai-interface/projektwissen.json'
 const EXCLUDE = '/p/.git/info/exclude'
 
 const KNOWLEDGE: ProjectKnowledge = {
-  version: 1,
+  version: 2,
   generatedAt: 1_000,
   basedOn: { head: null, protocolDate: null },
   summary: 'Test.',

@@ -1,31 +1,32 @@
-import { AlertTriangle, CircleDashed, CloudOff, Hourglass, Lightbulb, LoaderCircle, type LucideIcon } from 'lucide-react'
-import type { FeatureStatus, KnowledgeConcept, KnowledgeEvent, KnowledgeFeature, KnowledgeProject, KnowledgeStatus, ProjectKnowledge } from '@shared/knowledge'
+import { useMemo } from 'react'
+import { AlertTriangle, CloudOff, Hourglass, Lightbulb, LoaderCircle, type LucideIcon } from 'lucide-react'
+import type { KnowledgeProject, KnowledgeStatus, ProjectKnowledge } from '@shared/knowledge'
 import { Button } from '@renderer/components/Button'
-import { Section } from '@renderer/components/Section'
 import { EmptyState } from '@renderer/components/States'
 import { ProjectMark } from '@renderer/components/ProjectMark'
-import { formatDateMedium, formatDateTime, formatDayShort, parseDay } from '@renderer/lib/format'
+import { formatDateTime, formatDayShort } from '@renderer/lib/format'
 import { hostLabel } from '@renderer/lib/hosts'
 import { useKnowledge } from '@renderer/stores/knowledgeStore'
 import { useT } from '@renderer/i18n/useT'
 import type { Messages } from '@shared/i18n/messages'
 import { ArchitectureDiagram } from './ArchitectureDiagram'
-import { KnowledgeLinkChip } from './KnowledgeLinks'
+import { KnowledgeTocInline, KnowledgeTocRail } from './KnowledgeToc'
+import { presentSections, type KnowledgeSectionEntry, type KnowledgeSectionId } from './knowledgeSections'
 import { StatusChip } from './ProjectKnowledgeList'
+import { ActivityTeamSection } from './sections/ActivityTeam'
+import { CodeStructureSection } from './sections/CodeStructure'
+import { ConceptsSection } from './sections/Concepts'
+import { DependenciesSection } from './sections/Dependencies'
+import { FeaturesSection } from './sections/Features'
+import { FlowsSection } from './sections/Flows'
+import { GapsSection, HistorySection } from './sections/History'
+import { OrientationSection } from './sections/Orientation'
+import { Overview } from './sections/Overview'
+import { PitfallsSection } from './sections/Pitfalls'
+import { ResourcesSection } from './sections/Resources'
+import { SectionFrame } from './sections/SectionFrame'
 
 const SHORT_HASH = 7
-
-const FEATURE_STYLE: Readonly<Record<FeatureStatus, string>> = {
-  fertig: 'bg-raised text-ink-2',
-  teilweise: 'bg-warn-soft text-warn',
-  geplant: 'border border-line text-ink-3'
-}
-
-const FEATURE_DOT: Readonly<Record<FeatureStatus, string>> = {
-  fertig: 'bg-status-idle',
-  teilweise: 'bg-warn',
-  geplant: 'bg-line-strong'
-}
 
 interface RefreshActionProps {
   readonly label: string
@@ -52,7 +53,7 @@ function Header({ project }: { readonly project: KnowledgeProject }): React.JSX.
     <header className="mb-6">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <ProjectMark color={project.color} icon={project.icon} size="lg" />
-        <h2 className="min-w-0 truncate text-lg font-[640] tracking-[-0.01em] text-ink">{project.name}</h2>
+        <h2 className="min-w-0 truncate text-[1.5rem] leading-tight font-[660] tracking-[-0.015em] text-ink [font-stretch:108%]">{project.name}</h2>
         <StatusChip status={project.status} />
       </div>
       <p className="num mt-2 flex flex-wrap gap-x-2 text-xs text-ink-3">
@@ -103,128 +104,52 @@ function StatusNotice({ project }: { readonly project: KnowledgeProject }): Reac
   )
 }
 
-function FeatureTable({ features }: { readonly features: readonly KnowledgeFeature[] }): React.JSX.Element {
-  const t = useT().knowledge
-  if (features.length === 0) return <p className="text-xs text-ink-3">{t.noFeatures}</p>
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-[0.8125rem]">
-        <thead className="text-2xs text-ink-3">
-          <tr className="border-b border-line">
-            <th scope="col" className="py-1.5 pr-4 font-[560]">{t.colFeature}</th>
-            <th scope="col" className="py-1.5 pr-4 font-[560]">{t.colWhere}</th>
-            <th scope="col" className="py-1.5 font-[560]">{t.colState}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {features.map((f) => (
-            <tr key={f.name} className="border-b border-line/50 last:border-0">
-              <td className="py-2 pr-4 text-ink">{f.name}</td>
-              <td className="max-w-[16rem] truncate py-2 pr-4 font-mono text-xs text-ink-3" title={f.where}>
-                {f.where}
-              </td>
-              <td className="py-2">
-                <span className={`inline-flex h-5 items-center gap-1.5 rounded-full px-2 text-2xs font-[600] ${FEATURE_STYLE[f.status]}`}>
-                  <span aria-hidden className={`size-1.5 rounded-full ${FEATURE_DOT[f.status]}`} />
-                  {t.feature[f.status]}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+interface BodyProps {
+  readonly knowledge: ProjectKnowledge
+  readonly project: KnowledgeProject
 }
 
-const newestFirst = (a: KnowledgeEvent, b: KnowledgeEvent): number => b.date.localeCompare(a.date)
-
-function Timeline({ events, project }: { readonly events: readonly KnowledgeEvent[]; readonly project: KnowledgeProject }): React.JSX.Element {
-  const t = useT().knowledge
-  if (events.length === 0) return <p className="text-xs text-ink-3">{t.noTimeline}</p>
-  return (
-    <ol className="relative space-y-4 before:absolute before:top-1.5 before:bottom-1.5 before:left-[0.3125rem] before:w-px before:bg-line-strong/70">
-      {[...events].sort(newestFirst).map((e, i) => (
-        <li key={`${e.date}-${i}`} className="relative grid grid-cols-[0.75rem_1fr] gap-x-3">
-          <span aria-hidden className={`mt-1.5 size-2.5 rounded-full border-2 border-canvas ${i === 0 ? 'bg-accent' : 'bg-line-strong'}`} />
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-baseline gap-x-2.5">
-              <time dateTime={e.date} className="num text-xs text-ink-3">
-                {formatDateMedium(parseDay(e.date).getTime())}
-              </time>
-              <span className="text-[0.8125rem] font-[600] text-ink">{e.title}</span>
-            </p>
-            {e.detail ? <p className="mt-0.5 text-[0.8125rem] text-ink-2">{e.detail}</p> : null}
-            {e.links.length ? (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {e.links.map((l) => (
-                  <KnowledgeLinkChip key={`${l.kind}-${l.ref}`} link={l} project={project} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ol>
-  )
-}
-
-function Concepts({ concepts }: { readonly concepts: readonly KnowledgeConcept[] }): React.JSX.Element {
-  const t = useT().knowledge
-  if (concepts.length === 0) return <p className="text-xs text-ink-3">{t.noConcepts}</p>
-  return (
-    <dl className="space-y-3">
-      {concepts.map((c) => (
-        <div key={c.term}>
-          <dt className="text-[0.8125rem] font-[600] text-ink">{c.term}</dt>
-          <dd className="mt-0.5 text-[0.8125rem] leading-relaxed text-ink-2">{c.explanation}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-function Gaps({ gaps }: { readonly gaps: readonly string[] }): React.JSX.Element {
-  const t = useT().knowledge
-  if (gaps.length === 0) return <p className="text-xs text-ink-3">{t.noGaps}</p>
-  return (
-    <ul className="space-y-2">
-      {gaps.map((g) => (
-        <li key={g} className="flex gap-2 text-[0.8125rem] leading-relaxed text-ink-2">
-          <CircleDashed aria-hidden className="mt-1 size-3.5 shrink-0 text-ink-3" strokeWidth={1.75} />
-          {g}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function KnowledgeBody({ knowledge, project }: { readonly knowledge: ProjectKnowledge; readonly project: KnowledgeProject }): React.JSX.Element {
+function SectionList({ knowledge, project, entries }: BodyProps & { readonly entries: readonly KnowledgeSectionEntry[] }): React.JSX.Element {
+  const has = (id: KnowledgeSectionId): boolean => entries.some((e) => e.id === id)
   const { nodes, edges } = knowledge.architecture
-  const t = useT().knowledge
+  const stats = knowledge.stats
   return (
-    <div className="space-y-9">
-      <Section title={t.sectionSummary} id="knowledge-summary">
-        <p className="max-w-[68ch] text-[0.9375rem] leading-relaxed text-ink [text-wrap:pretty]">{knowledge.summary}</p>
-      </Section>
-      <Section title={t.sectionArchitecture} id="knowledge-architecture">
-        {nodes.length ? <ArchitectureDiagram nodes={nodes} edges={edges} /> : <p className="text-xs text-ink-3">{t.noArchitecture}</p>}
-      </Section>
-      <Section title={t.sectionFeatures} id="knowledge-features">
-        <FeatureTable features={knowledge.features} />
-      </Section>
-      <Section title={t.sectionTimeline} id="knowledge-timeline">
-        <Timeline events={knowledge.timeline} project={project} />
-      </Section>
-      <div className="grid gap-9 xl:grid-cols-2 xl:gap-12">
-        <Section title={t.sectionConcepts} id="knowledge-concepts">
-          <Concepts concepts={knowledge.concepts} />
-        </Section>
-        <Section title={t.sectionGaps} id="knowledge-gaps" description={t.sectionGapsHint}>
-          <Gaps gaps={knowledge.gaps} />
-        </Section>
-      </div>
+    <div className="@container min-w-0 space-y-12">
+      <Overview knowledge={knowledge} />
+      {has('orientation') && knowledge.orientation ? <OrientationSection orientation={knowledge.orientation} project={project} /> : null}
+      {has('architecture') ? (
+        <SectionFrame id="architecture">
+          <ArchitectureDiagram nodes={nodes} edges={edges} project={project} />
+        </SectionFrame>
+      ) : null}
+      {has('flows') && knowledge.flows ? <FlowsSection flows={knowledge.flows} nodes={nodes} /> : null}
+      {has('code') && stats ? <CodeStructureSection stats={stats} project={project} /> : null}
+      {has('activity') && stats ? <ActivityTeamSection stats={stats} /> : null}
+      {has('features') ? <FeaturesSection features={knowledge.features} project={project} /> : null}
+      {has('pitfalls') && knowledge.pitfalls ? <PitfallsSection pitfalls={knowledge.pitfalls} project={project} /> : null}
+      {has('concepts') ? <ConceptsSection concepts={knowledge.concepts} project={project} /> : null}
+      {has('dependencies') && stats ? <DependenciesSection dependencies={stats.dependencies} project={project} /> : null}
+      {has('resources') && knowledge.resources ? <ResourcesSection resources={knowledge.resources} /> : null}
+      {has('history') ? <HistorySection events={knowledge.timeline} project={project} /> : null}
+      {has('gaps') ? <GapsSection gaps={knowledge.gaps} /> : null}
     </div>
+  )
+}
+
+function KnowledgeBody({ knowledge, project }: BodyProps): React.JSX.Element {
+  const entries = useMemo(() => presentSections(knowledge), [knowledge])
+  return (
+    <>
+      <div className="mb-8 @5xl:hidden">
+        <KnowledgeTocInline entries={entries} />
+      </div>
+      <div className="grid gap-x-12 @5xl:grid-cols-[minmax(0,1fr)_11.5rem]">
+        <SectionList knowledge={knowledge} project={project} entries={entries} />
+        <aside className="hidden @5xl:block">
+          <KnowledgeTocRail entries={entries} />
+        </aside>
+      </div>
+    </>
   )
 }
 
@@ -266,10 +191,10 @@ function NoKnowledge({ project }: { readonly project: KnowledgeProject }): React
   )
 }
 
-/** Projektwissen eines Projekts: kurz, als Tabellen, Zeitleiste und ein Diagramm. */
+/** Projektwissen eines Projekts: Kennzahlen, Diagramme und kurze Texte über die volle Breite. */
 export function ProjectKnowledgeDetail({ project }: { readonly project: KnowledgeProject }): React.JSX.Element {
   return (
-    <article className="max-w-[60rem]">
+    <article className="@container min-w-0">
       <Header project={project} />
       {project.knowledge ? (
         <>

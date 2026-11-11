@@ -1,4 +1,4 @@
-import type { KnowledgeBasis, KnowledgeStatus, ProjectKnowledge } from '@shared/knowledge'
+import { KNOWLEDGE_VERSION, type KnowledgeBasis, type KnowledgeStatus, type ProjectKnowledge } from '@shared/knowledge'
 import type { Favorite, HostId, ProtocolGroup } from '@shared/types'
 import { HostUnreachableError } from '../errors'
 import type { Host } from '../hosts/Host'
@@ -86,7 +86,9 @@ export class KnowledgeInspector {
     const basedOn = knowledge?.basedOn ?? null
     const newProtocols = dates.filter((date) => basedOn?.protocolDate == null || date > basedOn.protocolDate).length
     const newCommits = git.head === null || git.head === basedOn?.head ? 0 : await this.countCommits(host, favorite.path, basedOn?.head ?? null)
-    const status = knowledge && basedOn ? (this.isStale(current, basedOn) ? 'stale' : 'current') : 'missing'
+    // Wissen einer älteren Fassung fehlen Diagramme und Kennzahlen; es gilt deshalb als veraltet.
+    const outdated = knowledge !== null && knowledge.version < KNOWLEDGE_VERSION
+    const status = knowledge && basedOn ? (outdated || this.isStale(current, basedOn) ? 'stale' : 'current') : 'missing'
     return this.result(favorite, status, knowledge, current, newProtocols, newCommits, this.activity(latestDate, git.lastCommitMs))
   }
 

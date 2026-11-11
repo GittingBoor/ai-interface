@@ -14,9 +14,9 @@ function favorite(id = 1, path = '/p'): Favorite {
   return { id, host: 'local', path, name: `P${id}`, color: '#fff', sortOrder: id, createdAt: 0, categoryId: null, starred: false, icon: null }
 }
 
-function knowledge(head: string | null, protocolDate: string | null): ProjectKnowledge {
+function knowledge(head: string | null, protocolDate: string | null, version: ProjectKnowledge['version'] = 2): ProjectKnowledge {
   return {
-    version: 1,
+    version,
     generatedAt: 1_000,
     basedOn: { head, protocolDate },
     summary: 'Test.',
@@ -93,6 +93,13 @@ describe('KnowledgeInspector', () => {
     expect(result.status).toBe('current')
     expect(result.knowledge?.basedOn.head).toBe(HEAD)
     expect(result.newProtocols).toBe(0)
+  })
+
+  it('stale when the knowledge has an older version, even if nothing changed', async () => {
+    const { host, inspector } = setup([group(1, ['2026-01-05.md'])])
+    host.setFile(FILE, JSON.stringify(knowledge(HEAD, '2026-01-05', 1)))
+    host.execHandler = gitHandler(HEAD)
+    expect((await inspectOne(inspector)).status).toBe('stale')
   })
 
   it('stale when HEAD moved', async () => {

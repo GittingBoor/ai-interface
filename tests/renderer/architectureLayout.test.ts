@@ -59,6 +59,23 @@ describe('layoutArchitecture', () => {
   })
 
   it('leere Architektur hat keine Fläche', () => {
-    expect(layoutArchitecture([], [])).toEqual({ nodes: [], width: 0, height: 0 })
+    expect(layoutArchitecture([], [])).toEqual({ nodes: [], width: 0, height: 0, direction: 'across' })
+  })
+
+  it('nutzt freie Breite für größere Spaltenabstände, ohne darüber hinauszugehen', () => {
+    const nodes = [node('a'), node('b'), node('c')]
+    const edges = [edge('a', 'b'), edge('b', 'c')]
+    const narrow = layoutArchitecture(nodes, edges, NODE_WIDTH * 3 + 200)
+    const wide = layoutArchitecture(nodes, edges, NODE_WIDTH * 3 + 400)
+    expect(wide.width).toBeGreaterThan(narrow.width)
+    expect(wide.width).toBeLessThanOrEqual(NODE_WIDTH * 3 + 400)
+    expect(narrow.direction).toBe('across')
+  })
+
+  it('läuft bei zu wenig Breite von oben nach unten', () => {
+    const result = layoutArchitecture([node('a'), node('b'), node('c')], [edge('a', 'b'), edge('b', 'c')], NODE_WIDTH * 2)
+    expect(result.direction).toBe('down')
+    expect(result.width).toBe(NODE_WIDTH)
+    expect(new Set(result.nodes.map((n) => n.y)).size).toBe(3)
   })
 })

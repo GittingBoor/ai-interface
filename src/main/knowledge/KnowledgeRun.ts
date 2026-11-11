@@ -11,8 +11,10 @@ import { KNOWLEDGE_SERVER } from './knowledgeTools'
 
 export const KNOWLEDGE_RUN_TIMEOUT_MS = 20 * 60_000
 export const KNOWLEDGE_MODEL = 'opus'
-/** Nur die eigenen Lese-Werkzeuge: Eingebautes Schreiben/Ausführen würde nachfragen, und niemand kann im Hintergrund antworten. */
-export const KNOWLEDGE_DISALLOWED_TOOLS = 'Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch'
+/** Nur die eigenen Lese-Werkzeuge und die Websuche: Eingebautes Schreiben/Ausführen würde nachfragen, und niemand kann im Hintergrund antworten. */
+export const KNOWLEDGE_DISALLOWED_TOOLS = 'Bash,Edit,Write,MultiEdit,NotebookEdit'
+/** Für Links zu offizieller Dokumentation; vorab erlaubt, damit keine Rückfrage kommt. */
+export const KNOWLEDGE_WEB_TOOLS: readonly string[] = ['WebSearch', 'WebFetch']
 /** Pause nach `finish`, damit Claude die Antwort des Werkzeugs noch bekommt. */
 export const KNOWLEDGE_CLOSE_DELAY_MS = 2_500
 
@@ -72,7 +74,7 @@ export class KnowledgeRun {
     this.server = server
     const endpoint = await server.start()
     const config = await this.deps.workspace.writeMcpConfig(this.runId, endpoint)
-    const allowed = server.tools.map((tool) => `mcp__${KNOWLEDGE_SERVER}__${tool.name}`).join(',')
+    const allowed = [...server.tools.map((tool) => `mcp__${KNOWLEDGE_SERVER}__${tool.name}`), ...KNOWLEDGE_WEB_TOOLS].join(',')
     const info = await this.deps.openTerminal(this.request(), {
       initialPrompt: knowledgeStartPrompt(this.project, mainLocale()),
       extraArgs: ['--model', KNOWLEDGE_MODEL, '--mcp-config', config, '--strict-mcp-config', '--allowedTools', allowed, '--disallowedTools', KNOWLEDGE_DISALLOWED_TOOLS],

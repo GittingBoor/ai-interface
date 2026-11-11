@@ -27,7 +27,7 @@ interface Scheduled {
   cancelled: boolean
 }
 
-const DRAFT: KnowledgeDraft = { summary: 'S', architecture: { nodes: [], edges: [] }, features: [], timeline: [], concepts: [], gaps: [] }
+const DRAFT: KnowledgeDraft = { summary: 'S', architecture: { nodes: [], edges: [] }, features: [], timeline: [], concepts: [], gaps: [], flows: [], orientation: { start: [], readFirst: [] }, pitfalls: [], resources: [] }
 
 function favorite(id: number): Favorite {
   return { id, host: 'local', path: `/projekte/p${id}`, name: `Projekt ${id}`, color: '#8fb573', sortOrder: id, createdAt: 0, categoryId: null, starred: false, icon: null }
@@ -300,7 +300,7 @@ describe('KnowledgeService', () => {
     const args = extras.extraArgs ?? []
     expect(args.slice(0, 2)).toEqual(['--model', 'opus'])
     expect(args[args.indexOf('--mcp-config') + 1]).toBe('/arbeit/projektwissen/mcp-p1.json')
-    expect(args[args.indexOf('--allowedTools') + 1]).toBe('mcp__projektwissen__project_info,mcp__projektwissen__save_knowledge,mcp__projektwissen__finish')
+    expect(args[args.indexOf('--allowedTools') + 1]).toBe('mcp__projektwissen__project_info,mcp__projektwissen__save_knowledge,mcp__projektwissen__finish,WebSearch,WebFetch')
     expect(args).toContain('--strict-mcp-config')
     expect(args[args.indexOf('--disallowedTools') + 1]).toMatch(/Bash/)
     expect(h.trusted).toEqual(['/arbeit/projektwissen'])

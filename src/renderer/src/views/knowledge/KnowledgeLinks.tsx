@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy, FileCode2, GitCommitHorizontal, NotebookText, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, Check, Copy, FileCode2, GitCommitHorizontal, NotebookText, type LucideIcon } from 'lucide-react'
 import type { KnowledgeLink, KnowledgeProject } from '@shared/knowledge'
 import { api } from '@renderer/api/client'
 import { reportError, unwrap } from '@renderer/api/call'
@@ -20,15 +20,12 @@ interface ChipProps {
   onClick(): void
 }
 
+const CHIP_CLASS =
+  'inline-flex h-6 max-w-[16rem] items-center gap-1.5 rounded-md border border-line px-1.5 text-2xs text-ink-2 transition-colors duration-150 hover:border-line-strong hover:bg-raised hover:text-ink'
+
 function LinkChip({ icon: Icon, label, title, mono = false, onClick }: ChipProps): React.JSX.Element {
   return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className={`inline-flex h-6 max-w-[16rem] items-center gap-1.5 rounded-md border border-line px-1.5 text-2xs text-ink-2 transition-colors duration-150 hover:border-line-strong hover:bg-raised hover:text-ink ${mono ? 'font-mono' : ''}`}
-    >
+    <button type="button" title={title} aria-label={title} onClick={onClick} className={`${CHIP_CLASS} ${mono ? 'font-mono' : ''}`}>
       <Icon aria-hidden className="size-3 shrink-0 text-ink-3" strokeWidth={1.75} />
       <span className="truncate">{label}</span>
     </button>
@@ -36,7 +33,7 @@ function LinkChip({ icon: Icon, label, title, mono = false, onClick }: ChipProps
 }
 
 /** Kopiert Text und zeigt kurz einen Haken. */
-function useCopy(): { readonly copied: boolean; copy(text: string): void } {
+export function useCopy(): { readonly copied: boolean; copy(text: string): void } {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -69,16 +66,56 @@ function CommitLink({ hash }: { readonly hash: string }): React.JSX.Element {
   )
 }
 
-function FileLink({ project, path }: { readonly project: KnowledgeProject; readonly path: string }): React.JSX.Element {
+export interface FileOpener {
+  readonly local: boolean
+  readonly copied: boolean
+  open(path: string): void
+  title(path: string): string
+}
+
+/** Öffnet eine Datei oder einen Ordner des Projekts; bei entfernten Rechnern wird der Pfad kopiert. */
+export function useFileOpener(project: KnowledgeProject): FileOpener {
   const { copied, copy } = useCopy()
   const local = project.host === 'local'
   const t = useT().knowledge
-  const open = (): void => {
-    if (local) unwrap(api.knowledge.openFile(project.favoriteId, path)).catch(reportError)
-    else copy(`${project.path.replace(/\/+$/, '')}/${path}`)
+  return {
+    local,
+    copied,
+    open: (path) => {
+      if (local) unwrap(api.knowledge.openFile(project.favoriteId, path)).catch(reportError)
+      else copy(`${project.path.replace(/\/+$/, '')}/${path}`)
+    },
+    title: (path) => (local ? t.openFile(path) : copied ? t.pathCopied : t.copyPath(path))
   }
-  const title = local ? t.openFile(path) : copied ? t.pathCopied : t.copyPath(path)
-  return <LinkChip icon={copied ? Check : local ? FileCode2 : Copy} label={baseName(path)} mono title={title} onClick={open} />
+}
+
+interface FileLinkProps {
+  readonly project: KnowledgeProject
+  readonly path: string
+  /** Ganzer Pfad statt nur Dateiname, z. B. bei Ordnern. */
+  readonly full?: boolean
+}
+
+export function FileLink({ project, path, full = false }: FileLinkProps): React.JSX.Element {
+  const opener = useFileOpener(project)
+  const icon = opener.copied ? Check : opener.local ? FileCode2 : Copy
+  return <LinkChip icon={icon} label={full ? path : baseName(path)} mono title={opener.title(path)} onClick={() => opener.open(path)} />
+}
+
+interface ExternalLinkProps {
+  readonly href: string
+  readonly label: string
+  readonly title: string
+}
+
+/** Verweis ins Netz; der Hauptprozess öffnet http(s) im Browser. */
+export function ExternalChip({ href, label, title }: ExternalLinkProps): React.JSX.Element {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" title={title} className={CHIP_CLASS}>
+      <ArrowUpRight aria-hidden className="size-3 shrink-0 text-ink-3" strokeWidth={1.75} />
+      <span className="truncate">{label}</span>
+    </a>
+  )
 }
 
 interface LinkProps {

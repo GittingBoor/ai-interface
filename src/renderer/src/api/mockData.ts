@@ -3,7 +3,7 @@
  * Alles wird relativ zu „jetzt“ erzeugt und ist durch einen festen Seed stabil.
  */
 import { DEFAULT_NAVIGATION } from '@shared/layout'
-import type { KnowledgeProject, ProjectKnowledge } from '@shared/knowledge'
+import type { KnowledgeProject, KnowledgeStats, MonthActivity, ProjectKnowledge } from '@shared/knowledge'
 import type {
   Category,
   CustomModel,
@@ -529,19 +529,95 @@ export const MOCK_IMAGE_SEEDS: readonly MockImageSeed[] = [
   { meta: { id: 7, fileName: '7.png', title: 'Whiteboard-Foto Architektur', project: null, tags: ['notiz'], bytes: 2_310_442, createdAt: Date.now() - 15 * DAY_MS, host: null, source: 'manual', sessionId: null }, width: 1300, height: 975 }
 ]
 
+/** Commits je Monat der letzten 14 Monate, mit Pausen und einem Schub zuletzt. */
+const NOTE_APP_ACTIVITY: readonly number[] = [4, 11, 7, 0, 0, 3, 9, 14, 6, 2, 0, 12, 23, 17]
+
+function mockActivity(counts: readonly number[]): MonthActivity[] {
+  const now = new Date()
+  return counts.map((commits, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (counts.length - 1 - i), 1)
+    return { month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, commits }
+  })
+}
+
+const NOTE_APP_STATS: KnowledgeStats = {
+  computedAt: Date.now() - 2 * DAY_MS,
+  files: 214,
+  lines: 31_480,
+  languages: [
+    { name: 'TypeScript', lines: 21_950, files: 142 },
+    { name: 'CSS', lines: 2_310, files: 9 },
+    { name: 'Markdown', lines: 2_020, files: 18 },
+    { name: 'Rust', lines: 1_870, files: 11 },
+    { name: 'JSON', lines: 1_640, files: 14 },
+    { name: 'Shell', lines: 420, files: 6 },
+    { name: 'YAML', lines: 310, files: 5 },
+    { name: 'Other', lines: 960, files: 9 }
+  ],
+  areas: [
+    { path: 'src', lines: 22_400, files: 151 },
+    { path: 'src/renderer', lines: 12_900, files: 88 },
+    { path: 'src/main', lines: 8_300, files: 54 },
+    { path: 'tests', lines: 4_100, files: 31 },
+    { path: 'server', lines: 2_400, files: 14 },
+    { path: 'server/src', lines: 2_050, files: 11 },
+    { path: 'docs', lines: 1_700, files: 12 },
+    { path: 'src/shared', lines: 1_200, files: 9 },
+    { path: 'mobile', lines: 520, files: 4 },
+    { path: 'scripts', lines: 430, files: 6 },
+    { path: '.', lines: 330, files: 7 }
+  ],
+  commits: NOTE_APP_ACTIVITY.reduce((a, b) => a + b, 0),
+  firstCommit: '2025-09-14',
+  lastCommit: todayIso(),
+  activity: mockActivity(NOTE_APP_ACTIVITY),
+  contributorCount: 4,
+  contributors: [
+    { name: 'Alex Morgan', commits: 71 },
+    { name: 'Sam Lee', commits: 26 },
+    { name: 'Kim Ito', commits: 9 },
+    { name: 'dependabot[bot]', commits: 2 }
+  ],
+  hotspots: [
+    { path: 'src/main/sync/SyncService.ts', changes: 34, lines: 612 },
+    { path: 'src/renderer/Editor.tsx', changes: 29, lines: 488 },
+    { path: 'src/main/links/LinkIndex.ts', changes: 21, lines: 301 },
+    { path: 'src/shared/api.ts', changes: 18, lines: 244 },
+    { path: 'server/src/conflicts.rs', changes: 15, lines: 389 },
+    { path: 'src/renderer/stores/notesStore.ts', changes: 12, lines: 206 },
+    { path: 'src/main/store/NoteStore.ts', changes: 11, lines: 342 },
+    { path: 'package.json', changes: 9, lines: 61 }
+  ],
+  dependencies: [
+    { name: 'electron', version: '^33.0.0', ecosystem: 'npm', dev: true, manifest: 'package.json' },
+    { name: 'react', version: '^19.0.0', ecosystem: 'npm', dev: false, manifest: 'package.json' },
+    { name: 'codemirror', version: '^6.0.1', ecosystem: 'npm', dev: false, manifest: 'package.json' },
+    { name: 'ssh2', version: '^1.16.0', ecosystem: 'npm', dev: false, manifest: 'package.json' },
+    { name: 'better-sqlite3', version: '^11.5.0', ecosystem: 'npm', dev: false, manifest: 'package.json' },
+    { name: 'zustand', version: '^5.0.0', ecosystem: 'npm', dev: false, manifest: 'package.json' },
+    { name: 'marked', version: '^15.0.0', ecosystem: 'npm', dev: false, manifest: 'package.json' },
+    { name: 'vitest', version: '^3.0.0', ecosystem: 'npm', dev: true, manifest: 'package.json' },
+    { name: 'typescript', version: '^5.7.0', ecosystem: 'npm', dev: true, manifest: 'package.json' },
+    { name: 'electron-vite', version: '^3.0.0', ecosystem: 'npm', dev: true, manifest: 'package.json' },
+    { name: 'tokio', version: '1.41', ecosystem: 'crates', dev: false, manifest: 'server/Cargo.toml' },
+    { name: 'axum', version: '0.7', ecosystem: 'crates', dev: false, manifest: 'server/Cargo.toml' },
+    { name: 'serde', version: '1', ecosystem: 'crates', dev: false, manifest: 'server/Cargo.toml' }
+  ]
+}
+
 const NOTE_APP_KNOWLEDGE: ProjectKnowledge = {
-  version: 1,
+  version: 2,
   generatedAt: Date.now() - 2 * DAY_MS,
   basedOn: { head: 'a1b2c3d', protocolDate: todayIso() },
   summary: 'Notiz-App: Desktop-Programm zum Schreiben und Verknüpfen von Markdown-Notizen mit Synchronisation über einen eigenen Server.',
   architecture: {
     nodes: [
-      { id: 'ui', label: 'Editor-Oberfläche', kind: 'ui' },
-      { id: 'main', label: 'Hauptprozess', kind: 'service' },
-      { id: 'store', label: 'Notiz-Speicher', kind: 'data' },
-      { id: 'sync', label: 'Sync-Dienst', kind: 'service' },
-      { id: 'server', label: 'Sync-Server', kind: 'external' },
-      { id: 'phone', label: 'Handy-App', kind: 'device' }
+      { id: 'ui', label: 'Editor-Oberfläche', kind: 'ui', where: 'src/renderer', note: 'React-Oberfläche mit Editor, Notizliste und Graph der Verknüpfungen.' },
+      { id: 'main', label: 'Hauptprozess', kind: 'service', where: 'src/main', note: 'Electron-Hauptprozess: Dateien, Fenster und alle IPC-Kanäle.' },
+      { id: 'store', label: 'Notiz-Speicher', kind: 'data', where: 'src/main/store', note: 'SQLite-Index über den Markdown-Dateien, inklusive Rückverweisen.' },
+      { id: 'sync', label: 'Sync-Dienst', kind: 'service', where: 'src/main/sync', note: 'Gleicht Änderungen mit dem Server ab und markiert Konflikte.' },
+      { id: 'server', label: 'Sync-Server', kind: 'external', where: 'server', note: 'Kleiner Rust-Server (axum), speichert Versionen je Notiz.' },
+      { id: 'phone', label: 'Handy-App', kind: 'device', where: 'mobile', note: 'Geplante Leseansicht für unterwegs.' }
     ],
     edges: [
       { from: 'ui', to: 'main', label: 'IPC' },
@@ -587,11 +663,99 @@ const NOTE_APP_KNOWLEDGE: ProjectKnowledge = {
     }
   ],
   concepts: [
-    { term: 'SSH-Tunnel', explanation: 'Eine verschlüsselte Verbindung, durch die der Sync-Dienst den Server erreicht, ohne dass dieser öffentlich erreichbar sein muss.' },
-    { term: 'IPC zwischen Main und Renderer', explanation: 'Die Oberfläche läuft getrennt vom Hauptprozess und fragt Daten über benannte Kanäle an, statt direkt auf Dateien zuzugreifen.' },
-    { term: 'Rückverweis', explanation: 'Zu jeder Notiz wird gespeichert, welche anderen Notizen auf sie zeigen.' }
+    {
+      term: 'SSH-Tunnel',
+      short: 'Verschlüsselter Weg zum Server, ohne dass er öffentlich erreichbar ist.',
+      explanation: 'Der Sync-Dienst öffnet eine SSH-Verbindung und leitet einen lokalen Port an den Server weiter. So bleibt der Server hinter der Firewall.',
+      links: [{ title: 'ssh2 – Port Forwarding', url: 'https://github.com/mscdex/ssh2#readme' }],
+      files: ['src/main/sync/tunnel.ts']
+    },
+    {
+      term: 'IPC zwischen Main und Renderer',
+      short: 'Oberfläche und Hauptprozess reden nur über benannte Kanäle.',
+      explanation: 'Die Oberfläche läuft getrennt vom Hauptprozess und fragt Daten über benannte Kanäle an, statt direkt auf Dateien zuzugreifen.',
+      links: [
+        { title: 'Electron: Inter-Process Communication', url: 'https://www.electronjs.org/docs/latest/tutorial/ipc' },
+        { title: 'contextBridge', url: 'https://www.electronjs.org/docs/latest/api/context-bridge' }
+      ],
+      files: ['src/shared/api.ts', 'src/preload/index.ts']
+    },
+    {
+      term: 'Rückverweis',
+      short: 'Zu jeder Notiz ist bekannt, wer auf sie zeigt.',
+      explanation: 'Beim Speichern werden Wiki-Links ausgelesen und im Index in beide Richtungen eingetragen.',
+      links: [],
+      files: ['src/main/links/LinkIndex.ts']
+    },
+    {
+      term: 'Drei-Wege-Abgleich',
+      short: 'Konflikte erkennt der Server am gemeinsamen Vorgänger.',
+      explanation: 'Server und Client vergleichen beide Fassungen mit der letzten gemeinsamen. Nur wenn beide dieselbe Stelle ändern, entsteht ein Konflikt.',
+      links: [{ title: 'Three-way merge', url: 'https://en.wikipedia.org/wiki/Merge_(version_control)' }],
+      files: ['server/src/conflicts.rs']
+    }
   ],
-  gaps: ['Wie Sync-Konflikte bei gleichzeitiger Bearbeitung aufgelöst werden, steht nirgends dokumentiert.']
+  gaps: ['Wie Sync-Konflikte bei gleichzeitiger Bearbeitung aufgelöst werden, steht nirgends dokumentiert.', 'Ob die Handy-App noch geplant ist, geht aus den letzten Protokollen nicht hervor.'],
+  flows: [
+    {
+      title: 'Notiz speichern',
+      question: 'Was passiert, wenn ich eine Notiz speichere?',
+      steps: [
+        { from: 'Editor-Oberfläche', to: 'Hauptprozess', label: 'notes:save (IPC) mit Text' },
+        { from: 'Hauptprozess', to: 'Notiz-Speicher', label: 'Datei schreiben, Index aktualisieren' },
+        { from: 'Notiz-Speicher', to: 'Hauptprozess', label: 'neue Rückverweise' },
+        { from: 'Hauptprozess', to: 'Sync-Dienst', label: 'Änderung vormerken' },
+        { from: 'Hauptprozess', to: 'Editor-Oberfläche', label: 'notes:changed (Event)' }
+      ]
+    },
+    {
+      title: 'Synchronisieren',
+      question: 'Wie kommen Änderungen auf den Server?',
+      steps: [
+        { from: 'Sync-Dienst', to: 'Sync-Server', label: 'SSH-Tunnel öffnen' },
+        { from: 'Sync-Dienst', to: 'Sync-Server', label: 'POST /sync mit Änderungen seit letzter Version' },
+        { from: 'Sync-Server', to: 'Sync-Server', label: 'Drei-Wege-Abgleich' },
+        { from: 'Sync-Server', to: 'Sync-Dienst', label: 'neue Versionen und Konflikte' },
+        { from: 'Sync-Dienst', to: 'Notiz-Speicher', label: 'Versionen übernehmen, Konflikte markieren' }
+      ]
+    },
+    {
+      title: 'App-Start',
+      question: 'Was läuft beim Start der App?',
+      steps: [
+        { from: 'Hauptprozess', to: 'Notiz-Speicher', label: 'Index öffnen, fehlende Dateien nachziehen' },
+        { from: 'Hauptprozess', to: 'Editor-Oberfläche', label: 'Fenster laden' },
+        { from: 'Editor-Oberfläche', to: 'Hauptprozess', label: 'notes:list' },
+        { from: 'Hauptprozess', to: 'Sync-Dienst', label: 'Sync im Hintergrund starten' }
+      ]
+    }
+  ],
+  orientation: {
+    start: [
+      { label: 'Installieren', command: 'npm install' },
+      { label: 'Starten mit Hot Reload', command: 'npm run dev' },
+      { label: 'Tests', command: 'npm test' },
+      { label: 'Server lokal', command: 'cd server && cargo run' }
+    ],
+    readFirst: [
+      { path: 'src/main/index.ts', why: 'Einstieg: Fenster, IPC-Kanäle und Dienste werden hier verdrahtet.' },
+      { path: 'src/shared/api.ts', why: 'Vertrag zwischen Oberfläche und Hauptprozess.' },
+      { path: 'src/main/sync/SyncService.ts', why: 'Herz der Synchronisation und meistgeänderte Datei.' },
+      { path: 'server/src/conflicts.rs', why: 'Wie der Server Konflikte erkennt.' }
+    ]
+  },
+  pitfalls: [
+    { title: 'Index und Dateien laufen auseinander', detail: 'Wer Markdown-Dateien außerhalb der App ändert, muss den Index neu aufbauen.', where: 'src/main/store/NoteStore.ts' },
+    { title: 'IPC-Kanäle doppelt pflegen', detail: 'Neue Kanäle gehören in api.ts und in den Preload, sonst kommt im Renderer nur undefined an.', where: 'src/shared/api.ts' },
+    { title: 'Server-Version muss passen', detail: 'Client und Server prüfen eine Protokollnummer; nach Änderungen an /sync beide gleichzeitig ausliefern.', where: 'server/src/protocol.rs' }
+  ],
+  resources: [
+    { title: 'Electron-Dokumentation', url: 'https://www.electronjs.org/docs/latest', about: 'Prozessmodell, IPC, Sicherheit.' },
+    { title: 'CodeMirror 6', url: 'https://codemirror.net/docs/', about: 'Editor-Komponente der Oberfläche.' },
+    { title: 'axum', url: 'https://docs.rs/axum/latest/axum/', about: 'Web-Framework des Sync-Servers.' },
+    { title: 'better-sqlite3 API', url: 'https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md', about: 'Synchrone SQLite-Anbindung für den Index.' }
+  ],
+  stats: NOTE_APP_STATS
 }
 
 const MOCK_KNOWLEDGE_BASE = { host: 'local', color: '#e08a4f', icon: null, error: null } as const
@@ -605,7 +769,18 @@ export const MOCK_KNOWLEDGE_PROJECTS: readonly KnowledgeProject[] = [
     path: '/home/user/projects/wetterstation',
     color: '#6f9bd8',
     status: 'stale',
-    knowledge: { ...NOTE_APP_KNOWLEDGE, generatedAt: Date.now() - 20 * DAY_MS, summary: 'Wetterstation: Sensoren melden Messwerte an einen kleinen Server, der sie als Diagramme zeigt.', basedOn: { head: '1234abc', protocolDate: '2026-10-05' }, gaps: [] }
+    // Wissen der Fassung 1: ohne Abläufe, Einstieg, Stolperfallen, Links und Kennzahlen.
+    knowledge: {
+      version: 1,
+      generatedAt: Date.now() - 20 * DAY_MS,
+      basedOn: { head: '1234abc', protocolDate: '2026-10-05' },
+      summary: 'Wetterstation: Sensoren melden Messwerte an einen kleinen Server, der sie als Diagramme zeigt.',
+      architecture: NOTE_APP_KNOWLEDGE.architecture,
+      features: NOTE_APP_KNOWLEDGE.features,
+      timeline: NOTE_APP_KNOWLEDGE.timeline,
+      concepts: NOTE_APP_KNOWLEDGE.concepts.map(({ term, explanation }) => ({ term, explanation })),
+      gaps: []
+    }
   },
   { ...MOCK_KNOWLEDGE_BASE, favoriteId: 103, name: 'Spiel-Prototyp', path: '/home/user/projects/spiel-prototyp', color: '#8fb573', status: 'missing', knowledge: null }
 ]

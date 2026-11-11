@@ -4,7 +4,7 @@ import type { InspectedProject } from './KnowledgeInspector'
 export const KNOWLEDGE_QUOTA_SOFT_LIMIT = 70
 export const KNOWLEDGE_QUOTA_STOP = 95
 /** Grundaufwand je Lauf (Prozentpunkte, Richtwert). */
-export const KNOWLEDGE_PERCENT_BASE = 2
+export const KNOWLEDGE_PERCENT_BASE = 3
 export const KNOWLEDGE_PERCENT_PER_PROTOCOL = 0.5
 export const KNOWLEDGE_PERCENT_PER_10_COMMITS = 0.5
 const COMMITS_PER_STEP = 10

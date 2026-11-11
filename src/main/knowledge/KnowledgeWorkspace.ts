@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ValidationError } from '../errors'
 import type { McpEndpoint } from '../orchestrator/OrchestratorWorkspace'
-import { KNOWLEDGE_CLAUDE_MD } from './knowledgePrompt'
+import { KNOWLEDGE_CLAUDE_MD, KNOWLEDGE_FORMAT_FILE, KNOWLEDGE_FORMAT_MD } from './knowledgePrompt'
 import { KNOWLEDGE_SERVER } from './knowledgeTools'
 
 const CLAUDE_MD = 'CLAUDE.md'
@@ -11,13 +11,15 @@ const PRIVATE_FILE_MODE = 0o600
 const FILE_EXISTS = 'EEXIST'
 const RUN_ID = /^[\w-]+$/
 
-/** Arbeitsordner der Projektwissen-Läufe: eine `CLAUDE.md` (gehört dem Nutzer) und je Lauf eine `mcp-<runId>.json`. */
+/** Arbeitsordner der Projektwissen-Läufe: `CLAUDE.md` (gehört dem Nutzer), `FORMAT.md` (gehört der App) und je Lauf eine `mcp-<runId>.json`. */
 export class KnowledgeWorkspace {
   constructor(readonly dir: string) {}
 
+  /** Legt die `CLAUDE.md` nur an, wenn sie fehlt; die `FORMAT.md` wird immer neu geschrieben, damit sie zur Prüfung passt. */
   async ensureClaudeMd(): Promise<string> {
     const path = join(this.dir, CLAUDE_MD)
     await mkdir(this.dir, { recursive: true })
+    await writeFile(join(this.dir, KNOWLEDGE_FORMAT_FILE), KNOWLEDGE_FORMAT_MD, 'utf8')
     try {
       await writeFile(path, KNOWLEDGE_CLAUDE_MD, { encoding: 'utf8', flag: 'wx' })
     } catch (error) {
